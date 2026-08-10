@@ -921,6 +921,24 @@ else if (cmd === 'nav:check') {
 }
 
 // ================================================================
+// scan-* — 扫描器子命令（供 lefthook staged_files / CI 调用）
+// ================================================================
+function parseFilesArg() {
+  const idx = args.indexOf('--files');
+  return idx >= 0 && args[idx + 1] ? args[idx + 1].split(',').map(s => s.trim()).filter(Boolean) : null;
+}
+else if (cmd === 'scan-anti-patterns') {
+  await import('./scan-anti-patterns.mjs').then(m => m.scan({ rootDir: ROOT, config, files: parseFilesArg() }));
+}
+else if (cmd === 'scan-degraded-loop') {
+  const result = await import('./check-degraded-loop.mjs').then(m => m.scan({ rootDir: ROOT, config, files: parseFilesArg() }));
+  if (result.errors > 0) process.exitCode = 1;
+}
+else if (cmd === 'scan-secrets') {
+  await import('./scan-secrets.mjs').then(m => m.scan({ rootDir: ROOT, files: parseFilesArg() }));
+}
+
+// ================================================================
 // init — scaffold a harness.config.mjs (v1: skeleton; wizard in Phase 2)
 // ================================================================
 else if (cmd === 'init') {

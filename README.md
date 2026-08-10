@@ -54,11 +54,11 @@ pre-commit:
     harness-anti-patterns:
       glob: "**/*.{rb,ts,tsx,js,jsx,css}"
       exclude: "**/node_modules/**|**/dist/**|**/.next/**"
-      run: npx harness scan-anti-patterns --files {staged_files}
+      run: npx harness-scan-anti-patterns scan --files {staged_files}
     harness-secrets:
       glob: "**/*.{rb,ts,tsx,js,jsx,yml,yaml,env,sh}"
       exclude: "**/node_modules/**|**/dist/**|**/.next/**"
-      run: npx harness scan-secrets --files {staged_files}
+      run: npx harness-scan-secrets scan --files {staged_files}
 pre-push:
   commands:
     harness-doc-impact:
@@ -101,7 +101,7 @@ export default {
 | `harness prd new/list/verify` | PRD 工作流（骨架创建 + 查重回写 + AC→测试校验） |
 | `harness check --profile quick\|full` | 检查档案（变更感知：本地默认只扫 changed-files，`--full`/CI 全量） |
 | `harness doc-impact` | 知识同步门 |
-| `harness scan-anti-patterns / scan-secrets / scan-degraded-loop` | 扫描器（供 lefthook staged_files 调用） |
+| `harness scan-anti-patterns / scan-secrets / scan-degraded-loop` | 扫描器（供 lefthook staged_files 调用，也可用 `harness-scan-*` bin） |
 | `harness doctor` | 项目体检 |
 | `harness config:check` | 配置校验 + 报告引擎默认值使用情况 |
 | `harness eval-ai / eval-scenarios / eval-llm` | AI 行为评估（GS 场景库） |
