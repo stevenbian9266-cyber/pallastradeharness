@@ -22,8 +22,10 @@ AI 时代的工程纪律机制（Engineering Harness）：前置门禁、反模�
 ## 快速开始
 
 ```bash
-# 安装
+# 安装（已发布至 npm registry）
 npm i -D pallastrade-harness
+# 或升级到最新版
+npm i -D pallastrade-harness@latest
 
 # 初始化项目配置（生成 harness.config.mjs 骨架）
 npx harness init
@@ -41,6 +43,13 @@ npx harness gate:clear --gate <GATE-ID> --clear <check-id>
 
 # 提交前物理拦截（接入 lefthook）
 ```
+
+### 发布信息
+
+- 当前版本：`0.1.x`（npm registry，MIT）
+- 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
+- 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
+- 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
 
 ### 接入 lefthook（物理强制）
 
@@ -104,6 +113,7 @@ export default {
 | `harness scan-anti-patterns / scan-secrets / scan-degraded-loop` | 扫描器（供 lefthook staged_files 调用，也可用 `harness-scan-*` bin） |
 | `harness doctor` | 项目体检 |
 | `harness config:check` | 配置校验 + 报告引擎默认值使用情况 |
+| `harness plugins:list` | 列出已加载的插件（check / scanner / preset） |
 | `harness eval-ai / eval-scenarios / eval-llm` | AI 行为评估（GS 场景库） |
 | `harness sync-check` | 知识同步评估门 |
 | `harness generated:check` | 生成文件漂移检查 |
@@ -122,6 +132,71 @@ export default {
 | `安全：` / `security:` | security | 跨层搜索 + 安全 skill + 验证 |
 | ... | ... | ... |
 
+## 插件开发（§2.3 插件协议）
+
+通过统一接口扩展 harness，无需改引擎。两种加载方式：
+
+1. **文件级**：项目 `harness/plugins/*.mjs`（推荐，随仓库分发）
+2. **配置级**：`harness.config.mjs` → `plugins: { checks, scanners, presets }`
+
+### Check 插件（进入 gate 检查清单 + `harness check` 执行）
+
+```js
+// harness/plugins/my-check.mjs
+export default {
+  checks: [
+    {
+      id: 'no-todos',                       // gate 中显示为 plugin-no-todos
+      label: 'No TODO/FIXME comments',
+      run: async ({ rootDir, config, files }) => {
+        const hits = [];
+        // ... 检查 (files) 变更文件 ...
+        return hits.length
+          ? { pass: false, evidence: hits.join(', ') }
+          : { pass: true, evidence: 'clean' };
+      },
+    },
+  ],
+};
+```
+
+### Scanner 插件（`harness check` 执行，违规 → 失败）
+
+```js
+export default {
+  scanners: [
+    {
+      id: 'no-console',
+      glob: '**/*.{ts,js}',
+      run: async ({ rootDir, files }) => {
+        const violations = [];
+        // ... 扫描变更文件，返回 ["path:line: msg", ...]
+        return violations;
+      },
+    },
+  ],
+};
+```
+
+### Preset（可被 `harness init --preset <id>` 引用）
+
+```js
+export default {
+  presets: [
+    { id: 'my-stack', name: 'My stack', layers: [{ id: 'src', path: 'src' }] },
+  ],
+};
+```
+
+### 验证插件
+
+```bash
+npx harness plugins:list      # 看插件是否被加载
+npx harness check --profile quick   # 插件 check/scanner 会被执行
+```
+
+> 完整示例见仓库 `harness/plugins/example.mjs`。
+
 ---
 
 ## 路线图
@@ -130,7 +205,7 @@ export default {
 |---|---|---|
 | 0 | 基线 + 耦合清单 | 规划 |
 | 1 | 引擎/配置解耦 + 提效（变更感知增量扫描） | ✅ 完成 |
-| 2 | 独立 npm 包 + 冷启动（init 向导 / analyze / 渐进档位）+ 插件协议 | 🔄 进行中 |
+| 2 | 独立 npm 包（已发布 0.1.x）+ 冷启动（init 向导 / analyze / 渐进档位）+ 插件协议 | 🔄 插件协议已落地，npm 发布已打通 |
 | 3 | 自学习（suggest）+ 生态（preset/规则库）+ 报告 | 规划 |
 
 详见 [docs/standards/harness-standalone-roadmap.md](https://github.com/stevenbian9266-cyber/pallastrade/blob/dev/docs/standards/harness-standalone-roadmap.md)（PallasTrade 仓库）。
