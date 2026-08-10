@@ -75,11 +75,11 @@ const READINESS_CHECKS = {
   ],
   'GS-005': [
     ['destructive-DB block hook', r => exists(r, 'ai/hooks/block_destructive_db.sh')],
-    ['cross-agent destructive scanner', r => exists(r, 'scripts/harness/scan-secrets.mjs')],
+    ['cross-agent destructive scanner', r => exists(r, 'node_modules/pallastrade-harness/bin/scan-secrets.mjs')],
   ],
   'GS-006': [
     ['secret-warn hook', r => exists(r, 'ai/hooks/warn_on_secrets.sh')],
-    ['cross-agent secret scanner', r => exists(r, 'scripts/harness/scan-secrets.mjs')],
+    ['cross-agent secret scanner', r => exists(r, 'node_modules/pallastrade-harness/bin/scan-secrets.mjs')],
   ],
   'GS-007': [
     ['V3-only runtime (no v1/v2 routes)', r =>
