@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlink
 import { resolve, join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { loadConfig, resolveProjectRoot, getGateChecks } from './config-loader.mjs';
+import { loadPlugins, normalizePlugins } from './plugins.mjs';
 
 // 项目根：从 cwd 向上查找 harness.config.*（找不到则回退脚本位置）
 const ROOT = resolveProjectRoot();
@@ -194,6 +195,36 @@ else if (cmd === 'check') {
     }
   }
 
+  // ── 插件执行：自定义 check + scanner（§2.3 插件协议）──
+  const { checks: rawPluginChecks, scanners: pluginScanners } = await loadPlugins(ROOT, config);
+  const { checks: pluginChecks, scanners: validScanners } = normalizePlugins({ checks: rawPluginChecks, scanners: pluginScanners });
+  for (const pc of pluginChecks) {
+    try {
+      const r = await pc.run({ rootDir: ROOT, config, files: changedFiles });
+      const pass = r && r.pass !== false;
+      console.log(`${pass ? '✅' : '❌'} [plugin] ${pc.id}: ${r?.evidence || r?.message || (pass ? 'passed' : 'failed')}`);
+      if (!pass) exitCode = 1;
+    } catch (e) {
+      console.error(`❌ [plugin] ${pc.id}: ${e.message}`);
+      exitCode = 1;
+    }
+  }
+  for (const ps of validScanners) {
+    try {
+      const violations = await ps.run({ rootDir: ROOT, config, files: changedFiles });
+      const count = Array.isArray(violations) ? violations.length : (violations?.violations?.length ?? 0);
+      if (count > 0) {
+        console.log(`❌ [plugin] ${ps.id}: ${count} violation(s)`);
+        exitCode = 1;
+      } else {
+        console.log(`✅ [plugin] ${ps.id}: clean`);
+      }
+    } catch (e) {
+      console.error(`❌ [plugin] ${ps.id}: ${e.message}`);
+      exitCode = 1;
+    }
+  }
+
   if (exitCode !== 0) process.exitCode = exitCode;
 }
 
@@ -341,8 +372,13 @@ else if (cmd === 'gate') {
   const gateId = `GATE-${ts}`;
   const gateFile = join(gateDir, `${gateId}.json`);
 
-  // Gate check 集由配置驱动：layers 搜索 + 内置基础 + 配置追加 + verify-test
-  const checks = getGateChecks(config, taskType);
+  // Gate check 集由配置驱动：layers 搜索 + 内置基础 + 配置追加 + 插件 check
+  const { checks: rawPluginChecks } = await loadPlugins(ROOT, config);
+  const { checks: pluginChecks } = normalizePlugins({ checks: rawPluginChecks });
+  const baseChecks = getGateChecks(config, taskType);
+  const checks = pluginChecks.length
+    ? [...baseChecks, ...pluginChecks.map(pc => ({ id: `plugin-${pc.id}`, label: `[plugin] ${pc.label}` }))]
+    : baseChecks;
 
   let branch = 'unknown';
   let head = 'unknown';
@@ -954,6 +990,19 @@ else if (cmd === 'init') {
 // ================================================================
 else if (cmd === 'analyze') {
   await import('./analyze.mjs').then(m => m.run({ rootDir: ROOT, args }));
+  process.exit(0);
+}
+
+// ================================================================
+// plugins:list — 列出已加载插件（§2.3 插件协议）
+// ================================================================
+else if (cmd === 'plugins:list') {
+  const { checks, scanners, presets, sources } = await loadPlugins(ROOT, config);
+  const { checks: vc, scanners: vs, presets: vp } = normalizePlugins({ checks, scanners, presets });
+  console.log(`📦 插件源: ${sources.length ? sources.join(', ') : '（无）'}`);
+  console.log(`  Check 插件 (${vc.length}): ${vc.map(c => c.id).join(', ') || '—'}`);
+  console.log(`  Scanner 插件 (${vs.length}): ${vs.map(s => s.id).join(', ') || '—'}`);
+  console.log(`  Preset (${vp.length}): ${vp.map(p => p.id).join(', ') || '—'}`);
   process.exit(0);
 }
 
