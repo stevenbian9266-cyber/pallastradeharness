@@ -1007,6 +1007,22 @@ else if (cmd === 'plugins:list') {
 }
 
 // ================================================================
+// suggest — 自学习：从使用中沉淀规范建议（Phase 3）
+// ================================================================
+else if (cmd === 'suggest') {
+  await import('./suggest.mjs').then(m => m.run({ rootDir: ROOT, args }));
+  process.exit(0);
+}
+
+// ================================================================
+// report — 工程机制报告（Phase 3）
+// ================================================================
+else if (cmd === 'report') {
+  await import('./report.mjs').then(m => m.run({ rootDir: ROOT, args }));
+  process.exit(0);
+}
+
+// ================================================================
 // config:check — validate project config + report engine defaults in use
 // ================================================================
 else if (cmd === 'config:check') {

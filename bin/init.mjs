@@ -11,40 +11,36 @@
  *              [--ai] [--team] [--name my-project]   # 非交互（CI/脚本）
  */
 import { createInterface } from 'node:readline';
-import { promises as fs } from 'node:fs';
-import { resolve, basename } from 'node:path';
+import { promises as fs, existsSync, readdirSync } from 'node:fs';
+import { resolve, basename, dirname } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// ── 预设：不同技术栈的 layers ──────────────────────────────────
-const PRESETS = {
-  single: {
-    label: 'Single app (src/)',
-    layers: [
-      { id: 'app', path: 'src', label: 'App source' },
-      { id: 'test', path: 'test', label: 'Tests' },
-    ],
-  },
-  nextjs: {
-    label: 'Next.js / frontend (src/)',
-    layers: [
-      { id: 'app', path: 'src', label: 'App router / components' },
-      { id: 'lib', path: 'lib', label: 'Shared logic' },
-    ],
-  },
-  rails: {
-    label: 'Rails backend (app/)',
-    layers: [
-      { id: 'app', path: 'app', label: 'Application code' },
-      { id: 'lib', path: 'lib', label: 'Library code' },
-    ],
-  },
-  monorepo: {
-    label: 'Monorepo (packages/*)',
-    layers: [
-      { id: 'apps', path: 'apps', label: 'Applications' },
-      { id: 'packages', path: 'packages', label: 'Shared packages' },
-    ],
-  },
-};
+// ── 预设：从 presets/ 目录动态加载（官方 preset 文件）+ 内置兜底 ──
+const PRESETS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'presets');
+
+async function loadPresets() {
+  const map = {
+    single: {
+      id: 'single', label: 'Single app (src/)',
+      layers: [
+        { id: 'app', path: 'src', label: 'App source' },
+        { id: 'test', path: 'test', label: 'Tests' },
+      ],
+    },
+  };
+  if (existsSync(PRESETS_DIR)) {
+    for (const f of readdirSync(PRESETS_DIR).filter(f => f.endsWith('.mjs'))) {
+      try {
+        const mod = await import(`${pathToFileURL(resolve(PRESETS_DIR, f)).href}?t=${Date.now()}`);
+        const p = mod.default;
+        if (p && p.id) map[p.id] = p;
+      } catch (e) {
+        console.error(`⚠️ preset ${f}: ${e.message}`);
+      }
+    }
+  }
+  return map;
+}
 
 // ── 档位：渐进式落地 ───────────────────────────────────────────
 // Lite:     gate + 反模式 + 密钥（pre-commit 硬卡）——第 1 天
@@ -97,9 +93,10 @@ async function ask(question) {
   });
 }
 
-async function interactive() {
+async function interactive(PRESETS) {
+  const options = Object.keys(PRESETS).join('/');
   console.log('\n⚙️  pallastrade-harness init — 交互向导\n');
-  const presetKey = await ask('技术栈？[single/nextjs/rails/monorepo] (默认 single): ') || 'single';
+  const presetKey = await ask(`技术栈？[${options}] (默认 single): `) || 'single';
   const preset = PRESETS[presetKey] ? presetKey : 'single';
   const ai = (await ask('使用 AI 编码工具吗？[y/N]: ').then(a => a.toLowerCase())) === 'y';
   const team = (await ask('团队协作吗？(单人=宽松门禁) [y/N]: ').then(a => a.toLowerCase())) === 'y';
@@ -110,12 +107,20 @@ async function interactive() {
 }
 
 // ── 生成 harness.config.mjs ────────────────────────────────────
-function buildConfig({ name, preset, tier, ai }) {
-  const p = PRESETS[preset];
-  const t = TIERS[tier];
-  const docImpactRules = t.docs.includes('docImpact') ? [
-    { codeGlob: /^src\/.*\.(ts|tsx|js|jsx|vue)$/, docs: ['docs/README.md'], label: 'Source change' },
-  ] : [];
+function buildConfig({ name, preset, tier, ai }, PRESETS) {
+  const p = PRESETS[preset] || PRESETS.single;
+  const t = TIERS[tier] || TIERS.lite;
+  // docImpact 规则：preset 自带优先；否则按档位给通用示例（正则字面量文本）
+  const presetRules = p?.docImpact?.rules || [];
+  const rulesBlock = presetRules.length
+    ? presetRules.map(r => {
+        // codeGlob.source 已含转义（如 ^src\/.*$）——直接包成字面量即可，勿再转义
+        const src = r.codeGlob?.source ? `/${r.codeGlob.source}/` : '//';
+        return `    { codeGlob: ${src}, docs: ${JSON.stringify(r.docs)}, label: ${JSON.stringify(r.label)} },`;
+      }).join('\n')
+    : (t.docs.includes('docImpact')
+      ? "    { codeGlob: /^src\\/.*\\.(ts|tsx|js|jsx|vue)$/, docs: ['docs/README.md'], label: 'Source change' },"
+      : '');
   const lines = [
     '// harness.config.mjs — 项目配置（引擎通用机制，本文件声明项目自身结构）',
     '// 由 `harness init` 生成。Schema 见 https://github.com/stevenbian9266-cyber/pallastradeharness',
@@ -127,8 +132,8 @@ function buildConfig({ name, preset, tier, ai }) {
     `  // ② gate：档位 ${tier}（${t.label}）`,
     `  gates: ${JSON.stringify(t.gates, null, 2).split('\n').join('\n  ').trim()},`,
     '',
-    `  // ③ 知识同步规则（doc-impact）`,
-    `  docImpact: { base: 'origin/main', rules: ${JSON.stringify(docImpactRules).replaceAll('\\\\', '\\')} },`,
+    '  // ③ 知识同步规则（doc-impact）',
+    `  docImpact: { base: 'origin/main', rules: [\n${rulesBlock}\n  ] },`,
     '',
     '  // ④ 扫描器规则文件',
     "  scanners: { antiPatterns: 'harness/policies/anti-patterns.json' },",
@@ -244,6 +249,7 @@ function gitignoreAppend() {
  * init 入口
  */
 export async function run({ args = [] } = {}) {
+  const PRESETS = await loadPresets();
   const hasFlags = args.some(a => a.startsWith('--'));
   let opts;
   if (hasFlags) {
@@ -259,7 +265,7 @@ export async function run({ args = [] } = {}) {
       name: getArg(args, '--name') || basename(process.cwd()),
     };
   } else {
-    opts = await interactive();
+    opts = await interactive(PRESETS);
   }
 
   const cwd = process.cwd();
@@ -273,7 +279,7 @@ export async function run({ args = [] } = {}) {
   console.log(`\n📦 Generating harness scaffolding for "${opts.name}" (preset=${opts.preset}, tier=${opts.tier}, ai=${opts.ai}, team=${opts.team})\n`);
 
   // 1. harness.config.mjs
-  await fs.writeFile(configPath, buildConfig(opts), 'utf-8');
+  await fs.writeFile(configPath, buildConfig(opts, PRESETS), 'utf-8');
   console.log(`  ✅ ${configPath}`);
 
   // 2. lefthook.yml（若不存在）

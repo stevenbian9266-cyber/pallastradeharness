@@ -11,6 +11,7 @@
 import { readFileSync, existsSync, statSync, globSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import { loadConfig, resolveProjectRoot } from './config-loader.mjs';
+import { recordScan } from './stats.mjs';
 
 /**
  * Load AP-009 rules from anti-patterns.json (path from project config).
@@ -49,6 +50,7 @@ export function scan({ rootDir, files: fileFilter = null, config }) {
   let totalViolations = 0;
   let errors = 0;
   let warnings = 0;
+  const byRule = {};
 
   console.log('');
   console.log('🔍 AP-009 degraded-loop scan');
@@ -86,6 +88,7 @@ export function scan({ rootDir, files: fileFilter = null, config }) {
           console.log(`     ${relPath}:${lineNum}  ${lines[i].trim().slice(0, 100)}`);
           ruleViolations++;
           totalViolations++;
+          byRule[rule.id] = (byRule[rule.id] || 0) + 1;
 
           if (rule.severity === 'error') errors++;
           else warnings++;
@@ -97,6 +100,9 @@ export function scan({ rootDir, files: fileFilter = null, config }) {
       console.log(`  ✅ ${rule.id}: no violations`);
     }
   }
+
+  // 记录扫描统计（Phase 3）
+  try { recordScan(rootDir, { type: 'degraded-loop', total: totalViolations, errors, warnings, byRule }); } catch { /* stats 可选 */ }
 
   console.log('');
   if (totalViolations === 0) {

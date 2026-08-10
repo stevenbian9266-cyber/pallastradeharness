@@ -114,6 +114,8 @@ export default {
 | `harness doctor` | 项目体检 |
 | `harness config:check` | 配置校验 + 报告引擎默认值使用情况 |
 | `harness plugins:list` | 列出已加载的插件（check / scanner / preset） |
+| `harness suggest` | 自学习：分析 gate/扫描历史，建议沉淀规则或升级档位 |
+| `harness report` | 工程机制报告（gate 通过率 / 扫描趋势 / 文档资产，`--format json`） |
 | `harness eval-ai / eval-scenarios / eval-llm` | AI 行为评估（GS 场景库） |
 | `harness sync-check` | 知识同步评估门 |
 | `harness generated:check` | 生成文件漂移检查 |
@@ -205,8 +207,9 @@ npx harness check --profile quick   # 插件 check/scanner 会被执行
 |---|---|---|
 | 0 | 基线 + 耦合清单 | 规划 |
 | 1 | 引擎/配置解耦 + 提效（变更感知增量扫描） | ✅ 完成 |
-| 2 | 独立 npm 包（已发布 0.1.x）+ 冷启动（init 向导 / analyze / 渐进档位）+ 插件协议 | 🔄 插件协议已落地，npm 发布已打通 |
-| 3 | 自学习（suggest）+ 生态（preset/规则库）+ 报告 | 规划 |
+| 2 | 独立 npm 包 + 冷启动（init 向导 / analyze / 渐进档位）+ 插件协议 | ✅ 完成（0.1.x） |
+| 3 | 自学习（suggest）+ 报告（report）+ 官方 preset（presets/） | ✅ 完成（0.2.x） |
+| 4 | 生态（规则库贡献 / 文档站 / staged publishing） | 规划 |
 
 详见 [docs/standards/harness-standalone-roadmap.md](https://github.com/stevenbian9266-cyber/pallastrade/blob/dev/docs/standards/harness-standalone-roadmap.md)（PallasTrade 仓库）。
 

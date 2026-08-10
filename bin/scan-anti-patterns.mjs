@@ -1,6 +1,7 @@
 import { readFileSync, existsSync, statSync, globSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadConfig, resolveProjectRoot } from './config-loader.mjs';
+import { recordScan } from './stats.mjs';
 
 export function scan({ rootDir, files: fileFilter = null, config }) {
   const rulesPath = resolve(rootDir, config?.scanners?.antiPatterns || 'harness/policies/anti-patterns.json');
@@ -14,6 +15,7 @@ export function scan({ rootDir, files: fileFilter = null, config }) {
   let errors = 0;
   let warnings = 0;
   let scanErrors = 0;
+  const byRule = {};
 
   for (const rule of rules) {
     try {
@@ -63,6 +65,7 @@ export function scan({ rootDir, files: fileFilter = null, config }) {
             totalViolations++;
             if (rule.severity === 'error') errors++;
             else warnings++;
+            byRule[rule.id] = (byRule[rule.id] || 0) + 1;
           }
         }
       }
@@ -71,6 +74,9 @@ export function scan({ rootDir, files: fileFilter = null, config }) {
       console.log(`❌ Rule ${rule.id}: error scanning: ${e.message}`);
     }
   }
+
+  // 记录扫描统计（Phase 3 suggest/report 数据源；非关键路径）
+  try { recordScan(rootDir, { type: 'anti-patterns', total: totalViolations, errors, warnings, byRule }); } catch { /* stats 可选 */ }
 
   if (scanErrors > 0) {
     console.log(`\n❌ ${scanErrors} rule(s) failed to scan — failing the check.`);

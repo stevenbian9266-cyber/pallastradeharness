@@ -16,6 +16,7 @@
 import { readFileSync, existsSync, statSync, globSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { resolveProjectRoot } from './config-loader.mjs';
+import { recordScan } from './stats.mjs';
 
 // Global excludes — mirrors warn_on_secrets.sh (env examples, READMEs,
 // lockfiles) plus build artifacts. We deliberately do NOT exclude all *.md
@@ -103,6 +104,7 @@ export function scan({ rootDir, files: fileFilter = null }) {
   let errors = 0;
   let warnings = 0;
   let scanErrors = 0;
+  const byRule = {};
   const norm = p => p.split('\\').join('/');
 
   // Per-rule globbing so each rule's excludeGlob is applied to its own file
@@ -143,10 +145,14 @@ export function scan({ rootDir, files: fileFilter = null }) {
           total++;
           if (rule.severity === 'error') errors++;
           else warnings++;
+          byRule[rule.id] = (byRule[rule.id] || 0) + 1;
         }
       }
     }
   }
+
+  // 记录扫描统计（Phase 3）
+  try { recordScan(rootDir, { type: 'secrets', total, errors, warnings, byRule }); } catch { /* stats 可选 */ }
 
   if (scanErrors > 0) {
     console.log(`\n❌ ${scanErrors} rule(s) failed to scan — failing the check.`);
