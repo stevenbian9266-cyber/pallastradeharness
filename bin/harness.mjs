@@ -944,59 +944,16 @@ else if (cmd === 'scan-secrets') {
 // init — scaffold a harness.config.mjs (v1: skeleton; wizard in Phase 2)
 // ================================================================
 else if (cmd === 'init') {
-  // init 在用户当前目录创建配置（不向上解析 ROOT — 这是"新建项目"场景）
-  const target = resolve(process.cwd(), 'harness.config.mjs');
-  if (existsSync(target)) {
-    console.log(`❌ harness.config.mjs already exists at ${target}.`);
-    console.log('   Edit it directly, or delete it and re-run `harness init`.');
-    process.exit(1);
-  }
-  const skeleton = `// harness.config.mjs — 项目配置（引擎通用机制，本文件声明项目自身结构）
-// Schema 说明见 docs/standards/harness-standalone-roadmap.md §6（或引擎文档）。
-export default {
-  name: 'my-project',
+  // init 向导：交互问答 + 档位选择（--preset/--tier/--ai/--team 非交互）
+  await import('./init.mjs').then(m => m.run({ args }));
+  process.exit(0);
+}
 
-  // ① 层定义：gate 跨层搜索来源。单层项目配 [{ id: 'app', path: 'src' }]
-  layers: [
-    { id: 'app', path: 'app', label: 'App' },
-    { id: 'src', path: 'src', label: 'Source' },
-  ],
-
-  // ② gate：可追加项目特定 check（可选）
-  gates: {
-    // checkDefs: { feature: [{ id: 'my-check', label: 'My project check' }] },
-  },
-
-  // ③ 知识同步规则（doc-impact）— 默认空数组不阻塞
-  docImpact: {
-    base: 'origin/main',
-    rules: [
-      // { codeGlob: /^src\/.*\.ts$/, docs: ['docs/README.md'], label: 'Source change' },
-    ],
-  },
-
-  // ④ 覆盖率（可选）
-  coverage: { thresholds: {}, targets: [] },
-
-  // ⑤ 扫描器规则文件
-  scanners: { antiPatterns: 'harness/policies/anti-patterns.json' },
-
-  // ⑥ scenarios（可选）
-  scenarios: 'harness/scenarios/scenarios.json',
-
-  // ⑦ check profiles（可选）
-  profiles: {},
-
-  // ⑧ doctor 检查项（可选）
-  doctor: { requiredDirs: [], requiredFiles: [], composeCandidates: [] },
-
-  // ⑨ 状态/产物路径（默认值即可）
-  paths: { gates: 'harness/gates', requirements: 'harness/requirements', evidence: 'artifacts/harness-evidence', prd: 'docs/prd' },
-};
-`;
-  writeFileSync(target, skeleton);
-  console.log(`✅ Created ${target}`);
-  console.log('   Next: run `harness config:check` to validate, then `harness doctor`.');
+// ================================================================
+// analyze — 代码库分析（栈/层/差距报告 + --write 生成配置草案）
+// ================================================================
+else if (cmd === 'analyze') {
+  await import('./analyze.mjs').then(m => m.run({ rootDir: ROOT, args }));
   process.exit(0);
 }
 
