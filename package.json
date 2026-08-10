@@ -1,6 +1,6 @@
 {
   "name": "pallastrade-harness",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "AI-era engineering harness: pre-coding gates, anti-pattern scanners, PRD workflow, knowledge-sync enforcement. Config-driven, project-agnostic.",
   "type": "module",
   "bin": {
@@ -14,7 +14,8 @@
   },
   "files": [
     "bin",
-    "presets"
+    "presets",
+    "rules"
   ],
   "engines": {
     "node": ">=22.0.0"

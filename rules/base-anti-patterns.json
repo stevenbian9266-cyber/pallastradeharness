@@ -1,0 +1,50 @@
+{
+  "$comment": "基础反模式规则集（starter）。复制到项目 harness/policies/anti-patterns.json 作为起点，再按项目裁剪/增补。Schema: { rules: [{ id, severity, pattern(RegExp), fileGlob, excludeGlob?, message, fix, guardPattern?, guardLookback? }] }",
+  "rules": [
+    {
+      "id": "STARTER-001",
+      "severity": "warning",
+      "pattern": "style=\\{\\{",
+      "fileGlob": "**/*.{tsx,jsx}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/.next/**|**/*.test.*|**/*.spec.*",
+      "message": "Inline style object — prefer CSS classes / design tokens",
+      "fix": "Use className with utility/Tailwind classes, or a design-system prop"
+    },
+    {
+      "id": "STARTER-002",
+      "severity": "warning",
+      "pattern": "#[0-9a-fA-F]{3,8}\\b",
+      "fileGlob": "**/*.{tsx,jsx,css}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/.next/**|**/*.test.*|**/*.spec.*|**/tailwind.config.*",
+      "message": "Hardcoded hex color — prefer design tokens / CSS custom properties",
+      "fix": "Use var(--token-name) or theme color variable"
+    },
+    {
+      "id": "STARTER-003",
+      "severity": "error",
+      "pattern": "\\bconsole\\.(log|debug)\\(",
+      "fileGlob": "**/*.{ts,tsx,js,jsx}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/.next/**|**/*.test.*|**/*.spec.*",
+      "message": "console.log/debug left in source — use a structured logger or remove",
+      "fix": "Replace with a logger (or remove for debug leftovers)"
+    },
+    {
+      "id": "STARTER-004",
+      "severity": "warning",
+      "pattern": "\\bTODO\\b|\\bFIXME\\b",
+      "fileGlob": "**/*.{ts,tsx,js,jsx,rb,py}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/.next/**",
+      "message": "TODO/FIXME comment — tech-debt marker",
+      "fix": "Track in your issue tracker and reference the issue id in the comment"
+    },
+    {
+      "id": "STARTER-005",
+      "severity": "error",
+      "pattern": "(sk-|pk-|AKIA|ghp_|sk_live|sk_test|n8o_|rk_live)[A-Za-z0-9_-]{10,}",
+      "fileGlob": "**/*.{ts,tsx,js,jsx,rb,py,env,sh,yml,yaml}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/.next/**|**/*.example*|**/*.test.*|**/*.spec.*|**/*.md",
+      "message": "Potential secret / API key in source — MUST move to env / secret manager",
+      "fix": "Use environment variables or a secret manager; never commit keys"
+    }
+  ]
+}

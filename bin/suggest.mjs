@@ -33,7 +33,7 @@ function loadGates(rootDir) {
 }
 
 /** 生成建议（纯分析，不改文件） */
-export function analyze(rootDir, { sinceDays } = {}) {
+export function analyze(rootDir, config, { sinceDays } = {}) {
   const suggestions = [];
   const cutoff = sinceDays ? Date.now() - sinceDays * 86400000 : null;
 
@@ -61,11 +61,16 @@ export function analyze(rootDir, { sinceDays } = {}) {
   for (const g of filtered) byType[g.taskType] = (byType[g.taskType] || 0) + 1;
   const featureCount = byType.feature || 0;
   if (filtered.length >= 5 && featureCount >= 3) {
-    suggestions.push({
-      kind: 'tier',
-      title: `近期 ${filtered.length} 个 gate 中 ${featureCount} 个为 feature 类`,
-      action: '建议从 Lite 档升级到 Standard（PRD 工作流 + doc-impact），或开启更多 check',
-    });
+    // 检查配置是否已启用 PRD 工作流（feature checkDefs 含 PRD check）——避免误报
+    const featureChecks = config?.gates?.checkDefs?.feature || [];
+    const prdEnabled = featureChecks.some(c => /create-prd-doc|create-req-doc|user-confirmed|read-skill-prd/.test(c.id));
+    if (!prdEnabled) {
+      suggestions.push({
+        kind: 'tier',
+        title: `近期 ${filtered.length} 个 gate 中 ${featureCount} 个为 feature 类`,
+        action: '建议启用 PRD 工作流（config.gates.checkDefs.feature 增加 create-prd-doc / create-req-doc / user-confirmed 等 check），或升级到 Standard 档位',
+      });
+    }
   }
 
   // ── 3. 例外/跳过 → review 建议 ──────────────────────────────
@@ -96,12 +101,12 @@ export function analyze(rootDir, { sinceDays } = {}) {
   return { suggestions, stats: { gates: filtered.length, scans: scans.length, byType } };
 }
 
-export async function run({ rootDir = process.cwd(), args = [] } = {}) {
+export async function run({ rootDir = process.cwd(), args = [], config } = {}) {
   const json = getArg(args, '--format') === 'json';
   const sinceDays = parseInt(getArg(args, '--since-days') || '0', 10) || null;
 
   console.log('🔎 harness suggest — 规范自学习建议\n');
-  const { suggestions, stats } = analyze(rootDir, { sinceDays });
+  const { suggestions, stats } = analyze(rootDir, config, { sinceDays });
 
   if (json) {
     console.log(JSON.stringify({ suggestions, stats }, null, 2));

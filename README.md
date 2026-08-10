@@ -46,10 +46,14 @@ npx harness gate:clear --gate <GATE-ID> --clear <check-id>
 
 ### 发布信息
 
-- 当前版本：`0.1.x`（npm registry，MIT）
+- 当前版本：`0.2.1`（npm registry，MIT）
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
+
+> ⚠️ **npm 政策预警（2027-01 起）**：npm 已移除 Authenticator app（TOTP）2FA 选项，仅支持 Security key（WebAuthn）；且 bypass-token 将禁止直接发布。
+> 新版本发布需在终端 `npm publish`（浏览器 Security key 认证，非命令行可代做）。
+> 后续迁移方向：**staged publishing / trusted publishing（OIDC）**，见下方「贡献指南 → 发布」小节。
 
 ### 接入 lefthook（物理强制）
 
@@ -201,6 +205,58 @@ npx harness check --profile quick   # 插件 check/scanner 会被执行
 
 ---
 
+## 基础规则集（starter rules）
+
+仓库自带一份**跨语言、项目无关**的反模式 starter 规则集：
+
+```bash
+# 复制到项目作为 anti-patterns 起点，再按项目裁剪
+cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
+   harness/policies/anti-patterns.json
+```
+
+内置 5 条通用规则（`STARTER-001~005`）：内联样式 / 硬编码色值 / console.log 残留 / TODO·FIXME / 密钥泄漏。
+规则使用 RegExp `pattern` + `fileGlob`/`excludeGlob`，见文件头部 schema 注释。
+项目特定规则（如「必须用 SDK 禁止裸 fetch」「禁止绕过 store scope」）由项目自行维护在 `harness/policies/anti-patterns.json`。
+
+---
+
+## 贡献指南
+
+欢迎贡献规则、插件、preset 与文档。所有贡献走 GitHub PR（`main` 分支）。
+
+### 贡献规则（rules/）
+
+1. 确认规则是**通用**的（不绑定特定框架/业务）——项目特定规则应留在用户项目里，而不是本仓库
+2. 规则放进 `rules/base-anti-patterns.json`，遵循现有 schema（`id / severity / pattern / fileGlob / excludeGlob / message / fix`）
+3. 提供一条真实场景反例（附 message 说明违规点）
+4. 更新 `rules/README.md` 规则清单（若无则创建）
+
+### 贡献插件 / preset
+
+1. 插件协议见上文「插件开发」；把通用插件做成**示例**放进 `harness/plugins/` 供参考（如 `example.mjs`）
+2. preset 放进 `presets/`，遵循 `{ id, name, layers, gates?, docImpact }` 导出格式
+3. 至少提供一个 `plugins:list` / `init --preset <id>` 可用的验证用例
+
+### 贡献代码（引擎）
+
+```bash
+npm i && npm test     # node:test 合约测试必须全绿
+node --check bin/*.mjs   # 语法自检
+```
+
+改 `bin/` 下模块时注意：`config-loader.mjs` 是唯一配置入口（`loadConfig` 带进程内 memo），新命令不要自行解析配置。
+
+### 发布（维护者）
+
+1. 版本号遵循 semver（feature/修复 → minor/patch；破坏性变更 → major）
+2. 更新 `README.md` 发布信息 + 路线图状态
+3. `git tag v0.x.y && git push --tags`
+4. **终端** `npm publish`（触发浏览器 Security key 认证——需要维护者本人操作，AI/CI 无法代做）
+5. 2027 后 npm 将移除 bypass-token 直发 → 迁移 **staged publishing**（先发 `preview` tag 再 promote）或 **trusted publishing（OIDC）**（GitHub Actions 身份发布，无需本地登录）
+
+---
+
 ## 路线图
 
 | Phase | 内容 | 状态 |
@@ -209,7 +265,7 @@ npx harness check --profile quick   # 插件 check/scanner 会被执行
 | 1 | 引擎/配置解耦 + 提效（变更感知增量扫描） | ✅ 完成 |
 | 2 | 独立 npm 包 + 冷启动（init 向导 / analyze / 渐进档位）+ 插件协议 | ✅ 完成（0.1.x） |
 | 3 | 自学习（suggest）+ 报告（report）+ 官方 preset（presets/） | ✅ 完成（0.2.x） |
-| 4 | 生态（规则库贡献 / 文档站 / staged publishing） | 规划 |
+| 4 | 生态（基础规则集 / 贡献指南 / staged publishing 规划） | 🚧 进行中（0.2.1） |
 
 详见 [docs/standards/harness-standalone-roadmap.md](https://github.com/stevenbian9266-cyber/pallastrade/blob/dev/docs/standards/harness-standalone-roadmap.md)（PallasTrade 仓库）。
 

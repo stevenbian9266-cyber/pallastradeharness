@@ -1010,7 +1010,7 @@ else if (cmd === 'plugins:list') {
 // suggest — 自学习：从使用中沉淀规范建议（Phase 3）
 // ================================================================
 else if (cmd === 'suggest') {
-  await import('./suggest.mjs').then(m => m.run({ rootDir: ROOT, args }));
+  await import('./suggest.mjs').then(m => m.run({ rootDir: ROOT, args, config }));
   process.exit(0);
 }
 
