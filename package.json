@@ -1,0 +1,40 @@
+{
+  "name": "pallastrade-harness",
+  "version": "0.1.0",
+  "description": "AI-era engineering harness: pre-coding gates, anti-pattern scanners, PRD workflow, knowledge-sync enforcement. Config-driven, project-agnostic.",
+  "type": "module",
+  "bin": {
+    "harness": "./bin/harness.mjs"
+  },
+  "exports": {
+    "./config-loader": "./bin/config-loader.mjs"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "glob": "^11.0.0"
+  },
+  "scripts": {
+    "test": "node --test bin/*.test.mjs"
+  },
+  "keywords": [
+    "harness",
+    "engineering",
+    "gate",
+    "quality",
+    "ai",
+    "agent",
+    "prd",
+    "enforcement",
+    "anti-pattern"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stevenbian9266-cyber/pallastradeharness.git"
+  }
+}

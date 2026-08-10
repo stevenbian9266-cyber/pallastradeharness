@@ -1,0 +1,5 @@
+node_modules/
+.harness-cache/
+# 运行时门禁状态（每个项目各自维护，不入库）
+harness/gates/
+*.tgz
