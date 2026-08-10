@@ -10,6 +10,12 @@ const ROOT = resolveProjectRoot();
 const args = process.argv.slice(2);
 const cmd = args[0];
 
+// 解析 --files 参数（扫描器子命令用）
+function parseFilesArg() {
+  const idx = args.indexOf('--files');
+  return idx >= 0 && args[idx + 1] ? args[idx + 1].split(',').map(s => s.trim()).filter(Boolean) : null;
+}
+
 // 加载项目配置（默认值 + harness.config.mjs 深合并；无配置文件则用引擎默认）
 const { config } = await loadConfig({ rootDir: ROOT });
 
@@ -923,10 +929,6 @@ else if (cmd === 'nav:check') {
 // ================================================================
 // scan-* — 扫描器子命令（供 lefthook staged_files / CI 调用）
 // ================================================================
-function parseFilesArg() {
-  const idx = args.indexOf('--files');
-  return idx >= 0 && args[idx + 1] ? args[idx + 1].split(',').map(s => s.trim()).filter(Boolean) : null;
-}
 else if (cmd === 'scan-anti-patterns') {
   await import('./scan-anti-patterns.mjs').then(m => m.scan({ rootDir: ROOT, config, files: parseFilesArg() }));
 }
