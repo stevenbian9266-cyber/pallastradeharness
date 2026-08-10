@@ -90,7 +90,7 @@ const READINESS_CHECKS = {
     ['doc-impact sync rules', r => contains(r, 'harness.config.mjs', /docImpact/)],
   ],
   'GS-009': [
-    ['harness doctor', r => contains(r, 'scripts/harness/cli.mjs', /cmd === 'doctor'/)],
+    ['harness doctor', r => contains(r, 'node_modules/pallastrade-harness/bin/harness.mjs', /cmd === 'doctor'/)],
   ],
   'GS-011': [
     ['category model/controller', r => findFiles(r, 'backend/app', /categor.*\.rb$/i).length > 0 || findFiles(r, 'backend/pallastrade_gems/pallastrade_admin/app', /categor.*\.rb$/i).length > 0],
@@ -101,10 +101,10 @@ const READINESS_CHECKS = {
     ['PRD template', r => exists(r, 'docs/prd/_TEMPLATE.md')],
     ['PRD categories policy', r => exists(r, 'harness/policies/prd-categories.json')],
     ['PRD skill', r => exists(r, 'ai/skills/pallastrade-prd/SKILL.md')],
-    ['prd CLI', r => contains(r, 'scripts/harness/cli.mjs', /cmd === 'prd'/)],
+    ['prd CLI', r => contains(r, 'node_modules/pallastrade-harness/bin/harness.mjs', /cmd === 'prd'/)],
   ],
   'GS-014': [
-    ['sync-check command', r => contains(r, 'scripts/harness/cli.mjs', /cmd === 'sync-check'/)],
+    ['sync-check command', r => contains(r, 'node_modules/pallastrade-harness/bin/harness.mjs', /cmd === 'sync-check'/)],
     ['doc-impact matrix', r => contains(r, 'harness.config.mjs', /docImpact/)],
     ['GS-014 scenario entry', r => contains(r, 'harness/scenarios/scenarios.json', /GS-014/)],
   ],

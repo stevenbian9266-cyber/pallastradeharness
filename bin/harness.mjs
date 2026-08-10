@@ -90,7 +90,7 @@ if (cmd === 'doctor') {
     {
       name: 'harness-dirs',
       run: () => {
-        const dirs = ['harness/policies', 'harness/scenarios', 'scripts/harness'];
+        const dirs = ['harness/policies', 'harness/scenarios'];
         const missing = dirs.filter(d => !existsSync(resolve(ROOT, d)));
         if (missing.length > 0) {
           if (fixSafe) {
