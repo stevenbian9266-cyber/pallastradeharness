@@ -15,6 +15,7 @@ cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
 
 ## 规则清单
 
+{% raw %}
 | id | severity | 模式 | 目标文件 | 说明 |
 |---|---|---|---|---|
 | STARTER-001 | warning | `style={{` | `**/*.{tsx,jsx}` | 内联样式对象 → 用 CSS 类/设计令牌 |
@@ -22,6 +23,7 @@ cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
 | STARTER-003 | error | `console.(log|debug)(` | `**/*.{ts,tsx,js,jsx}` | 源码残留 console 日志 |
 | STARTER-004 | warning | `TODO\|FIXME` | `**/*.{ts,tsx,js,jsx,rb,py}` | 技术债标记 |
 | STARTER-005 | error | 密钥/API key 前缀 | 源码/配置 | 密钥泄漏 |
+{% endraw %}
 
 ## Schema
 
