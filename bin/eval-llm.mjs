@@ -2,10 +2,10 @@
 /**
  * eval-llm — promptfoo LLM Eval executor for GS scenarios.
  *
- *   node scripts/harness/cli.mjs eval-llm --generate   Generate promptfoo config + prompt files
- *   node scripts/harness/cli.mjs eval-llm --check      Validate the generated config (no LLM call)
- *   node scripts/harness/cli.mjs eval-llm --list       List scenarios that would be evaluated
- *   node scripts/harness/cli.mjs eval-llm              Run promptfoo eval (needs PALLAS_LLM_API_KEY)
+ *   harness eval-llm --generate   Generate promptfoo config + prompt files
+ *   harness eval-llm --check      Validate the generated config (no LLM call)
+ *   harness eval-llm --list       List scenarios that would be evaluated
+ *   harness eval-llm              Run promptfoo eval (needs PALLAS_LLM_API_KEY)
  *
  * The generator reads harness/scenarios/scenarios.json (GS-001..GS-015), writes
  * one prompt file per scenario under harness/promptfoo/prompts/, and emits
@@ -18,6 +18,7 @@ import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { loadConfig, resolveProjectRoot } from './config-loader.mjs';
+import { npxCommand } from './cli-utils.mjs';
 
 // 独立 npm 包：无配置时回退到用户当前目录
 const ROOT = resolveProjectRoot();
@@ -129,7 +130,8 @@ export function run({ rootDir = ROOT, args = [], config } = {}) {
     return;
   }
   if (args.includes('--check')) {
-    check({ rootDir, config });
+    const result = check({ rootDir, config });
+    if (!result.ok) process.exitCode = 1;
     return;
   }
   if (args.includes('--list')) {
@@ -151,9 +153,10 @@ export function run({ rootDir = ROOT, args = [], config } = {}) {
     process.exitCode = 1;
     return;
   }
-  const res = spawnSync('npx', ['promptfoo', 'eval', '-c', CONFIG_FILE], {
+  const { configFile } = pathsFor(rootDir, config);
+  const res = spawnSync(npxCommand(), ['promptfoo', 'eval', '-c', configFile], {
     stdio: 'inherit',
-    cwd: ROOT,
+    cwd: rootDir,
     env: process.env,
   });
   if (res.status !== 0) process.exitCode = res.status ?? 1;

@@ -1,6 +1,6 @@
 # pallastrade-harness
 
-AI 时代的工程纪律机制（Engineering Harness）：前置门禁、反模式扫描、PRD 需求闭环、知识同步强制。**配置驱动、项目无关**——单层 Next.js 项目、Rails monorepo、任意语言栈都能接入。
+面向 AI Agent 的软件开发生命周期治理和证据编排层：分阶段门禁、机器可读规范、实际开发监督、PRD 闭环与知识同步。**本地优先、Git-native、配置驱动、项目无关**——单层应用、Rails monorepo、任意语言栈都能接入。
 
 > 源自 [PallasTrade Commerce](https://github.com/stevenbian9266-cyber/pallastrade) monorepo 的 `scripts/harness`，2026-08 完成引擎/配置解耦后独立维护。
 
@@ -11,6 +11,8 @@ AI 时代的工程纪律机制（Engineering Harness）：前置门禁、反模�
 | 痛点 | 机制 |
 |---|---|
 | AI 改代码不受控、绕过规范 | **前置 Gate**：改代码前必须规划并清空检查清单，pre-commit 物理拦截 |
+| 规范写了但无法知道是否执行 | **Standards Registry**：标准 ID、权威来源、scope、执行等级和覆盖率均可查询 |
+| 实际编码偏离计划或产生复杂/重复代码 | **Development Supervisor**：范围漂移、依赖选型、架构边界、循环依赖和新代码基线检查 |
 | 反模式反复出现（内联样式/裸 fetch/硬编码色值） | **反模式扫描**：规则 JSON 驱动，CI + pre-commit 双卡 |
 | 需求一句话 → 实施无依据 | **PRD 工作流**：一句话需求 → 结构化 PRD → AC→测试映射 → 验收 |
 | 改了代码忘了同步文档 | **知识同步门（doc-impact）**：改了什么文件，强制同步对应知识文档 |
@@ -38,15 +40,24 @@ npx harness config:check
 
 # 开始一次编码任务（必须先开 gate）
 npx harness gate --task "新增：我的功能"
-# ... 清空所有 check ...
+# ... 清空 preparation checks 后进入 implementation ...
 npx harness gate:clear --gate <GATE-ID> --clear <check-id>
+
+# 生成 Change Plan，并在实施中/实施后审查 diff
+npx harness supervise plan --task "新增：我的功能" --allow "src/**"
+npx harness supervise diff
+
+# 查看适用规范与机器执行覆盖率
+npx harness standards select --base origin/main
+npx harness standards coverage
+npx harness docs:check
 
 # 提交前物理拦截（接入 lefthook）
 ```
 
 ### 发布信息
 
-- 当前版本：`0.2.1`（npm registry，MIT）
+- 当前源码版本：`0.4.0`；npm 已发布稳定版：`0.2.3`（0.4.0 在合并/tag 前不会发布）
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
@@ -93,6 +104,16 @@ export default {
   layers: [{ id: 'app', path: 'app' }, { id: 'web', path: 'src' }],
   // 门禁：追加项目特定 check
   gates: { checkDefs: { feature: [{ id: 'my-check', label: '...' }] } },
+  // 规范注册表：内置 starter + 项目规范文件
+  standards: { includeBundled: true, sources: ['harness/standards/**/*.json'] },
+  // 开发监督：模式、范围保护、依赖清单、复杂度与架构边界
+  supervisor: {
+    mode: 'guard',
+    protectedFiles: ['**/db/schema.rb', '**/Gemfile.lock'],
+    generatedFiles: ['src/types/generated/**'],
+    complexity: { maxDecisionPoints: 12, duplicateBlockLines: 6 },
+    boundaries: [{ id: 'ui-server', from: 'src/ui/**', denyImports: ['../server/**'] }],
+  },
   // 知识同步规则（改了什么 → 必须同步什么文档）
   docImpact: { base: 'origin/main', rules: [{ codeGlob: /^src\/.*\.ts$/, docs: ['docs/README.md'], label: '...' }] },
   // 覆盖率
@@ -109,11 +130,14 @@ export default {
 | 命令 | 说明 |
 |---|---|
 | `harness init` | 生成 `harness.config.mjs` 骨架（向导版规划中） |
-| `harness gate --task "..."` | 创建前置门禁（前缀自动判定类型：修复/优化/新增/文档/重构/安全/测试...） |
-| `harness gate:status / gate:clear / gate:required / gate:clean` | 门禁状态管理；`gate:required` 供 lefthook/CI 硬卡 |
+| `harness gate --task "..."` | 创建分阶段门禁（preparation → implementation → verification → finished） |
+| `harness gate:status / gate:clear / gate:migrate / gate:required / gate:clean` | 门禁状态与旧 Gate 迁移；只有 finished Gate 能通过提交硬卡 |
+| `harness standards list/select/coverage` | 查询、按 Diff 选择规范并报告 Standards Enforcement Coverage |
+| `harness supervise plan/diff` | 生成 Change Plan；审查范围漂移、技术选型、架构和新代码质量 |
 | `harness prd new/list/verify` | PRD 工作流（骨架创建 + 查重回写 + AC→测试校验） |
 | `harness check --profile quick\|full` | 检查档案（变更感知：本地默认只扫 changed-files，`--full`/CI 全量） |
 | `harness doc-impact` | 知识同步门 |
+| `harness docs:check` | 检查 Agent/README/文档站 Markdown 的本地链接目标 |
 | `harness scan-anti-patterns / scan-secrets / scan-degraded-loop` | 扫描器（供 lefthook staged_files 调用，也可用 `harness-scan-*` bin） |
 | `harness doctor` | 项目体检 |
 | `harness config:check` | 配置校验 + 报告引擎默认值使用情况 |
@@ -124,6 +148,8 @@ export default {
 | `harness sync-check` | 知识同步评估门 |
 | `harness generated:check` | 生成文件漂移检查 |
 | `harness cache:clean` | 清理缓存 |
+
+插件或 Agent 适配器可通过公开子路径 `pallastrade-harness/contracts`、`pallastrade-harness/standards`、`pallastrade-harness/supervisor` 与 `pallastrade-harness/gate-lifecycle` 复用版本化领域契约；未导出的 `bin/*` 仍视为内部实现。
 
 ### 任务类型与 check 清单
 
@@ -140,7 +166,7 @@ export default {
 
 ## 插件开发（§2.3 插件协议）
 
-通过统一接口扩展 harness，无需改引擎。两种加载方式：
+通过统一接口扩展 harness，无需改引擎。插件导入失败或契约无效会以配置错误退出，不会静默跳过。两种加载方式：
 
 1. **文件级**：项目 `harness/plugins/*.mjs`（推荐，随仓库分发）
 2. **配置级**：`harness.config.mjs` → `plugins: { checks, scanners, presets }`
@@ -207,15 +233,17 @@ npx harness check --profile quick   # 插件 check/scanner 会被执行
 
 ## 基础规则集（starter rules）
 
-仓库自带一份**跨语言、项目无关**的反模式 starter 规则集：
+仓库自带两份**跨语言、项目无关**的 starter 规则集。`harness init` 会自动复制且不覆盖项目已有文件：
 
 ```bash
 # 复制到项目作为 anti-patterns 起点，再按项目裁剪
 cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
    harness/policies/anti-patterns.json
+cp node_modules/pallastrade-harness/rules/base-standards.json \
+   harness/standards/base-standards.json
 ```
 
-内置 5 条通用规则（`STARTER-001~005`）：内联样式 / 硬编码色值 / console.log 残留 / TODO·FIXME / 密钥泄漏。
+反模式集内置 5 条通用规则（`STARTER-001~005`）；规范注册表覆盖 architecture、technology-selection、code-quality、database、API、安全、UI、交互、a11y、测试、文档、知识和部署 13 个类别。
 规则使用 RegExp `pattern` + `fileGlob`/`excludeGlob`，见文件头部 schema 注释。
 项目特定规则（如「必须用 SDK 禁止裸 fetch」「禁止绕过 store scope」）由项目自行维护在 `harness/policies/anti-patterns.json`。
 
@@ -245,11 +273,13 @@ cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
 
 | Phase | 内容 | 状态 |
 |---|---|---|
-| 0 | 基线 + 耦合清单 | 规划 |
-| 1 | 引擎/配置解耦 + 提效（变更感知增量扫描） | ✅ 完成 |
-| 2 | 独立 npm 包 + 冷启动（init 向导 / analyze / 渐进档位）+ 插件协议 | ✅ 完成（0.1.x） |
-| 3 | 自学习（suggest）+ 报告（report）+ 官方 preset（presets/） | ✅ 完成（0.2.x） |
-| 4 | 生态（基础规则集 / 贡献指南 / 文档站 / PR 模板 / trusted publishing） | ✅ 完成（0.2.1+）；trusted publishing 待 npm 侧授权 |
+| 0.3 | 可靠性基线：跨平台参数、fail-closed、退出码、分阶段 Gate、统一对象 | ✅ 0.4 源码已包含 |
+| 0.4 | Standards Registry + Development Supervisor MVP | ✅ 当前源码 |
+| 0.5 | Task Orchestrator + Project Brain + 多会话交接 | 规划 |
+| 0.6 | Database/UI/Interaction/API/Security/Knowledge 领域 Supervisor | 规划 |
+| 0.7 | Typed Evidence + Recovery + 自动交付报告 | 规划 |
+| 0.8 | Agent adapters + MCP/TUI + 技术栈 preset | 规划 |
+| 1.0 | 插件稳定协议、大型 monorepo/worktree、长期兼容 | 规划 |
 
 详见 [docs/standards/harness-standalone-roadmap.md](https://github.com/stevenbian9266-cyber/pallastrade/blob/dev/docs/standards/harness-standalone-roadmap.md)（PallasTrade 仓库）。
 

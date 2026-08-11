@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, statSync, rmSync } from 'node:fs';
 import { resolve, join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { loadConfig, resolveProjectRoot, getGateChecks } from './config-loader.mjs';
 import { loadPlugins, normalizePlugins } from './plugins.mjs';
+import { EXIT_CODES, getArg, hasArg, parseFilesArg } from './cli-utils.mjs';
+import { GATE_PHASES, migrateGateState, pendingChecks, recomputeGateState } from './gate-lifecycle.mjs';
 
 // 项目根：从 cwd 向上查找 harness.config.*（找不到则回退脚本位置）
 const ROOT = resolveProjectRoot();
@@ -11,22 +13,13 @@ const ROOT = resolveProjectRoot();
 const args = process.argv.slice(2);
 const cmd = args[0];
 
-// 解析 --files 参数（扫描器子命令用）
-function parseFilesArg() {
-  const idx = args.indexOf('--files');
-  return idx >= 0 && args[idx + 1] ? args[idx + 1].split(',').map(s => s.trim()).filter(Boolean) : null;
-}
-
 // 加载项目配置（默认值 + harness.config.mjs 深合并；无配置文件则用引擎默认）
-const { config } = await loadConfig({ rootDir: ROOT });
-
-function getArg(args, flag) {
-  const idx = args.indexOf(flag);
-  return idx >= 0 ? args[idx + 1] : null;
-}
-
-function hasArg(args, flag) {
-  return args.includes(flag);
+let config;
+try {
+  ({ config } = await loadConfig({ rootDir: ROOT }));
+} catch (error) {
+  console.error(`❌ ${error.message}`);
+  process.exit(error.exitCode || EXIT_CODES.INTERNAL_ERROR);
 }
 
 // ================================================================
@@ -145,6 +138,7 @@ else if (cmd === 'affected') {
     else if (['harness', 'scripts', '.github'].includes(top)) components.add('harness');
   }
   console.log(JSON.stringify({ filesChanged: files.length, affectedComponents: [...components], errors, estimatedTests: files.length * 3 }, null, 2));
+  if (errors.length > 0) process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
 }
 
 // ================================================================
@@ -156,10 +150,12 @@ else if (cmd === 'check') {
   const full = hasArg(args, '--full') || process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
   let changedFiles = null;
   if (!full) {
-    try {
-      const { files } = await import('./git-files.mjs').then(m => m.getChangedFiles(ROOT, 'HEAD'));
-      changedFiles = files;
-    } catch { /* not a git repo — fallback to full scan */ }
+    const gitResult = await import('./git-files.mjs').then(m => m.getChangedFiles(ROOT, 'HEAD'));
+    if (gitResult.errors.length > 0) {
+      console.error(`[harness] ❌ Cannot determine changed files: ${gitResult.errors.join('; ')}`);
+      process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+    }
+    changedFiles = gitResult.files;
   }
   console.log(`[harness] check --profile ${profile}${full ? ' (full)' : ` (changed-files: ${changedFiles?.length ?? 'full'})`}`);
 
@@ -196,8 +192,14 @@ else if (cmd === 'check') {
   }
 
   // ── 插件执行：自定义 check + scanner（§2.3 插件协议）──
-  const { checks: rawPluginChecks, scanners: pluginScanners } = await loadPlugins(ROOT, config);
-  const { checks: pluginChecks, scanners: validScanners } = normalizePlugins({ checks: rawPluginChecks, scanners: pluginScanners });
+  const loadedPlugins = await loadPlugins(ROOT, config);
+  const normalizedPlugins = normalizePlugins({ checks: loadedPlugins.checks, scanners: loadedPlugins.scanners });
+  const pluginErrors = [...loadedPlugins.errors, ...normalizedPlugins.errors];
+  if (pluginErrors.length > 0) {
+    for (const error of pluginErrors) console.error(`❌ [plugin] ${error}`);
+    exitCode = Math.max(exitCode, EXIT_CODES.USAGE_OR_CONFIG);
+  }
+  const { checks: pluginChecks, scanners: validScanners } = normalizedPlugins;
   for (const pc of pluginChecks) {
     try {
       const r = await pc.run({ rootDir: ROOT, config, files: changedFiles });
@@ -373,8 +375,14 @@ else if (cmd === 'gate') {
   const gateFile = join(gateDir, `${gateId}.json`);
 
   // Gate check 集由配置驱动：layers 搜索 + 内置基础 + 配置追加 + 插件 check
-  const { checks: rawPluginChecks } = await loadPlugins(ROOT, config);
-  const { checks: pluginChecks } = normalizePlugins({ checks: rawPluginChecks });
+  const loadedPlugins = await loadPlugins(ROOT, config);
+  const normalizedPlugins = normalizePlugins({ checks: loadedPlugins.checks });
+  const pluginErrors = [...loadedPlugins.errors, ...normalizedPlugins.errors];
+  if (pluginErrors.length > 0) {
+    for (const error of pluginErrors) console.error(`❌ [plugin] ${error}`);
+    process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+  }
+  const { checks: pluginChecks } = normalizedPlugins;
   const baseChecks = getGateChecks(config, taskType);
   const checks = pluginChecks.length
     ? [...baseChecks, ...pluginChecks.map(pc => ({ id: `plugin-${pc.id}`, label: `[plugin] ${pc.label}` }))]
@@ -383,20 +391,24 @@ else if (cmd === 'gate') {
   let branch = 'unknown';
   let head = 'unknown';
   try {
-    branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: ROOT, encoding: 'utf-8' }).trim();
-    head = execSync('git rev-parse HEAD', { cwd: ROOT, encoding: 'utf-8' }).trim();
-  } catch { /* not a git repo */ }
+    branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: ROOT, encoding: 'utf-8' }).trim();
+    head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf-8' }).trim();
+  } catch (error) {
+    console.error(`❌ gate requires a Git repository: ${String(error.message).split('\n')[0]}`);
+    process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+  }
 
-  const gateState = {
+  const gateState = recomputeGateState({
+    schemaVersion: '2.0',
     id: gateId,
     taskType,
     taskDescription: taskDesc,
     createdAt: now.toISOString(),
     branch,
     head: head.slice(0, 8),
-    checks: checks.map(c => ({ ...c, status: 'pending', completedAt: null })),
+    checks: checks.map(c => ({ ...c, phase: c.phase || GATE_PHASES.PREPARATION, status: 'pending', completedAt: null })),
     cleared: false,
-  };
+  });
 
   writeFileSync(gateFile, JSON.stringify(gateState, null, 2));
 
@@ -404,17 +416,52 @@ else if (cmd === 'gate') {
   console.log(`   Task: ${taskDesc}`);
   console.log(`   Type: ${taskType}`);
   console.log(`   Branch: ${branch} @ ${head.slice(0, 8)}`);
-  console.log(`\n   You MUST clear all checks below before writing ANY code.\n`);
+  console.log(`\n   Clear preparation checks before writing code; verification remains open until evidence is recorded.\n`);
   for (const c of checks) {
-    console.log(`   [ ] ${c.id}`);
+    console.log(`   [ ] ${c.id} (${c.phase || GATE_PHASES.PREPARATION})`);
     console.log(`       ${c.label}`);
   }
   console.log(`\n   To mark a check as done:`);
   console.log(`   harness gate:clear --gate ${gateId} --clear <check-id>`);
   console.log(`\n   Gate state saved to: harness/gates/${gateId}.json`);
-  console.log(`\n❌ GATE NOT CLEARED — AI MUST NOT write or edit any files.`);
+  console.log(`\n❌ PREPARATION NOT CLEARED — AI MUST NOT write or edit implementation files.`);
 
   process.exit(1);
+}
+
+// ================================================================
+// gate:migrate — upgrade legacy gate files to the phased lifecycle
+// ================================================================
+else if (cmd === 'gate:migrate') {
+  const gateDir = resolve(ROOT, config.paths.gates);
+  const dryRun = hasArg(args, '--dry-run');
+  if (!existsSync(gateDir)) {
+    console.log('No gates directory. Nothing to migrate.');
+    process.exit(EXIT_CODES.OK);
+  }
+  const files = readdirSync(gateDir).filter(file => file.endsWith('.json')).sort();
+  let migrated = 0;
+  const errors = [];
+  for (const file of files) {
+    const path = join(gateDir, file);
+    try {
+      const before = JSON.parse(readFileSync(path, 'utf-8'));
+      const after = migrateGateState(before);
+      const changed = before.schemaVersion !== after.schemaVersion || before.implementationReady !== after.implementationReady || before.phase !== after.phase || before.checks.some(check => !check.phase);
+      if (!changed) continue;
+      migrated++;
+      if (!dryRun) writeFileSync(path, `${JSON.stringify(after, null, 2)}\n`);
+      console.log(`${dryRun ? 'Would migrate' : 'Migrated'} ${file} -> ${after.phase}`);
+    } catch (error) {
+      errors.push(`${file}: ${error.message}`);
+    }
+  }
+  if (errors.length > 0) {
+    for (const error of errors) console.error(`❌ gate:migrate — ${error}`);
+    process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+  }
+  console.log(`✅ gate:migrate — ${migrated} gate(s) ${dryRun ? 'need migration' : 'migrated'}.`);
+  process.exit(EXIT_CODES.OK);
 }
 
 // ================================================================
@@ -439,7 +486,7 @@ else if (cmd === 'gate:status') {
   }
 
   const latestFile = join(gateDir, files[0]);
-  const gateState = JSON.parse(readFileSync(latestFile, 'utf-8'));
+  const gateState = migrateGateState(JSON.parse(readFileSync(latestFile, 'utf-8')));
   const elapsed = Date.now() - new Date(gateState.createdAt).getTime();
   const hoursAgo = Math.round(elapsed / 3600000);
 
@@ -470,11 +517,17 @@ else if (cmd === 'gate:status') {
 
     console.log(`\n   ✅ Gate valid. Continue implementation.`);
     process.exit(0);
+  } else if (gateState.implementationReady) {
+    const remaining = pendingChecks(gateState, GATE_PHASES.VERIFICATION);
+    console.log(`   Status: 🛠 IMPLEMENTATION (${remaining.length} verification check(s) remaining)`);
+    console.log(`   Remaining before finish: ${remaining.map(c => c.id).join(', ')}`);
+    console.log('\n   ✅ Preparation complete. Implementation may continue.');
+    process.exit(EXIT_CODES.OK);
   } else {
-    const remaining = gateState.checks.filter(c => c.status !== 'done');
-    console.log(`   Status: ❌ NOT CLEARED (${remaining.length} checks remaining)`);
-    console.log(`   Remaining: ${remaining.map(c => c.id).join(', ')}`);
-    process.exit(1);
+    const remaining = pendingChecks(gateState, GATE_PHASES.PREPARATION);
+    console.log(`   Status: ❌ PREPARATION (${remaining.length} checks remaining)`);
+    console.log(`   Remaining before implementation: ${remaining.map(c => c.id).join(', ')}`);
+    process.exit(EXIT_CODES.POLICY_FAILURE);
   }
 }
 
@@ -495,7 +548,7 @@ else if (cmd === 'gate:clear') {
     process.exit(1);
   }
 
-  const gateState = JSON.parse(readFileSync(gateFile, 'utf-8'));
+  const gateState = migrateGateState(JSON.parse(readFileSync(gateFile, 'utf-8')));
   const check = gateState.checks.find(c => c.id === checkId);
   if (!check) {
     console.log(`Unknown check: ${checkId}`);
@@ -508,8 +561,8 @@ else if (cmd === 'gate:clear') {
   const note = getArg(args, '--note');
   if (note) check.note = note;
 
+  recomputeGateState(gateState);
   const remaining = gateState.checks.filter(c => c.status !== 'done');
-  gateState.cleared = remaining.length === 0;
 
   writeFileSync(gateFile, JSON.stringify(gateState, null, 2));
 
@@ -517,12 +570,18 @@ else if (cmd === 'gate:clear') {
   console.log(`   ${gateState.checks.filter(c => c.status === 'done').length}/${gateState.checks.length} checks cleared`);
 
   if (gateState.cleared) {
-    console.log(`\n✅ GATE CLEARED — AI may now proceed with implementation.`);
-    process.exit(0);
+    console.log(`\n✅ GATE FINISHED — preparation and verification are complete.`);
+    process.exit(EXIT_CODES.OK);
+  } else if (gateState.implementationReady) {
+    const verification = pendingChecks(gateState, GATE_PHASES.VERIFICATION);
+    console.log(`\n✅ PREPARATION CLEARED — AI may proceed with implementation.`);
+    console.log(`   Gate remains open for verification: ${verification.map(c => c.id).join(', ')}`);
+    process.exit(EXIT_CODES.OK);
   } else {
-    console.log(`\n❌ ${remaining.length} checks remaining. AI MUST NOT write or edit any files.`);
-    console.log(`   Remaining: ${remaining.map(c => c.id).join(', ')}`);
-    process.exit(1);
+    const preparation = pendingChecks(gateState, GATE_PHASES.PREPARATION);
+    console.log(`\n❌ ${preparation.length} preparation checks remaining. AI MUST NOT write or edit implementation files.`);
+    console.log(`   Remaining: ${preparation.map(c => c.id).join(', ')}`);
+    process.exit(EXIT_CODES.POLICY_FAILURE);
   }
 }
 
@@ -567,14 +626,17 @@ else if (cmd === 'gate:required') {
 
   const gateDir = resolve(ROOT, config.paths.gates);
   if (!existsSync(gateDir)) {
-    console.log('❌ gate:required — no gates directory. Run: node scripts/harness/cli.mjs gate --task "修复：<描述>"');
+    console.log('❌ gate:required — no gates directory. Run: npx harness gate --task "修复：<描述>"');
     process.exit(1);
   }
 
   let branch = 'unknown';
   try {
-    branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: ROOT, encoding: 'utf-8' }).trim();
-  } catch { /* not a git repo */ }
+    branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: ROOT, encoding: 'utf-8' }).trim();
+  } catch (error) {
+    console.error(`❌ gate:required requires a Git repository: ${String(error.message).split('\n')[0]}`);
+    process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+  }
 
   const files = readdirSync(gateDir).filter(f => f.endsWith('.json'));
   const now = Date.now();
@@ -583,7 +645,7 @@ else if (cmd === 'gate:required') {
   for (const file of files) {
     let gate;
     try {
-      gate = JSON.parse(readFileSync(join(gateDir, file), 'utf-8'));
+      gate = migrateGateState(JSON.parse(readFileSync(join(gateDir, file), 'utf-8')));
     } catch { continue; }
     if (!gate.cleared) continue;
     if (gate.branch && gate.branch !== branch) continue;
@@ -600,9 +662,9 @@ else if (cmd === 'gate:required') {
 
   console.log(`❌ gate:required — no cleared, non-expired gate for branch "${branch}".`);
   console.log('   Every commit needs a gate. Run:');
-  console.log('     node scripts/harness/cli.mjs gate --task "修复：<描述>"   (or 优化:/新增:/样式:/审计:...)');
+  console.log('     npx harness gate --task "修复：<描述>"   (or 优化:/新增:/样式:/审计:...)');
   console.log('   then clear all checks with:');
-  console.log('     node scripts/harness/cli.mjs gate:clear --gate <GATE-ID> --clear <check-id>');
+  console.log('     npx harness gate:clear --gate <GATE-ID> --clear <check-id>');
   console.log('   Emergency bypass (not recommended): HARNESS_GATE_SKIP=1');
   process.exit(1);
 }
@@ -845,14 +907,13 @@ else if (cmd === 'prd') {
 else if (cmd === 'sync-check') {
   const prdId = getArg(args, '--id');
   const ack = hasArg(args, '--ack');
-  let changed = [];
-  try {
-    const status = execSync('git status --short', { cwd: ROOT, encoding: 'utf-8' });
-    const diff = execSync('git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only HEAD', { cwd: ROOT, encoding: 'utf-8' });
-    changed = [...status.split('\n'), ...diff.split('\n')]
-      .map(l => l.replace(/^[ MADRCU?!]{1,2}\s+/, '').trim())
-      .filter(Boolean);
-  } catch { /* not a repo */ }
+  const syncBase = getArg(args, '--base') || config.docImpact?.base || 'origin/main';
+  const changedResult = await import('./git-files.mjs').then(module => module.getChangedFiles(ROOT, syncBase));
+  if (changedResult.errors.length > 0) {
+    console.error(`❌ sync-check cannot determine changed files: ${changedResult.errors.join('; ')}`);
+    process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+  }
+  const changed = changedResult.files;
 
   // 知识同步矩阵由 harness.config.mjs 的 syncCheck.rules 驱动（通用化）
   const RULES = config.syncCheck?.rules || [];
@@ -962,18 +1023,22 @@ else if (cmd === 'nav:check') {
   process.exit(0);
 }
 
+else if (cmd === 'docs:check') {
+  await import('./docs-check.mjs').then(module => module.runDocsCheck({ rootDir: ROOT, args }));
+}
+
 // ================================================================
 // scan-* — 扫描器子命令（供 lefthook staged_files / CI 调用）
 // ================================================================
 else if (cmd === 'scan-anti-patterns') {
-  await import('./scan-anti-patterns.mjs').then(m => m.scan({ rootDir: ROOT, config, files: parseFilesArg() }));
+  await import('./scan-anti-patterns.mjs').then(m => m.scan({ rootDir: ROOT, config, files: parseFilesArg(args) }));
 }
 else if (cmd === 'scan-degraded-loop') {
-  const result = await import('./check-degraded-loop.mjs').then(m => m.scan({ rootDir: ROOT, config, files: parseFilesArg() }));
+  const result = await import('./check-degraded-loop.mjs').then(m => m.scan({ rootDir: ROOT, config, files: parseFilesArg(args) }));
   if (result.errors > 0) process.exitCode = 1;
 }
 else if (cmd === 'scan-secrets') {
-  await import('./scan-secrets.mjs').then(m => m.scan({ rootDir: ROOT, files: parseFilesArg() }));
+  await import('./scan-secrets.mjs').then(m => m.scan({ rootDir: ROOT, files: parseFilesArg(args) }));
 }
 
 // ================================================================
@@ -981,7 +1046,7 @@ else if (cmd === 'scan-secrets') {
 // ================================================================
 else if (cmd === 'init') {
   // init 向导：交互问答 + 档位选择（--preset/--tier/--ai/--team 非交互）
-  await import('./init.mjs').then(m => m.run({ args }));
+  await import('./init.mjs').then(m => m.run({ args, rootDir: ROOT }));
   process.exit(0);
 }
 
@@ -994,11 +1059,30 @@ else if (cmd === 'analyze') {
 }
 
 // ================================================================
+// standards — machine-readable standards registry
+// ================================================================
+else if (cmd === 'standards') {
+  await import('./standards.mjs').then(module => module.runStandards({ rootDir: ROOT, args, config }));
+}
+
+// ================================================================
+// supervise — pre/during/post implementation supervision MVP
+// ================================================================
+else if (cmd === 'supervise') {
+  await import('./supervisor.mjs').then(module => module.runSupervisor({ rootDir: ROOT, args, config }));
+}
+
+// ================================================================
 // plugins:list — 列出已加载插件（§2.3 插件协议）
 // ================================================================
 else if (cmd === 'plugins:list') {
-  const { checks, scanners, presets, sources } = await loadPlugins(ROOT, config);
-  const { checks: vc, scanners: vs, presets: vp } = normalizePlugins({ checks, scanners, presets });
+  const { checks, scanners, presets, sources, errors: loadErrors } = await loadPlugins(ROOT, config);
+  const { checks: vc, scanners: vs, presets: vp, errors: validationErrors } = normalizePlugins({ checks, scanners, presets });
+  const errors = [...loadErrors, ...validationErrors];
+  if (errors.length > 0) {
+    for (const error of errors) console.error(`❌ [plugin] ${error}`);
+    process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+  }
   console.log(`📦 插件源: ${sources.length ? sources.join(', ') : '（无）'}`);
   console.log(`  Check 插件 (${vc.length}): ${vc.map(c => c.id).join(', ') || '—'}`);
   console.log(`  Scanner 插件 (${vs.length}): ${vs.map(s => s.id).join(', ') || '—'}`);
@@ -1060,15 +1144,16 @@ else if (cmd === 'cache:clean') {
 else {
   console.log(`PallasTrade Harness CLI
 
-Usage: node scripts/harness/cli.mjs <command> [options]
+Usage: npx harness <command> [options]
 
 Gate (MANDATORY before coding):
   gate --task "description" [--type feature|bugfix|style]
-                                      Create pre-coding gate. AI MUST clear
-                                      all checks before writing any code.
+                                      Create a phased task gate. Preparation
+                                      must clear before implementation.
   gate:status                         Check if an active gate exists (for
                                       continuation turns on same task).
   gate:clear --gate <ID> --clear <id> Mark a gate check as completed.
+  gate:migrate [--dry-run]            Upgrade legacy gates to phased lifecycle.
   gate:required                       Enforced by pre-commit: fail when no
                                       cleared gate exists on this branch.
   gate:clean [--days N]               Prune cleared gates older than N days.
@@ -1078,6 +1163,9 @@ Environment:
 
 Analysis:
   affected --base origin/main           Show affected components
+  standards list|select|coverage        Index, select, and measure standards
+  supervise plan --task <text>          Create a scoped Change Plan
+  supervise diff [--plan <path>]        Review changed code against the plan
 
 Quality:
   check --profile quick|full|release    Run quality gates
@@ -1088,7 +1176,8 @@ Quality:
   coverage [--component X] [--enforce]  Coverage gate vs thresholds
   generated:check                       Check generated files for drift
   doc-impact --base origin/main         Check knowledge docs are synced
-  sync-check [--id PRD-xxx]             Knowledge sync gate: assets needing review
+  docs:check [--json]                   Validate local Markdown link targets
+  sync-check [--id PRD-xxx] [--base ref] Knowledge sync gate: assets needing review
   nav:check                             Validate AGENTS.md §0 navigation map
 
 PRD (PRD-driven workflow):
@@ -1100,4 +1189,8 @@ Evidence:
   evidence collect                      Collect structured delivery evidence
   diagnostics collect                   Collect failure diagnostics
 `);
+  if (cmd && !['help', '--help', '-h'].includes(cmd)) {
+    console.error(`\nUnknown command: ${cmd}`);
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+  }
 }

@@ -30,6 +30,7 @@ export async function loadPlugins(rootDir, config) {
   const scanners = [];
   const presets = [];
   const sources = [];
+  const errors = [];
 
   // 1. 文件级：harness/plugins/*.mjs（下划线前缀文件跳过 = 可选加载）
   const pluginsDir = resolve(rootDir, 'harness', 'plugins');
@@ -44,7 +45,7 @@ export async function loadPlugins(rootDir, config) {
         if (p.presets) presets.push(...(Array.isArray(p.presets) ? p.presets : [p.presets]));
         sources.push(`file:${f}`);
       } catch (e) {
-        console.error(`❌ [plugin] failed to load ${f}: ${e.message}`);
+        errors.push(`failed to load ${f}: ${e.message}`);
       }
     }
   }
@@ -58,7 +59,7 @@ export async function loadPlugins(rootDir, config) {
     if (cfg.checks || cfg.scanners || cfg.presets) sources.push('config');
   }
 
-  return { checks, scanners, presets, sources };
+  return { checks, scanners, presets, sources, errors };
 }
 
 /** 校验插件结构，返回错误数组 */
@@ -84,20 +85,21 @@ export function normalizePlugins({ checks = [], scanners = [], presets = [] }) {
   const validChecks = [];
   const validScanners = [];
   const validPresets = [];
+  const errors = [];
   for (const c of checks) {
     const errs = validatePlugin(c, 'check');
-    if (errs.length) console.warn(`⚠️ [plugin] invalid check: ${errs.join('; ')}`);
+    if (errs.length) errors.push(`invalid check: ${errs.join('; ')}`);
     else validChecks.push(c);
   }
   for (const s of scanners) {
     const errs = validatePlugin(s, 'scanner');
-    if (errs.length) console.warn(`⚠️ [plugin] invalid scanner: ${errs.join('; ')}`);
+    if (errs.length) errors.push(`invalid scanner: ${errs.join('; ')}`);
     else validScanners.push(s);
   }
   for (const p of presets) {
     const errs = validatePlugin(p, 'preset');
-    if (errs.length) console.warn(`⚠️ [plugin] invalid preset: ${errs.join('; ')}`);
+    if (errs.length) errors.push(`invalid preset: ${errs.join('; ')}`);
     else validPresets.push(p);
   }
-  return { checks: validChecks, scanners: validScanners, presets: validPresets };
+  return { checks: validChecks, scanners: validScanners, presets: validPresets, errors };
 }

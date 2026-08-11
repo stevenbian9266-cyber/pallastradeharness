@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { EXIT_CODES } from './cli-utils.mjs';
 
 /**
  * Knowledge sync rules come from harness.config.mjs → docImpact.rules
@@ -12,7 +13,9 @@ export async function run({ rootDir, args, config }) {
   // Get changed files: committed (vs base) + staged + unstaged.
   const { files: changedFiles, errors } = await import('./git-files.mjs').then(m => m.getChangedFiles(rootDir, base));
   if (errors.length > 0) {
-    console.log(`⚠️  git: ${errors.join('; ')}`);
+    console.error(`❌ doc-impact cannot determine changed files: ${errors.join('; ')}`);
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
   }
 
   if (changedFiles.length === 0) {

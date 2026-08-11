@@ -1,7 +1,7 @@
 {
   "name": "pallastrade-harness",
-  "version": "0.2.3",
-  "description": "AI-era engineering harness: pre-coding gates, anti-pattern scanners, PRD workflow, knowledge-sync enforcement. Config-driven, project-agnostic.",
+  "version": "0.4.0",
+  "description": "AI-native SDLC governance: phased gates, machine-readable standards, development supervision, evidence, and knowledge-sync enforcement.",
   "type": "module",
   "bin": {
     "harness": "./bin/harness.mjs",
@@ -10,7 +10,11 @@
     "harness-scan-secrets": "./bin/scan-secrets.mjs"
   },
   "exports": {
-    "./config-loader": "./bin/config-loader.mjs"
+    "./config-loader": "./bin/config-loader.mjs",
+    "./contracts": "./bin/contracts.mjs",
+    "./gate-lifecycle": "./bin/gate-lifecycle.mjs",
+    "./standards": "./bin/standards.mjs",
+    "./supervisor": "./bin/supervisor.mjs"
   },
   "files": [
     "bin",
@@ -21,10 +25,11 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "glob": "^11.0.0"
+    "glob": "^11.0.0",
+    "minimatch": "^10.2.6"
   },
   "scripts": {
-    "test": "node --test bin/*.test.mjs"
+    "test": "node --test"
   },
   "keywords": [
     "harness",
