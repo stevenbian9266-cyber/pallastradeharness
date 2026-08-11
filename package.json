@@ -1,7 +1,7 @@
 {
   "name": "pallastrade-harness",
-  "version": "0.4.0",
-  "description": "AI-native SDLC governance: phased gates, machine-readable standards, development supervision, evidence, and knowledge-sync enforcement.",
+  "version": "1.0.0",
+  "description": "Local-first AI-native SDLC governance, development supervision, evidence, recovery, and project knowledge orchestration.",
   "type": "module",
   "bin": {
     "harness": "./bin/harness.mjs",
@@ -14,12 +14,24 @@
     "./contracts": "./bin/contracts.mjs",
     "./gate-lifecycle": "./bin/gate-lifecycle.mjs",
     "./standards": "./bin/standards.mjs",
-    "./supervisor": "./bin/supervisor.mjs"
+    "./supervisor": "./bin/supervisor.mjs",
+    "./tasks": "./bin/task-orchestrator.mjs",
+    "./project-brain": "./bin/project-brain.mjs",
+    "./risk-engine": "./bin/risk-engine.mjs",
+    "./domain-supervisors": "./bin/domain-supervisors.mjs",
+    "./evidence": "./bin/evidence.mjs",
+    "./recovery": "./bin/recovery.mjs",
+    "./knowledge-loop": "./bin/knowledge-loop.mjs",
+    "./agent-adapters": "./bin/agent-adapters.mjs",
+    "./mcp": "./bin/mcp.mjs",
+    "./plugins": "./bin/plugins.mjs"
   },
   "files": [
     "bin",
     "presets",
-    "rules"
+    "rules",
+    "docs",
+    "examples"
   ],
   "engines": {
     "node": ">=22.0.0"

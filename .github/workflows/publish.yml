@@ -1,20 +1,12 @@
 name: Publish to npm (trusted publishing / OIDC)
 
-# 触发：推送 v* tag 或手动触发。
-# 前置（一次性配置，见 CONTRIBUTING.md → 发布 → trusted publishing）：
-#   npm 网站 → Packages → pallastrade-harness → Settings → Trusted Publisher
-#   → 选 GitHub Actions → Organization/user: stevenbian9266-cyber
-#   → Repository: pallastradeharness → Workflow filename: publish.yml
-#   → Allowed actions: npm publish
-# 纯 OIDC：无需 NPM_TOKEN，npm CLI 自动交换 OIDC 短时凭证 + 自动 provenance。
 on:
   push:
     tags: ['v*']
-  workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write          # OIDC → npm trusted publishing
+  id-token: write
 
 jobs:
   publish:
@@ -25,12 +17,16 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: '24'          # npm 11.5.1+ 才支持 trusted publishing
+          node-version: '24'
           registry-url: https://registry.npmjs.org
-          package-manager-cache: false  # release 构建不使用缓存
+          package-manager-cache: false
+      - name: Verify tag matches package version
+        run: test "$GITHUB_REF_NAME" = "v$(node -p 'require("./package.json").version')"
       - name: Install dependencies
         run: npm ci
       - name: Test
         run: npm test
+      - name: Verify package contents
+        run: npm pack --dry-run
       - name: Publish
-        run: npm publish --access public   # trusted publishing 自动 OIDC 认证 + 自动 provenance
+        run: npm publish --access public --provenance

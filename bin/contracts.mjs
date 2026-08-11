@@ -8,6 +8,42 @@ export const CONTRACT_TYPES = Object.freeze([
   'Evidence',
   'KnowledgeAsset',
   'AgentRun',
+  'ProjectProfile',
+  'ChangePlan',
+  'Decision',
+  'ContextPack',
+  'TaskCheckpoint',
+  'EvidenceBundle',
+  'RecoveryPlan',
+  'KnowledgeAssessment',
+  'HandoffPackage',
+]);
+
+export const TASK_STATUSES = Object.freeze([
+  'draft',
+  'planned',
+  'approved',
+  'implementing',
+  'reviewing',
+  'verifying',
+  'completed',
+  'paused',
+  'blocked',
+  'cancelled',
+  'superseded',
+]);
+
+export const EVIDENCE_TYPES = Object.freeze([
+  'command',
+  'test',
+  'build',
+  'screenshot',
+  'dom',
+  'log',
+  'database',
+  'review',
+  'approval',
+  'knowledge',
 ]);
 
 export const STANDARD_CATEGORIES = Object.freeze([
@@ -43,6 +79,15 @@ const REQUIRED_FIELDS = Object.freeze({
   Evidence: ['id', 'evidenceType', 'taskId', 'capturedAt', 'summary'],
   KnowledgeAsset: ['id', 'path', 'status'],
   AgentRun: ['id', 'taskId', 'agent', 'startedAt', 'status'],
+  ProjectProfile: ['id', 'name', 'repository', 'generatedAt', 'stacks', 'layers'],
+  ChangePlan: ['id', 'taskId', 'allow', 'deny', 'standards', 'requiredEvidence', 'createdAt'],
+  Decision: ['id', 'taskId', 'title', 'decision', 'reason', 'createdAt'],
+  ContextPack: ['id', 'taskId', 'generatedAt', 'assets', 'nextActions'],
+  TaskCheckpoint: ['id', 'taskId', 'createdAt', 'status', 'git', 'nextActions'],
+  EvidenceBundle: ['id', 'taskId', 'createdAt', 'evidence', 'verification'],
+  RecoveryPlan: ['id', 'taskId', 'createdAt', 'failureCriteria', 'stopConditions', 'codeRecovery', 'dataRecovery', 'verification'],
+  KnowledgeAssessment: ['id', 'taskId', 'asset', 'status', 'reason', 'assessedAt'],
+  HandoffPackage: ['id', 'taskId', 'createdAt', 'status', 'nextActions'],
 });
 
 function isObject(value) {
@@ -74,8 +119,28 @@ function validateTypeSpecificFields(type, value) {
   if (type === 'Risk' && !['quick', 'standard', 'critical'].includes(value.level)) {
     return ['level must be quick, standard, or critical'];
   }
+  if (type === 'Task' && !TASK_STATUSES.includes(value.status)) {
+    return [`status must be one of: ${TASK_STATUSES.join(', ')}`];
+  }
+  if (type === 'Evidence' && !EVIDENCE_TYPES.includes(value.evidenceType)) {
+    return [`evidenceType must be one of: ${EVIDENCE_TYPES.join(', ')}`];
+  }
   if (type === 'KnowledgeAsset' && !['updated', 'reviewed-no-change', 'not-applicable', 'pending'].includes(value.status)) {
     return ['status must be updated, reviewed-no-change, not-applicable, or pending'];
+  }
+  if (type === 'KnowledgeAssessment' && !['updated', 'reviewed-no-change', 'not-applicable'].includes(value.status)) {
+    return ['status must be updated, reviewed-no-change, or not-applicable'];
+  }
+  if (['ProjectProfile', 'ChangePlan', 'ContextPack', 'TaskCheckpoint', 'EvidenceBundle', 'HandoffPackage'].includes(type)) {
+    const arrayFields = {
+      ProjectProfile: ['stacks', 'layers'],
+      ChangePlan: ['allow', 'deny', 'standards', 'requiredEvidence'],
+      ContextPack: ['assets', 'nextActions'],
+      TaskCheckpoint: ['nextActions'],
+      EvidenceBundle: ['evidence'],
+      HandoffPackage: ['nextActions'],
+    }[type];
+    return arrayFields.filter(field => !Array.isArray(value[field])).map(field => `${field} must be an array`);
   }
   return [];
 }

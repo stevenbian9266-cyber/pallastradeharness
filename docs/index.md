@@ -29,6 +29,8 @@ title: pallastrade-harness
 - [插件开发](plugins.md) — 无需改引擎的扩展协议
 - [规则集](rules.md) — starter 反模式规则库
 - [规范与开发监督](standards-supervisor.md) — Standard Schema、覆盖率、Change Plan 和 Diff Review
+- [完整任务生命周期](lifecycle.md) — Task/Brain/Risk/Evidence/Recovery/Knowledge/MCP
+- [迁移到 1.0](migration-1.0.md) — 配置、状态、插件与兼容性
 - [贡献指南](contributing.md) — 规则/插件/文档贡献
 - [路线图](roadmap.md) — 0.4→1.0 治理路线
 
@@ -38,7 +40,8 @@ title: pallastrade-harness
 npm i -D pallastrade-harness   # 或 npx harness init 引导
 npx harness init               # 生成 harness.config.mjs 骨架
 npx harness doctor             # 项目体检
-npx harness gate --task "新增：我的功能"   # 开始一次编码任务
+npx harness task start --title "新增：我的功能" --allow "src/**"
+npx harness gate --task "新增：我的功能" --task-id <TASK-ID>
 npx harness standards coverage          # 查看规范执行覆盖率
 npx harness supervise plan --task "新增：我的功能" --allow "src/**"
 ```

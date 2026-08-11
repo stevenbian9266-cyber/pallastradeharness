@@ -2,7 +2,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, statSync, rmSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { execFileSync, execSync } from 'node:child_process';
-import { loadConfig, resolveProjectRoot, getGateChecks } from './config-loader.mjs';
+import { DEFAULT_CONFIG, loadConfig, resolveProjectRoot, getGateChecks } from './config-loader.mjs';
 import { loadPlugins, normalizePlugins } from './plugins.mjs';
 import { EXIT_CODES, getArg, hasArg, parseFilesArg } from './cli-utils.mjs';
 import { GATE_PHASES, migrateGateState, pendingChecks, recomputeGateState } from './gate-lifecycle.mjs';
@@ -16,7 +16,8 @@ const cmd = args[0];
 // 加载项目配置（默认值 + harness.config.mjs 深合并；无配置文件则用引擎默认）
 let config;
 try {
-  ({ config } = await loadConfig({ rootDir: ROOT }));
+  if (cmd === 'config:migrate') config = structuredClone(DEFAULT_CONFIG);
+  else ({ config } = await loadConfig({ rootDir: ROOT }));
 } catch (error) {
   console.error(`❌ ${error.message}`);
   process.exit(error.exitCode || EXIT_CODES.INTERNAL_ERROR);
@@ -284,7 +285,7 @@ else if (cmd === 'e2e') {
 // evidence / diagnostics
 // ================================================================
 else if (cmd === 'evidence') {
-  await import('./evidence.mjs').then(m => m.collect({ rootDir: ROOT }));
+  await import('./evidence.mjs').then(m => m.runEvidence({ rootDir: ROOT, args, config }));
 }
 else if (cmd === 'diagnostics') {
   console.log('[harness] diagnostics — CI handles collection.');
@@ -406,6 +407,7 @@ else if (cmd === 'gate') {
     createdAt: now.toISOString(),
     branch,
     head: head.slice(0, 8),
+    taskId: getArg(args, '--task-id') || null,
     checks: checks.map(c => ({ ...c, phase: c.phase || GATE_PHASES.PREPARATION, status: 'pending', completedAt: null })),
     cleared: false,
   });
@@ -556,14 +558,18 @@ else if (cmd === 'gate:clear') {
     process.exit(1);
   }
 
+  if (checkId === 'verify-test' && gateState.taskId) {
+    console.log(`❌ verify-test for task-bound gate ${gateState.id} is evidence-controlled.`);
+    console.log(`   Run: harness evidence verify --task ${gateState.taskId} --gate ${gateState.id}`);
+    process.exit(EXIT_CODES.POLICY_FAILURE);
+  }
+
   check.status = 'done';
   check.completedAt = new Date().toISOString();
   const note = getArg(args, '--note');
   if (note) check.note = note;
 
   recomputeGateState(gateState);
-  const remaining = gateState.checks.filter(c => c.status !== 'done');
-
   writeFileSync(gateFile, JSON.stringify(gateState, null, 2));
 
   console.log(`✅ ${checkId}: ${check.label}`);
@@ -583,6 +589,7 @@ else if (cmd === 'gate:clear') {
     console.log(`   Remaining: ${preparation.map(c => c.id).join(', ')}`);
     process.exit(EXIT_CODES.POLICY_FAILURE);
   }
+
 }
 
 // ================================================================
@@ -1076,10 +1083,80 @@ else if (cmd === 'supervise') {
 }
 
 // ================================================================
+// task / brain / risk — persistent lifecycle and project context
+// ================================================================
+else if (cmd === 'task') {
+  const taskModule = await import('./task-orchestrator.mjs');
+  const evidenceModule = await import('./evidence.mjs');
+  taskModule.runTask({
+    rootDir: ROOT,
+    args,
+    config,
+    verificationProvider: task => evidenceModule.verifyTaskEvidence({ rootDir: ROOT, config, task }),
+  });
+}
+else if (cmd === 'brain') {
+  const taskModule = await import('./task-orchestrator.mjs');
+  await import('./project-brain.mjs').then(module => module.runBrain({
+    rootDir: ROOT,
+    args,
+    config,
+    taskResolver: taskId => taskModule.resolveTask(ROOT, config, taskId, { allowTerminal: false }),
+  }));
+}
+else if (cmd === 'risk') {
+  const subcommand = args[1] || 'check';
+  if (subcommand !== 'check') {
+    console.error('Usage: harness risk check [--task <id>] [--base <ref>] [--override <level> --reason <text>]');
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+  } else {
+    const taskModule = await import('./task-orchestrator.mjs');
+    const task = taskModule.resolveTask(ROOT, config, getArg(args, '--task'), { allowTerminal: false });
+    const base = getArg(args, '--base') || task.baseHead || 'HEAD';
+    const gitModule = await import('./git-files.mjs');
+    const changed = gitModule.getChangedFiles(ROOT, base);
+    const diff = gitModule.getDiff(ROOT, base, { unified: 0 });
+    const errors = [...changed.errors, ...diff.errors];
+    if (errors.length > 0) {
+      console.error(`❌ risk check cannot inspect Git state: ${errors.join('; ')}`);
+      process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    } else {
+      const updated = taskModule.reassessTaskRisk({
+        rootDir: ROOT,
+        config,
+        task,
+        files: changed.files,
+        diff: diff.diff,
+        declared: getArg(args, '--risk'),
+        override: getArg(args, '--override'),
+        reason: getArg(args, '--reason'),
+      });
+      if (hasArg(args, '--json') || getArg(args, '--format') === 'json') console.log(JSON.stringify(updated.risk, null, 2));
+      else console.log(`✅ Risk ${updated.risk.level}: ${updated.risk.reasons.join('; ')}`);
+    }
+  }
+}
+else if (cmd === 'recovery') {
+  await import('./recovery.mjs').then(module => module.runRecovery({ rootDir: ROOT, args, config }));
+}
+else if (cmd === 'knowledge') {
+  await import('./knowledge-loop.mjs').then(module => module.runKnowledge({ rootDir: ROOT, args, config }));
+}
+else if (cmd === 'adapter') {
+  await import('./agent-adapters.mjs').then(module => module.runAdapters({ rootDir: ROOT, args, config }));
+}
+else if (cmd === 'mcp') {
+  await import('./mcp.mjs').then(module => module.runMcpStdio({ rootDir: ROOT, config }));
+}
+else if (cmd === 'tui') {
+  await import('./tui.mjs').then(module => module.runTui({ rootDir: ROOT, args, config }));
+}
+
+// ================================================================
 // plugins:list — 列出已加载插件（§2.3 插件协议）
 // ================================================================
 else if (cmd === 'plugins:list') {
-  const { checks, scanners, presets, sources, errors: loadErrors } = await loadPlugins(ROOT, config);
+  const { checks, scanners, presets, sources, manifests, warnings, errors: loadErrors } = await loadPlugins(ROOT, config);
   const { checks: vc, scanners: vs, presets: vp, errors: validationErrors } = normalizePlugins({ checks, scanners, presets });
   const errors = [...loadErrors, ...validationErrors];
   if (errors.length > 0) {
@@ -1087,9 +1164,11 @@ else if (cmd === 'plugins:list') {
     process.exit(EXIT_CODES.USAGE_OR_CONFIG);
   }
   console.log(`📦 插件源: ${sources.length ? sources.join(', ') : '（无）'}`);
+  console.log(`  Protocol: ${manifests.map(manifest => `${manifest.name}@${manifest.apiVersion}`).join(', ') || '—'}`);
   console.log(`  Check 插件 (${vc.length}): ${vc.map(c => c.id).join(', ') || '—'}`);
   console.log(`  Scanner 插件 (${vs.length}): ${vs.map(s => s.id).join(', ') || '—'}`);
   console.log(`  Preset (${vp.length}): ${vp.map(p => p.id).join(', ') || '—'}`);
+  for (const warning of warnings) console.log(`  ⚠️ ${warning}`);
   process.exit(0);
 }
 
@@ -1127,6 +1206,16 @@ else if (cmd === 'config:check') {
   process.exit(0);
 }
 
+else if (cmd === 'config:migrate') {
+  await import('./migrations.mjs').then(module => module.runMigrations({ rootDir: ROOT, config, args, kind: 'config' }));
+}
+else if (cmd === 'state:migrate') {
+  await import('./migrations.mjs').then(module => module.runMigrations({ rootDir: ROOT, config, args, kind: 'state' }));
+}
+else if (cmd === 'ci') {
+  await import('./ci.mjs').then(module => module.runCi({ rootDir: ROOT, args }));
+}
+
 // ================================================================
 // cache:clean — remove harness cache directory (.harness-cache)
 // ================================================================
@@ -1150,7 +1239,7 @@ else {
 Usage: npx harness <command> [options]
 
 Gate (MANDATORY before coding):
-  gate --task "description" [--type feature|bugfix|style]
+  gate --task "description" [--type feature|bugfix|style] [--task-id <ID>]
                                       Create a phased task gate. Preparation
                                       must clear before implementation.
   gate:status                         Check if an active gate exists (for
@@ -1163,12 +1252,25 @@ Gate (MANDATORY before coding):
 
 Environment:
   doctor [--fix-safe] [--format json]   Diagnose local dev environment
+  config:migrate [--write]              Dry-run/apply the 1.0 config migration
+  state:migrate [--write]               Dry-run/apply local state migrations
 
 Analysis:
   affected --base origin/main           Show affected components
+  task start|status|checkpoint|resume   Persist and resume lifecycle state
+  task handoff|finish|abandon|list      Transfer, complete, or close tasks
+  brain index|context|decision|status   Build the project knowledge context
+  risk check [--task <id>]              Reassess and only auto-escalate risk
+  recovery create|status|verify         Create manual-only recovery checkpoints
+  knowledge assess|status|verify        Record the three-state knowledge loop
+  adapter list|generate                 Generate managed Agent policy blocks
+  mcp                                   Start the local stdio MCP server
+  tui [--json|--watch]                  Show tasks, risks, evidence, next actions
+  ci github [--write]                   Generate optional GitHub checks workflow
   standards list|select|coverage        Index, select, and measure standards
   supervise plan --task <text>          Create a scoped Change Plan
   supervise diff [--plan <path>]        Review changed code against the plan
+  supervise review [--domains <list>]   Run database/API/UI/security reviews
 
 Quality:
   check --profile quick|full|release    Run quality gates
@@ -1189,7 +1291,10 @@ PRD (PRD-driven workflow):
   prd verify --id PRD-xxx               Check AC -> test coverage
 
 Evidence:
-  evidence collect                      Collect structured delivery evidence
+  evidence collect                      Collect repository diagnostics
+  evidence run --task <id> --type test -- <command...>
+                                       Run and record command evidence safely
+  evidence record|list|verify|bundle   Record artifacts and verify freshness
   diagnostics collect                   Collect failure diagnostics
 `);
   if (cmd && !['help', '--help', '-h'].includes(cmd)) {

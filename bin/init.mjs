@@ -164,7 +164,7 @@ export function buildConfig({ name, preset, tier, ai }, PRESETS) {
     "  standards: { includeBundled: false, sources: ['harness/standards/**/*.json'] },",
     '',
     '  // ⑦ 状态/产物路径（默认值即可）',
-    "  paths: { gates: 'harness/gates', requirements: 'harness/requirements', evidence: 'artifacts/harness-evidence', prd: 'docs/prd' },",
+    "  paths: { gates: 'harness/gates', requirements: 'harness/requirements', evidence: 'artifacts/harness-evidence', prd: 'docs/prd', state: '.harness-state' },",
     '};\n',
   ];
   return lines.join('\n');
@@ -264,7 +264,7 @@ npx harness gate:status   # exit 0 → 有效 gate 可继续；exit 1 → 需处
 
 // ── 生成 .gitignore 追加 ───────────────────────────────────────
 function gitignoreAppend() {
-  return '\n# harness 运行时状态（每个项目各自维护）\n/harness/gates/\n.harness-cache/\n';
+  return '\n# harness 运行时状态（每个项目各自维护）\n/harness/gates/\n.harness-cache/\n.harness-state/\n/artifacts/harness-evidence/\n';
 }
 
 /**

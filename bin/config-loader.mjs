@@ -20,6 +20,7 @@ import { GATE_PHASES } from './gate-lifecycle.mjs';
 // DEFAULT_CONFIG — 通用默认值
 // ────────────────────────────────────────────────────────────────
 export const DEFAULT_CONFIG = {
+  schemaVersion: '1.0',
   name: 'project',
 
   // ① 层定义：gate 跨层搜索来源。单层项目配 [{ id: 'app', path: 'src' }]
@@ -74,6 +75,7 @@ export const DEFAULT_CONFIG = {
     requirements: 'harness/requirements',
     evidence: 'artifacts/harness-evidence',
     prd: 'docs/prd',
+    state: '.harness-state',
   },
 
   // ⑩ generated:check 生成命令（默认空 = 跳过）
@@ -92,8 +94,43 @@ export const DEFAULT_CONFIG = {
     generatedFiles: [],
     protectedFiles: ['**/db/schema.rb', '**/Gemfile.lock'],
     dependencyFiles: ['**/package.json', '**/Gemfile', '**/requirements*.txt'],
+    testFiles: ['**/*.test.*', '**/*.spec.*', '**/test/**', '**/tests/**', '**/spec/**', '**/fixtures/**'],
+    ruleDefinitionFiles: ['**/risk-engine.*', '**/domain-supervisors.*', '**/scan-*', '**/check-*/**', '**/policies/**', '**/rules/**'],
     complexity: { maxDecisionPoints: 12, duplicateBlockLines: 6 },
     boundaries: [],
+    maxFiles: 10000,
+    shardSize: 500,
+  },
+  brain: {
+    sources: [
+      'AGENTS.md',
+      'CLAUDE.md',
+      '.github/copilot-instructions.md',
+      'README.md',
+      'docs/**/*.{md,mdx,json,yaml,yml}',
+      'ai/skills/**/SKILL.md',
+      'harness/**/*.{md,json,yaml,yml}',
+    ],
+    exclude: ['**/node_modules/**', '**/.git/**', '**/.env*', '**/*secret*', '**/artifacts/**'],
+    maxAssetBytes: 524288,
+    maxContextAssets: 20,
+    maxAssets: 10000,
+    shardSize: 500,
+  },
+  risk: {
+    criticalPaths: [
+      '**/db/migrate/**', '**/*payment*', '**/*auth*', '**/*permission*',
+      '**/*secret*', '**/*deploy*', '**/.github/workflows/**', '**/Dockerfile*',
+    ],
+    standardPaths: ['**/*api*/**', '**/package.json', '**/Gemfile', '**/*config*', '**/*schema*'],
+  },
+  evidence: {
+    autoVerify: true,
+    maxOutputBytes: 262144,
+  },
+  plugins: {
+    apiVersion: '1.0',
+    strict: false,
   },
 };
 
@@ -196,6 +233,7 @@ function deepMerge(base, override) {
 
 export function validateConfig(cfg) {
   const errors = [];
+  if (cfg.schemaVersion !== undefined && cfg.schemaVersion !== '1.0') errors.push('schemaVersion must be 1.0');
   if (cfg.name !== undefined && typeof cfg.name !== 'string') errors.push('name must be a string');
   if (!Array.isArray(cfg.layers) || cfg.layers.length === 0) errors.push('layers must be a non-empty array');
   for (const l of cfg.layers || []) {
@@ -207,6 +245,10 @@ export function validateConfig(cfg) {
   if (cfg.profiles && !isPlainObject(cfg.profiles)) errors.push('profiles must be an object');
   if (cfg.standards && !Array.isArray(cfg.standards.sources)) errors.push('standards.sources must be an array');
   if (cfg.supervisor && !isPlainObject(cfg.supervisor)) errors.push('supervisor must be an object');
+  if (!cfg.paths || typeof cfg.paths.state !== 'string') errors.push('paths.state must be a string');
+  if (cfg.brain && !Array.isArray(cfg.brain.sources)) errors.push('brain.sources must be an array');
+  if (cfg.risk && !isPlainObject(cfg.risk)) errors.push('risk must be an object');
+  if (cfg.evidence && !isPlainObject(cfg.evidence)) errors.push('evidence must be an object');
   return errors;
 }
 

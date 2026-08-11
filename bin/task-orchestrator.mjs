@@ -1,0 +1,259 @@
+import { createHash } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { createContract } from './contracts.mjs';
+import { EXIT_CODES, getArg, getArgs, hasArg } from './cli-utils.mjs';
+import { assessRisk, mergeRisk } from './risk-engine.mjs';
+import {
+  atomicWriteJson,
+  ensureStateDirectories,
+  listTasks,
+  loadTask,
+  repositoryIdentity,
+  resolveTask,
+  saveTask,
+  statePaths,
+  workspaceFingerprint,
+} from './state-store.mjs';
+
+const TERMINAL = new Set(['completed', 'cancelled', 'superseded']);
+const TRANSITIONS = Object.freeze({
+  draft: ['planned', 'cancelled'],
+  planned: ['approved', 'implementing', 'paused', 'cancelled', 'superseded'],
+  approved: ['implementing', 'paused', 'cancelled', 'superseded'],
+  implementing: ['reviewing', 'paused', 'blocked', 'cancelled', 'superseded'],
+  reviewing: ['implementing', 'verifying', 'paused', 'blocked', 'cancelled'],
+  verifying: ['implementing', 'completed', 'blocked', 'cancelled'],
+  paused: ['implementing', 'cancelled', 'superseded'],
+  blocked: ['implementing', 'cancelled', 'superseded'],
+  completed: [],
+  cancelled: [],
+  superseded: [],
+});
+
+function id(prefix, seed) {
+  const date = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
+  return `${prefix}-${date}-${createHash('sha256').update(seed).digest('hex').slice(0, 8)}`;
+}
+
+export function transitionTask(task, status, note = null) {
+  if (task.status === status) return task;
+  if (!(TRANSITIONS[task.status] || []).includes(status)) {
+    throw new TypeError(`Illegal task transition: ${task.status} -> ${status}`);
+  }
+  const at = new Date().toISOString();
+  return {
+    ...task,
+    status,
+    history: [...(task.history || []), { from: task.status, to: status, at, note }],
+    updatedAt: at,
+  };
+}
+
+export function startTask({ rootDir, config, title, declaredRisk = null, goals = [], nonGoals = [], acceptanceCriteria = [], allow = [], deny = [] }) {
+  const identity = repositoryIdentity(rootDir);
+  const risk = assessRisk({ task: title, files: allow, declared: declaredRisk, config });
+  const createdAt = new Date().toISOString();
+  const task = createContract('Task', {
+    id: id('TASK', `${identity.repository}:${identity.worktreeId}:${title}:${createdAt}`),
+    title,
+    status: 'planned',
+    riskLevel: risk.level,
+    createdAt,
+    repository: identity.repository,
+    worktreeId: identity.worktreeId,
+    branch: identity.branch,
+    baseHead: identity.head,
+    goals,
+    nonGoals,
+    acceptanceCriteria,
+    risk,
+    changePlan: {
+      allow: allow.length > 0 ? allow : (config.layers || []).map(layer => `${String(layer.path).replaceAll('\\', '/')}/**/*`),
+      deny: [...new Set([...(config.supervisor?.protectedFiles || []), ...deny])],
+      standards: [],
+      requiredEvidence: risk.requiredEvidence,
+    },
+    blockers: [],
+    nextActions: ['Build project context', 'Select applicable standards', 'Confirm the Change Plan'],
+    history: [{ from: null, to: 'planned', at: createdAt, note: 'task started' }],
+  });
+  return saveTask(rootDir, config, task);
+}
+
+export function reassessTaskRisk({ rootDir, config, task, files = [], diff = '', declared = null, override = null, reason = null }) {
+  const reassessed = assessRisk({ task: task.title, files, diff, declared, config });
+  const risk = mergeRisk(task.risk, reassessed, { override, reason });
+  return saveTask(rootDir, config, { ...task, risk, riskLevel: risk.level });
+}
+
+export function createCheckpoint({ rootDir, config, task, status = null, summary = '', nextActions = [] }) {
+  let updated = task;
+  if (status && status !== task.status) updated = transitionTask(task, status, summary || 'checkpoint');
+  const identity = repositoryIdentity(rootDir);
+  const checkpoint = createContract('TaskCheckpoint', {
+    id: id('CHK', `${task.id}:${Date.now()}`),
+    taskId: task.id,
+    createdAt: new Date().toISOString(),
+    status: updated.status,
+    summary: summary || 'checkpoint',
+    git: { branch: identity.branch, head: identity.head, worktreeId: identity.worktreeId, workspaceFingerprint: workspaceFingerprint(rootDir) },
+    modifiedFiles: updated.modifiedFiles || [],
+    completedSteps: updated.completedSteps || [],
+    blockers: updated.blockers || [],
+    decisions: updated.decisions || [],
+    nextActions: nextActions.length > 0 ? nextActions : updated.nextActions || [],
+  });
+  const dir = resolve(statePaths(rootDir, config).checkpoints, task.id);
+  mkdirSync(dir, { recursive: true });
+  atomicWriteJson(resolve(dir, `${checkpoint.id}.json`), checkpoint);
+  updated = saveTask(rootDir, config, { ...updated, lastCheckpointId: checkpoint.id, nextActions: checkpoint.nextActions });
+  return { task: updated, checkpoint };
+}
+
+export function resumeTask({ rootDir, config, task, note = 'task resumed' }) {
+  if (TERMINAL.has(task.status)) throw new TypeError(`Cannot resume terminal task ${task.status}`);
+  const identity = repositoryIdentity(rootDir);
+  if (identity.repository !== task.repository || identity.worktreeId !== task.worktreeId) {
+    throw new TypeError(`Task belongs to a different repository/worktree (${task.worktreeId}); use its handoff package to start a related task here.`);
+  }
+  const updated = ['paused', 'blocked', 'planned', 'approved'].includes(task.status)
+    ? transitionTask(task, 'implementing', note)
+    : task;
+  return saveTask(rootDir, config, updated);
+}
+
+export function buildHandoff({ rootDir, config, task }) {
+  const identity = repositoryIdentity(rootDir);
+  const handoff = createContract('HandoffPackage', {
+    id: id('HANDOFF', `${task.id}:${Date.now()}`),
+    taskId: task.id,
+    createdAt: new Date().toISOString(),
+    status: task.status,
+    title: task.title,
+    goals: task.goals || [],
+    nonGoals: task.nonGoals || [],
+    acceptanceCriteria: task.acceptanceCriteria || [],
+    risk: task.risk,
+    changePlan: task.changePlan,
+    completedSteps: task.completedSteps || [],
+    blockers: task.blockers || [],
+    decisions: task.decisions || [],
+    evidence: task.evidence || [],
+    repository: { path: identity.repository, branch: identity.branch, head: identity.head, worktreeId: identity.worktreeId },
+    contextPack: task.contextPack || null,
+    nextActions: task.nextActions || [],
+  });
+  const paths = ensureStateDirectories(rootDir, config);
+  const path = resolve(paths.state, 'handoffs', `${handoff.id}.json`);
+  atomicWriteJson(path, handoff);
+  return { handoff, path };
+}
+
+export function finishVerifiedTask({ rootDir, config, task, verification }) {
+  if (!verification?.ok) throw new TypeError(`Task cannot finish: ${(verification?.reasons || ['evidence is not verified']).join('; ')}`);
+  let updated = task;
+  if (updated.status !== 'verifying') {
+    if (updated.status === 'reviewing') updated = transitionTask(updated, 'verifying', 'verification evidence satisfied');
+    else if (updated.status === 'implementing') {
+      updated = transitionTask(updated, 'reviewing', 'implementation complete');
+      updated = transitionTask(updated, 'verifying', 'verification evidence satisfied');
+    } else if (['planned', 'approved'].includes(updated.status)) {
+      updated = transitionTask(updated, 'implementing', 'delivery already implemented');
+      updated = transitionTask(updated, 'reviewing', 'review evidence supplied');
+      updated = transitionTask(updated, 'verifying', 'verification evidence satisfied');
+    }
+  }
+  return saveTask(rootDir, config, { ...transitionTask(updated, 'completed', 'task finished'), verification });
+}
+
+function output(value, json, human) {
+  if (json) console.log(JSON.stringify(value, null, 2));
+  else console.log(human);
+}
+
+function startCommand({ rootDir, config, args, json }) {
+  const title = getArg(args, '--title') || getArg(args, '--task');
+  if (!title) {
+    console.error('Usage: harness task start --title <text> [--risk quick|standard|critical]');
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
+  const task = startTask({
+    rootDir, config, title, declaredRisk: getArg(args, '--risk'),
+    goals: getArgs(args, '--goal'), nonGoals: getArgs(args, '--non-goal'),
+    acceptanceCriteria: getArgs(args, '--accept'), allow: getArgs(args, '--allow'), deny: getArgs(args, '--deny'),
+  });
+  output(task, json, `✅ Task ${task.id} started (${task.riskLevel}) — next: harness brain context --task ${task.id}`);
+}
+
+function listCommand({ rootDir, config, json }) {
+  const tasks = listTasks(rootDir, config);
+  output(tasks, json, tasks.length > 0 ? tasks.map(task => `${task.id}  ${task.status.padEnd(12)} ${task.riskLevel.padEnd(8)} ${task.title}`).join('\n') : 'No tasks.');
+}
+
+function statusCommand({ task, json }) {
+  output(task, json, `${task.id}\n  ${task.status} · ${task.riskLevel}\n  ${task.title}\n  Next: ${(task.nextActions || []).join(' → ') || '—'}`);
+}
+
+function checkpointCommand({ rootDir, config, args, task, json }) {
+  const result = createCheckpoint({
+    rootDir, config, task, status: getArg(args, '--status'), summary: getArg(args, '--summary') || '', nextActions: getArgs(args, '--next'),
+  });
+  output(result, json, `✅ Checkpoint ${result.checkpoint.id} saved for ${task.id}.`);
+}
+
+function resumeCommand({ rootDir, config, args, task, json }) {
+  const updated = resumeTask({ rootDir, config, task, note: getArg(args, '--note') || undefined });
+  output(updated, json, `✅ Task ${task.id} resumed at ${updated.status}.`);
+}
+
+function handoffCommand({ rootDir, config, task, json }) {
+  const result = buildHandoff({ rootDir, config, task });
+  output(result, json, `✅ Handoff package: ${result.path}`);
+}
+
+function abandonCommand({ rootDir, config, args, task, json }) {
+  const reason = getArg(args, '--reason');
+  if (!reason) {
+    console.error('task abandon requires --reason <text>');
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
+  const updated = saveTask(rootDir, config, transitionTask(task, 'cancelled', reason));
+  output(updated, json, `✅ Task ${task.id} cancelled: ${reason}`);
+}
+
+function finishCommand({ rootDir, config, task, json, verificationProvider }) {
+  const verification = verificationProvider ? verificationProvider(task) : { ok: false, reasons: ['Evidence verification is not configured'] };
+  if (!verification.ok) {
+    output(verification, json, `❌ Task cannot finish: ${verification.reasons.join('; ')}`);
+    process.exitCode = EXIT_CODES.POLICY_FAILURE;
+    return;
+  }
+  const updated = finishVerifiedTask({ rootDir, config, task, verification });
+  output(updated, json, `✅ Task ${task.id} completed with verified evidence.`);
+}
+
+const TASK_COMMANDS = Object.freeze({
+  status: statusCommand,
+  checkpoint: checkpointCommand,
+  resume: resumeCommand,
+  handoff: handoffCommand,
+  abandon: abandonCommand,
+  finish: finishCommand,
+});
+
+export function runTask({ rootDir, config, args, verificationProvider = null }) {
+  const subcommand = args[1] || 'status';
+  const json = hasArg(args, '--json') || getArg(args, '--format') === 'json';
+  if (subcommand === 'start') return startCommand({ rootDir, config, args, json });
+  if (subcommand === 'list') return listCommand({ rootDir, config, json });
+  const task = resolveTask(rootDir, config, getArg(args, '--task'), { allowTerminal: subcommand === 'status' || subcommand === 'handoff' });
+  const handler = TASK_COMMANDS[subcommand];
+  if (handler) return handler({ rootDir, config, args, task, json, verificationProvider });
+  console.error('Usage: harness task start|list|status|checkpoint|resume|handoff|finish|abandon [options]');
+  process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+}
+
+export { loadTask, resolveTask };

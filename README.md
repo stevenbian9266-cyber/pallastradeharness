@@ -10,6 +10,7 @@
 
 | 痛点 | 机制 |
 |---|---|
+| AI 跨会话后丢失目标和上下文 | **Task Orchestrator + Project Brain**：状态、检查点、最小上下文和 Agent 交接包 |
 | AI 改代码不受控、绕过规范 | **前置 Gate**：改代码前必须规划并清空检查清单，pre-commit 物理拦截 |
 | 规范写了但无法知道是否执行 | **Standards Registry**：标准 ID、权威来源、scope、执行等级和覆盖率均可查询 |
 | 实际编码偏离计划或产生复杂/重复代码 | **Development Supervisor**：范围漂移、依赖选型、架构边界、循环依赖和新代码基线检查 |
@@ -18,6 +19,7 @@
 | 改了代码忘了同步文档 | **知识同步门（doc-impact）**：改了什么文件，强制同步对应知识文档 |
 | 密钥/危险命令被提交 | **密钥 + 危险命令扫描**：agent 无关（Copilot/Codex/Claude/人 都拦截） |
 | 规范第一天写不全 | **渐进式落地**：Lite → Standard → Strict 档位，`harness doctor` 提示下一步 |
+| “测试过了”无法复核 | **Typed Evidence + Recovery**：证据绑定 HEAD/worktree/hash，高风险任务必须有恢复计划 |
 
 ---
 
@@ -38,14 +40,24 @@ npx harness doctor
 # 校验配置
 npx harness config:check
 
-# 开始一次编码任务（必须先开 gate）
-npx harness gate --task "新增：我的功能"
+# 建立持久任务、最小上下文和任务绑定 Gate
+npx harness task start --title "新增：我的功能" --allow "src/**"
+npx harness brain context --task <TASK-ID>
+npx harness gate --task "新增：我的功能" --task-id <TASK-ID>
 # ... 清空 preparation checks 后进入 implementation ...
 npx harness gate:clear --gate <GATE-ID> --clear <check-id>
 
 # 生成 Change Plan，并在实施中/实施后审查 diff
 npx harness supervise plan --task "新增：我的功能" --allow "src/**"
 npx harness supervise diff
+
+# 运行并记录证据；知识评估和证据齐全后自动完成 verify-test
+npx harness evidence run --task <TASK-ID> --type test -- npm test
+npx harness knowledge assess --task <TASK-ID> --asset README.md \
+  --status reviewed-no-change --reason "公共行为未变化"
+npx harness knowledge verify --task <TASK-ID>
+npx harness evidence verify --task <TASK-ID> --gate <GATE-ID>
+npx harness task finish --task <TASK-ID>
 
 # 查看适用规范与机器执行覆盖率
 npx harness standards select --base origin/main
@@ -57,14 +69,13 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`0.4.0`；npm 已发布稳定版：`0.2.3`（0.4.0 在合并/tag 前不会发布）
+- 当前源码版本：`1.0.0`；`v1.0.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
 
 > ⚠️ **npm 政策预警（2027-01 起）**：npm 已移除 Authenticator app（TOTP）2FA 选项，仅支持 Security key（WebAuthn）；且 bypass-token 将禁止直接发布。
-> 新版本发布需在终端 `npm publish`（浏览器 Security key 认证，非命令行可代做）。
-> 后续迁移方向：**staged publishing / trusted publishing（OIDC）**，见下方「贡献指南 → 发布」小节。
+> 本仓库已经使用 **trusted publishing（OIDC）**，不使用长期 npm token。发布顺序固定为：PR checks → merge main → tag → workflow → registry/provenance 验证。
 
 ### 接入 lefthook（物理强制）
 
@@ -99,6 +110,7 @@ pre-push:
 
 ```js
 export default {
+  schemaVersion: '1.0',
   name: 'my-project',
   // 层定义：gate 跨层搜索来源
   layers: [{ id: 'app', path: 'app' }, { id: 'web', path: 'src' }],
@@ -121,7 +133,7 @@ export default {
   // 扫描器规则文件
   scanners: { antiPatterns: 'harness/policies/anti-patterns.json' },
   // 状态/产物路径
-  paths: { gates: 'harness/gates', requirements: 'harness/requirements', prd: 'docs/prd' },
+  paths: { gates: 'harness/gates', requirements: 'harness/requirements', prd: 'docs/prd', state: '.harness-state' },
 };
 ```
 
@@ -134,6 +146,15 @@ export default {
 | `harness gate:status / gate:clear / gate:migrate / gate:required / gate:clean` | 门禁状态与旧 Gate 迁移；只有绑定当前分支和 HEAD 的 finished Gate 能通过提交硬卡，提交后不可复用 |
 | `harness standards list/select/coverage` | 查询、按 Diff 选择规范并报告 Standards Enforcement Coverage |
 | `harness supervise plan/diff` | 生成 Change Plan；审查范围漂移、技术选型、架构和新代码质量 |
+| `harness task start/status/checkpoint/resume/handoff/finish/abandon` | 可恢复的任务状态机与跨 Agent 交接 |
+| `harness brain index/context/decision/status` | 项目画像、知识索引、最小上下文与决策记录 |
+| `harness risk check` | Quick/Standard/Critical 风险复评；默认只能升级 |
+| `harness supervise review` | Database/API/Security/UI/Interaction/A11y/Knowledge 专项审查 |
+| `harness evidence run/record/list/verify/bundle/report` | 采集、验证和汇总与代码状态绑定的 typed evidence |
+| `harness recovery create/status/verify` | Critical 任务的 manual-only 恢复检查点 |
+| `harness knowledge assess/status/verify` | `updated / reviewed-no-change / not-applicable` 知识闭环 |
+| `harness adapter generate / mcp / tui` | 多 Agent 策略适配、stdio MCP 与本地状态面板 |
+| `harness config:migrate / state:migrate / ci github` | 1.0 迁移与可选 GitHub checks 生成 |
 | `harness prd new/list/verify` | PRD 工作流（骨架创建 + 查重回写 + AC→测试校验） |
 | `harness check --profile quick\|full` | 检查档案（变更感知：本地默认只扫 changed-files，`--full`/CI 全量） |
 | `harness doc-impact` | 知识同步门 |
@@ -176,6 +197,11 @@ export default {
 ```js
 // harness/plugins/my-check.mjs
 export default {
+  manifest: {
+    name: 'my-checks',
+    apiVersion: '1.0',
+    capabilities: ['checks'],
+  },
   checks: [
     {
       id: 'no-todos',                       // gate 中显示为 plugin-no-todos
@@ -275,11 +301,11 @@ cp node_modules/pallastrade-harness/rules/base-standards.json \
 |---|---|---|
 | 0.3 | 可靠性基线：跨平台参数、fail-closed、退出码、分阶段 Gate、统一对象 | ✅ 0.4 源码已包含 |
 | 0.4 | Standards Registry + Development Supervisor MVP | ✅ 当前源码 |
-| 0.5 | Task Orchestrator + Project Brain + 多会话交接 | 规划 |
-| 0.6 | Database/UI/Interaction/API/Security/Knowledge 领域 Supervisor | 规划 |
-| 0.7 | Typed Evidence + Recovery + 自动交付报告 | 规划 |
-| 0.8 | Agent adapters + MCP/TUI + 技术栈 preset | 规划 |
-| 1.0 | 插件稳定协议、大型 monorepo/worktree、长期兼容 | 规划 |
+| 0.5 | Task Orchestrator + Project Brain + 多会话交接 | ✅ 1.0 源码已包含 |
+| 0.6 | Database/UI/Interaction/API/Security/Knowledge 领域 Supervisor | ✅ 1.0 源码已包含 |
+| 0.7 | Typed Evidence + Recovery + 自动交付报告 | ✅ 1.0 源码已包含 |
+| 0.8 | Agent adapters + MCP/TUI + 技术栈 preset | ✅ 1.0 源码已包含 |
+| 1.0 | 插件稳定协议、配置/状态迁移、monorepo/worktree、长期兼容 | ✅ 当前源码 |
 
 详见 [docs/standards/harness-standalone-roadmap.md](https://github.com/stevenbian9266-cyber/pallastrade/blob/dev/docs/standards/harness-standalone-roadmap.md)（PallasTrade 仓库）。
 

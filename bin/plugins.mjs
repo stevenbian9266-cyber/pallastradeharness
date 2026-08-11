@@ -21,6 +21,24 @@ import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+export const PLUGIN_API_VERSION = '1.0';
+export const SUPPORTED_PLUGIN_API_VERSIONS = Object.freeze(['0.x', PLUGIN_API_VERSION]);
+
+export function validatePluginManifest(manifest, { strict = false } = {}) {
+  const errors = [];
+  const warnings = [];
+  if (!manifest) {
+    if (strict) errors.push('plugin manifest is required in strict mode');
+    else warnings.push('legacy plugin has no manifest; migrate to apiVersion 1.0');
+    return { errors, warnings };
+  }
+  if (!manifest.name) errors.push('plugin manifest needs name');
+  if (!manifest.apiVersion) errors.push('plugin manifest needs apiVersion');
+  else if (!SUPPORTED_PLUGIN_API_VERSIONS.includes(manifest.apiVersion)) errors.push(`unsupported plugin apiVersion ${manifest.apiVersion}`);
+  if (!Array.isArray(manifest.capabilities)) errors.push('plugin manifest capabilities must be an array');
+  return { errors, warnings };
+}
+
 /**
  * 加载所有插件（文件级 + 配置级），返回归一化数组。
  * @returns {{ checks: object[], scanners: object[], presets: object[], sources: string[] }}
@@ -31,6 +49,8 @@ export async function loadPlugins(rootDir, config) {
   const presets = [];
   const sources = [];
   const errors = [];
+  const warnings = [];
+  const manifests = [];
 
   // 1. 文件级：harness/plugins/*.mjs（下划线前缀文件跳过 = 可选加载）
   const pluginsDir = resolve(rootDir, 'harness', 'plugins');
@@ -40,6 +60,12 @@ export async function loadPlugins(rootDir, config) {
       try {
         const mod = await import(`${pathToFileURL(resolve(pluginsDir, f)).href}?t=${Date.now()}`);
         const p = mod.default || mod;
+        const inferredCapabilities = ['checks', 'scanners', 'presets'].filter(capability => p[capability]);
+        const manifest = p.manifest || null;
+        const validation = validatePluginManifest(manifest, { strict: config?.plugins?.strict === true });
+        errors.push(...validation.errors.map(error => `${f}: ${error}`));
+        warnings.push(...validation.warnings.map(warning => `${f}: ${warning}`));
+        manifests.push(manifest || { name: f, apiVersion: '0.x', capabilities: inferredCapabilities, legacy: true });
         if (p.checks) checks.push(...(Array.isArray(p.checks) ? p.checks : [p.checks]));
         if (p.scanners) scanners.push(...(Array.isArray(p.scanners) ? p.scanners : [p.scanners]));
         if (p.presets) presets.push(...(Array.isArray(p.presets) ? p.presets : [p.presets]));
@@ -59,13 +85,14 @@ export async function loadPlugins(rootDir, config) {
     if (cfg.checks || cfg.scanners || cfg.presets) sources.push('config');
   }
 
-  return { checks, scanners, presets, sources, errors };
+  return { checks, scanners, presets, sources, manifests, warnings, errors };
 }
 
 /** 校验插件结构，返回错误数组 */
 export function validatePlugin(plugin, kind) {
   const errors = [];
   if (!plugin || typeof plugin !== 'object') return ['plugin must be an object'];
+  if (plugin.apiVersion && !SUPPORTED_PLUGIN_API_VERSIONS.includes(plugin.apiVersion)) errors.push(`${kind} ${plugin.id || '?'} uses unsupported apiVersion ${plugin.apiVersion}`);
   if (kind === 'check') {
     if (!plugin.id) errors.push('check needs id');
     if (!plugin.label) errors.push('check needs label');

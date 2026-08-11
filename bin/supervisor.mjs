@@ -6,6 +6,7 @@ import { createContract, createFinding, SCHEMA_VERSION } from './contracts.mjs';
 import { EXIT_CODES, getArg, getArgs } from './cli-utils.mjs';
 import { getChangedFiles, getDiff, showFileAtRef } from './git-files.mjs';
 import { loadStandards, matchesScope, selectStandards } from './standards.mjs';
+import { reviewDomainSupervisors } from './domain-supervisors.mjs';
 
 function normalizePath(value) {
   return value.replaceAll('\\', '/').replace(/^\.\//, '');
@@ -321,12 +322,17 @@ function complexityFinding(standard, file, group, max, mode) {
   });
 }
 
+function isTestFile(file, config) {
+  return (config.supervisor?.testFiles || []).some(pattern => matchesScope(file, pattern));
+}
+
 function complexityFindings(addedLines, rootDir, config, standards, mode) {
   const standard = standardById(standards, 'STD-CQ-001');
   if (!standard) return [];
   const max = config.supervisor?.complexity?.maxDecisionPoints ?? 12;
   const findings = [];
   for (const [file, lines] of addedLines) {
+    if (isTestFile(file, config)) continue;
     if (!standard.scope.some(scope => matchesScope(file, scope))) continue;
     if (!existsSync(resolve(rootDir, file))) continue;
     const ranges = functionRanges(readFileSync(resolve(rootDir, file), 'utf-8'));
@@ -345,6 +351,7 @@ function duplicationFindings(addedLines, config, standards, mode) {
   const blocks = new Map();
   const findings = [];
   for (const [file, rawLines] of addedLines) {
+    if (isTestFile(file, config)) continue;
     if (!standard.scope.some(scope => matchesScope(file, scope))) continue;
     const lines = rawLines.filter(item => item.text.trim() && !/^\s*(?:\/\/|#|\*|$)/.test(item.text));
     for (let index = 0; index <= lines.length - windowSize; index++) {
@@ -549,7 +556,50 @@ function runDiffCommand({ rootDir, args, config, registry, base, json }) {
     process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
     return;
   }
-  outputReport(result.report, json);
+  const requestedDomains = getArgs(args, '--domains');
+  const domainResult = reviewDomainSupervisors({ rootDir, config, base, standards: registry.standards, domains: requestedDomains.length > 0 ? requestedDomains : null });
+  if (domainResult.errors.length > 0) {
+    for (const error of domainResult.errors) console.error(`❌ domain supervisor: ${error}`);
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
+  const combined = {
+    ...result.report,
+    domainReview: domainResult.report,
+    findings: [...result.report.findings, ...domainResult.report.findings],
+  };
+  combined.findings = [...new Map(combined.findings.map(finding => [finding.id, finding])).values()];
+  combined.summary = {
+    ...combined.summary,
+    findings: combined.findings.length,
+    blocking: combined.findings.filter(finding => finding.blocking).length,
+    domains: domainResult.report.summary.domains,
+    verifiersNotRun: domainResult.report.summary.notRun,
+  };
+  outputReport(combined, json);
+  if (!json) {
+    for (const [domain, review] of Object.entries(domainResult.report.byDomain)) {
+      console.log(`   ${review.status === 'passed' ? '✅' : '⚠️'} ${domain}: ${review.findings} finding(s)${review.externalVerifier ? ` · verifier ${review.externalVerifier}` : ''}`);
+    }
+  }
+  if (combined.summary.blocking > 0) process.exitCode = EXIT_CODES.POLICY_FAILURE;
+}
+
+function runReviewCommand({ rootDir, args, config, registry, base, json }) {
+  const domains = getArgs(args, '--domains');
+  const result = reviewDomainSupervisors({ rootDir, config, base, standards: registry.standards, domains: domains.length > 0 ? domains : null });
+  if (result.errors.length > 0) {
+    for (const error of result.errors) console.error(`❌ domain supervisor: ${error}`);
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
+  if (json) console.log(JSON.stringify(result.report, null, 2));
+  else {
+    console.log(`Specialized Supervisor Review — ${result.report.summary.domains} domain(s), ${result.report.summary.findings} finding(s), ${result.report.summary.blocking} blocking`);
+    for (const [domain, review] of Object.entries(result.report.byDomain)) console.log(`  ${review.status === 'passed' ? '✅' : '⚠️'} ${domain}: ${review.findings}`);
+    for (const finding of result.report.findings) console.log(`${finding.blocking ? '❌' : '⚠️'} ${finding.standardId} ${finding.file}:${finding.line} — ${finding.message}`);
+    for (const verifier of result.report.verifiers) console.log(`  ${verifier.status === 'passed' ? '✅' : verifier.status === 'failed' ? '❌' : '⏭'} verifier ${verifier.id}: ${verifier.status}${verifier.reason ? ` (${verifier.reason})` : ''}`);
+  }
   if (result.report.summary.blocking > 0) process.exitCode = EXIT_CODES.POLICY_FAILURE;
 }
 
@@ -573,6 +623,11 @@ export function runSupervisor({ rootDir, args, config }) {
     return;
   }
 
-  console.error('Usage: harness supervise plan|diff [options]');
+  if (subcommand === 'review') {
+    runReviewCommand({ rootDir, args, config, registry, base, json });
+    return;
+  }
+
+  console.error('Usage: harness supervise plan|diff|review [options]');
   process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
 }
