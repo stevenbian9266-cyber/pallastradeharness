@@ -59,3 +59,29 @@ test('project brain applies deterministic large-repository limits and reports tr
     rmSync(rootDir, { recursive: true, force: true });
   }
 });
+
+test('project profile discovers stacks from configured monorepo layer roots', () => {
+  const rootDir = project();
+  try {
+    mkdirSync(join(rootDir, 'backend', 'app'), { recursive: true });
+    writeFileSync(join(rootDir, 'backend', 'Gemfile'), "source 'https://rubygems.org'\n");
+    const config = structuredClone(DEFAULT_CONFIG);
+    config.layers = [{ id: 'backend', path: 'backend/app' }];
+    const index = indexKnowledge({ rootDir, config });
+    assert.deepEqual(index.profile.stacks, ['node', 'ruby']);
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('project brain excludes lifecycle runtime state from default knowledge sources', () => {
+  const rootDir = project();
+  try {
+    mkdirSync(join(rootDir, 'harness', 'gates'), { recursive: true });
+    writeFileSync(join(rootDir, 'harness', 'gates', 'GATE-old.json'), '{"task":"old"}\n');
+    const index = indexKnowledge({ rootDir, config: structuredClone(DEFAULT_CONFIG) });
+    assert.ok(!index.assets.some(asset => asset.path.startsWith('harness/gates/')));
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
