@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { loadConfig } from './config-loader.mjs';
 
@@ -15,21 +15,34 @@ export function check({ rootDir, config }) {
     console.log('⚠️  generated:check — no generation commands configured (harness.config.mjs → generatedCheck).');
   }
 
-  for (const check of checks) {
-    try {
-      execSync(check.cmd, { cwd: check.cwd, stdio: 'pipe' });
-    } catch {
-      console.log(`⚠️  ${check.name}: generation skipped (command may not exist yet)`);
+  const failures = [];
+  for (const item of checks) {
+    if (!item.name || !item.cmd) {
+      failures.push(`${item.name || 'unnamed check'}: name and cmd are required`);
+      continue;
     }
+    const result = spawnSync(item.cmd, { cwd: item.cwd, shell: true, encoding: 'utf-8', stdio: 'pipe' });
+    if (result.error || result.status !== 0) {
+      const detail = result.error?.message || result.stderr?.trim() || `exit ${result.status}`;
+      failures.push(`${item.name}: ${detail}`);
+    }
+  }
+
+  if (failures.length > 0) {
+    for (const failure of failures) console.error(`❌ generated:check — ${failure}`);
+    process.exitCode = 1;
+    return { ok: false, failures, drift: false };
   }
 
   // Check for any uncommitted changes after regeneration
   try {
-    execSync('git diff --exit-code -- "*.json" "*.ts" "*.yaml" "*.yml"', { cwd: rootDir, stdio: 'pipe' });
+    execFileSync('git', ['diff', '--exit-code', '--', '*.json', '*.ts', '*.yaml', '*.yml'], { cwd: rootDir, stdio: 'pipe' });
     console.log('\n✅ generated:check — no drift detected.');
+    return { ok: true, failures: [], drift: false };
   } catch {
     console.log('\n❌ generated:check — drift detected in generated files.');
     console.log('   Run generation commands and commit the updated files.');
-    process.exit(1);
+    process.exitCode = 1;
+    return { ok: false, failures: [], drift: true };
   }
 }

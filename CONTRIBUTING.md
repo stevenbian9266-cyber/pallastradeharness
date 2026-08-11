@@ -9,7 +9,7 @@ git clone https://github.com/stevenbian9266-cyber/pallastradeharness.git
 cd pallastrade-harness
 npm i
 npm test          # node:test 合约测试必须全绿
-node --check bin/*.mjs   # 语法自检
+npm pack --dry-run # 发布文件清单
 ```
 
 ## 代码规范（引擎）
@@ -18,6 +18,8 @@ node --check bin/*.mjs   # 语法自检
 - 命令注册在 `bin/harness.mjs`，新增命令同时更新 `docs/commands.md` 与 README 命令表
 - 纯分析命令（如 suggest/report）不改文件；有副作用的命令需有 `--dry-run` 或明确输出
 - 合约测试放 `bin/*.test.mjs`（node:test），每个新模块至少覆盖正常/边界/错误三条路径
+- CLI stdout 的 `--json` 输出必须可直接解析；诊断写 stderr；退出码遵循 0/1/2/3 契约
+- PR 会在 Windows、Ubuntu、macOS 的 Node 22/24 上执行合同测试
 
 ## 贡献规则（rules/）
 
@@ -25,6 +27,8 @@ node --check bin/*.mjs   # 语法自检
 2. 加入 `rules/base-anti-patterns.json`（id 用 `STARTER-00X` 递增），遵循 schema（`id/severity/pattern/fileGlob/excludeGlob?/message/fix`）
 3. 提供一条真实场景反例（PR 描述里贴代码）
 4. 更新 `docs/rules.md` 规则清单
+
+机器可读工程规范加入 `rules/base-standards.json`：使用稳定 `STD-<DOMAIN>-NNN` ID，必须包含 authority、scope、severity、enforcement、evidence、fix、exception 和 knowledgeImpact，并为 Registry/Supervisor 补测试。
 
 ## 贡献插件 / preset
 
@@ -71,5 +75,5 @@ npm publish    # 浏览器 Security key (WebAuthn) 认证——需维护者本�
 ## 行为准则
 
 - 保持引擎**项目无关**：`grep -ri pallastrade bin/ presets/` 应仅命中注释/测试/预设示例
-- 不引入新运行时依赖（引擎只依赖 `glob`）
+- 运行时依赖保持最小；新增依赖必须通过 Technology Choice Review，说明为什么 Node 内置能力或现有 `glob`/`minimatch` 不足
 - 破坏性变更需在 PR 描述标注，并同步 `docs/roadmap.md`

@@ -1,12 +1,14 @@
 # 基础规则集（starter rules）
 
-项目无关的通用反模式 starter 规则，复制到项目 `harness/policies/anti-patterns.json` 作为起点。
+项目无关的通用反模式与工程规范 starter 规则。`harness init` 会复制到项目，下面命令也可手动执行。
 
 ## 使用
 
 ```bash
 cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
    harness/policies/anti-patterns.json
+cp node_modules/pallastrade-harness/rules/base-standards.json \
+   harness/standards/base-standards.json
 ```
 
 ## 规则清单
@@ -41,3 +43,5 @@ cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
 
 通用新规则请 PR 到 `base-anti-patterns.json`（`STARTER-006+`），并在上表登记。
 项目特定规则留在用户项目 `harness/policies/anti-patterns.json`——不要并入本文件。
+
+`base-standards.json` 的 Standard 必须使用唯一 `STD-<DOMAIN>-NNN` ID，并包含 authority、scope、severity、enforcement、evidence、fix、exception 和 knowledgeImpact。运行 `harness standards coverage` 检查机器执行覆盖率。

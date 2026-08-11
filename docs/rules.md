@@ -4,13 +4,15 @@ title: 规则集
 ---
 # 基础规则集（starter rules）
 
-仓库自带一份**跨语言、项目无关**的反模式 starter 规则集，作为新项目的起点。
+仓库自带**跨语言、项目无关**的反模式与工程规范 starter 规则集，作为新项目的起点。`harness init` 会自动复制这两份文件且不覆盖已有项目规则。
 
 ## 使用
 
 ```bash
 cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
    harness/policies/anti-patterns.json
+cp node_modules/pallastrade-harness/rules/base-standards.json \
+   harness/standards/base-standards.json
 ```
 
 ## 规则清单
@@ -48,3 +50,15 @@ cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
 项目特定规则（如「必须用 SDK 禁止裸 fetch」「禁止绕过 store scope」）由项目自行维护在 `harness/policies/anti-patterns.json`——不要并入 starter 库。
 
 通用新规则欢迎贡献到本仓库（见 [贡献指南](contributing.md)）。
+
+## 工程规范注册表
+
+`rules/base-standards.json` 提供 13 类 starter standards。项目通过 `harness/standards/**/*.json` 覆盖或扩充，并使用以下命令验证：
+
+```bash
+npx harness standards list
+npx harness standards coverage
+npx harness standards select --base origin/main
+```
+
+Schema、执行等级和 Supervisor 行为见[规范与开发监督](standards-supervisor.md)。

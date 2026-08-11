@@ -18,13 +18,19 @@ function getArg(args, flag) {
   return idx >= 0 ? args[idx + 1] : null;
 }
 
-function countFiles(rootDir, glob) {
-  // 简单目录计数（glob 由调用方指定相对路径）
-  const dir = resolve(rootDir, glob.split('/')[0] || '.');
+export function countFiles(rootDir, directory) {
+  const dir = resolve(rootDir, directory);
   if (!existsSync(dir)) return 0;
-  try {
-    return readdirSync(dir).filter(f => f.endsWith('.md') || f.endsWith('.json')).length;
-  } catch { return 0; }
+  let count = 0;
+  const visit = path => {
+    for (const entry of readdirSync(path, { withFileTypes: true })) {
+      const target = join(path, entry.name);
+      if (entry.isDirectory()) visit(target);
+      else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.json'))) count++;
+    }
+  };
+  try { visit(dir); } catch { return 0; }
+  return count;
 }
 
 export function analyze(rootDir, { sinceDays } = {}) {

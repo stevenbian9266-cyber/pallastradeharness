@@ -9,11 +9,26 @@ title: 插件开发
 1. **文件级**：项目 `harness/plugins/*.mjs`（推荐，随仓库分发）
 2. **配置级**：`harness.config.mjs` → `plugins: { checks, scanners, presets }`
 
+文件级插件必须声明稳定协议清单。`apiVersion: '1.0'` 是当前稳定版本；`0.x` 插件仍可加载但会给出迁移警告，未来版本会 fail-closed：
+
+```js
+export const manifest = {
+  name: 'my-checks',
+  apiVersion: '1.0',
+  capabilities: ['checks'],
+};
+```
+
 ## Check 插件（进入 gate 检查清单 + `harness check` 执行）
 
 ```js
 // harness/plugins/my-check.mjs
 export default {
+  manifest: {
+    name: 'my-checks',
+    apiVersion: '1.0',
+    capabilities: ['checks'],
+  },
   checks: [
     {
       id: 'no-todos',                       // gate 中显示为 plugin-no-todos

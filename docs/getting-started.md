@@ -44,11 +44,21 @@ npx harness config:check   # 配置校验
 
 ```bash
 npx harness gate --task "新增：我的功能"
-# ... 逐个清空 check ...
+# ... 清空 preparation checks ...
 npx harness gate:clear --gate <GATE-ID> --clear <check-id>
+
+# 生成允许/禁止修改范围与适用规范
+npx harness supervise plan --task "新增：我的功能" --allow "src/**" "test/**"
+
+# 实施中和实施后检查 Diff
+npx harness supervise diff
+npx harness standards coverage
+
+# 客观验证完成后关闭 verification；此时提交门才放行
+npx harness gate:clear --gate <GATE-ID> --clear verify-test --note "tests passed"
 ```
 
-任务前缀自动判定类型（feature/bugfix/style/docs/audit/research/refactor/security/test）。
+任务前缀自动判定类型（feature/bugfix/style/docs/audit/research/refactor/security/test）。Gate 生命周期为 preparation → implementation → verification → finished；旧 Gate 可用 `npx harness gate:migrate` 转换。
 
 ## 5. 接入 lefthook（物理强制）
 

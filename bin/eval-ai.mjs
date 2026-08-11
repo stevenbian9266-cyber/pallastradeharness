@@ -67,9 +67,15 @@ async function checkScenariosImpl(rootDir, config) {
   if (errors > 0) process.exit(1);
 }
 
-function resolveSmartPath(rootDir, ref) {
+export function resolveSmartPath(rootDir, ref) {
   // Try path resolution strategies in order — Skill files may reference
   // paths relative to different "base" directories depending on context.
+
+  const wildcard = ref.search(/[*?\[\]{}]/);
+  if (wildcard >= 0) {
+    const staticRoot = ref.slice(0, wildcard).replace(/[\\/]+$/, '');
+    return staticRoot ? resolveSmartDir(rootDir, staticRoot) : rootDir;
+  }
 
   const candidates = [];
 
@@ -79,6 +85,8 @@ function resolveSmartPath(rootDir, ref) {
   // 2. With backend/ prefix (for Rails app paths like config/..., app/...)
   if (!ref.startsWith('backend/') && !ref.startsWith('platform/') && !ref.startsWith('storefront/') && !ref.startsWith('ai/') && !ref.startsWith('harness/') && !ref.startsWith('scripts/') && !ref.startsWith('docs/')) {
     candidates.push(resolve(rootDir, 'backend', ref));
+    candidates.push(resolve(rootDir, 'storefront', 'src', ref));
+    candidates.push(resolve(rootDir, 'platform', ref));
   }
 
   // 3. Old gem paths → new gem paths
@@ -135,13 +143,15 @@ function resolveSmartPath(rootDir, ref) {
   return null;
 }
 
-function resolveSmartDir(rootDir, ref) {
+export function resolveSmartDir(rootDir, ref) {
   // Same logic but for directories
   const candidates = [];
   candidates.push(resolve(rootDir, ref));
 
   if (!ref.startsWith('backend/') && !ref.startsWith('platform/') && !ref.startsWith('storefront/') && !ref.startsWith('ai/')) {
     candidates.push(resolve(rootDir, 'backend', ref));
+    candidates.push(resolve(rootDir, 'storefront', 'src', ref));
+    candidates.push(resolve(rootDir, 'platform', ref));
   }
 
   const gemMatch = ref.match(/^pallastrade\/(\w+)\/(.+)/);

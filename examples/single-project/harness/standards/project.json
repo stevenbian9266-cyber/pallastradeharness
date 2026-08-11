@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "standards": [
+    {
+      "schemaVersion": "1.0",
+      "type": "Standard",
+      "id": "EXAMPLE-001",
+      "category": "code",
+      "title": "公共模块必须有测试",
+      "authority": "harness/standards/project.json",
+      "scope": ["src/**/*.js", "src/**/*.ts"],
+      "severity": "error",
+      "enforcement": "review",
+      "evidence": ["test"],
+      "fix": "在 test/ 中补充覆盖公共行为的测试",
+      "exception": "仅类型或注释变更可记录 reviewed-no-change",
+      "knowledgeImpact": ["README.md"]
+    }
+  ]
+}
