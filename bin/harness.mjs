@@ -631,8 +631,10 @@ else if (cmd === 'gate:required') {
   }
 
   let branch = 'unknown';
+  let head = 'unknown';
   try {
     branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: ROOT, encoding: 'utf-8' }).trim();
+    head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf-8' }).trim();
   } catch (error) {
     console.error(`❌ gate:required requires a Git repository: ${String(error.message).split('\n')[0]}`);
     process.exit(EXIT_CODES.USAGE_OR_CONFIG);
@@ -649,6 +651,7 @@ else if (cmd === 'gate:required') {
     } catch { continue; }
     if (!gate.cleared) continue;
     if (gate.branch && gate.branch !== branch) continue;
+    if (!gate.head || !head.startsWith(gate.head)) continue;
     const maxAge = (config.gates?.expiryHours?.[gate.taskType] || 24) * 3600000;
     const age = now - new Date(gate.createdAt).getTime();
     if (age <= maxAge) { valid = gate; break; }
@@ -656,11 +659,11 @@ else if (cmd === 'gate:required') {
 
   if (valid) {
     const hours = Math.round((now - new Date(valid.createdAt).getTime()) / 3600000);
-    console.log(`✅ gate:required — cleared gate ${valid.id} (${valid.taskType}) on "${branch}", ${hours}h old.`);
+    console.log(`✅ gate:required — cleared gate ${valid.id} (${valid.taskType}) on "${branch}" @ ${valid.head}, ${hours}h old.`);
     process.exit(0);
   }
 
-  console.log(`❌ gate:required — no cleared, non-expired gate for branch "${branch}".`);
+  console.log(`❌ gate:required — no cleared, non-expired gate for branch "${branch}" @ ${head.slice(0, 8)}.`);
   console.log('   Every commit needs a gate. Run:');
   console.log('     npx harness gate --task "修复：<描述>"   (or 优化:/新增:/样式:/审计:...)');
   console.log('   then clear all checks with:');

@@ -131,7 +131,7 @@ export default {
 |---|---|
 | `harness init` | 生成 `harness.config.mjs` 骨架（向导版规划中） |
 | `harness gate --task "..."` | 创建分阶段门禁（preparation → implementation → verification → finished） |
-| `harness gate:status / gate:clear / gate:migrate / gate:required / gate:clean` | 门禁状态与旧 Gate 迁移；只有 finished Gate 能通过提交硬卡 |
+| `harness gate:status / gate:clear / gate:migrate / gate:required / gate:clean` | 门禁状态与旧 Gate 迁移；只有绑定当前分支和 HEAD 的 finished Gate 能通过提交硬卡，提交后不可复用 |
 | `harness standards list/select/coverage` | 查询、按 Diff 选择规范并报告 Standards Enforcement Coverage |
 | `harness supervise plan/diff` | 生成 Change Plan；审查范围漂移、技术选型、架构和新代码质量 |
 | `harness prd new/list/verify` | PRD 工作流（骨架创建 + 查重回写 + AC→测试校验） |

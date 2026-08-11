@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +48,11 @@ test('init -> task plan -> phased gate -> verify -> finish lifecycle', () => {
     assert.equal(finished.status, 0);
     assert.match(finished.stdout, /GATE FINISHED/);
     assert.equal(run(rootDir, ['gate:required']).status, 0);
+
+    writeFileSync(join(rootDir, 'after-gate.txt'), 'new commit\n');
+    git(rootDir, ['add', 'after-gate.txt']);
+    git(rootDir, ['commit', '-m', 'move head']);
+    assert.equal(run(rootDir, ['gate:required']).status, 1, 'a cleared gate cannot be reused after HEAD moves');
   } finally {
     rmSync(rootDir, { recursive: true, force: true });
   }
