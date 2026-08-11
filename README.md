@@ -223,37 +223,21 @@ cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
 
 ## 贡献指南
 
-欢迎贡献规则、插件、preset 与文档。所有贡献走 GitHub PR（`main` 分支）。
+详细贡献流程（规则/插件/preset/引擎/发布）见 **[`CONTRIBUTING.md`](CONTRIBUTING.md)**。
+快速入口：
 
-### 贡献规则（rules/）
+- 贡献规则 → `rules/base-anti-patterns.json`（通用规则，id `STARTER-00X`）
+- 贡献插件/preset → 协议见下文「插件开发」
+- 发布 → `CONTRIBUTING.md` → 发布（含 trusted publishing OIDC 配置步骤）
 
-1. 确认规则是**通用**的（不绑定特定框架/业务）——项目特定规则应留在用户项目里，而不是本仓库
-2. 规则放进 `rules/base-anti-patterns.json`，遵循现有 schema（`id / severity / pattern / fileGlob / excludeGlob / message / fix`）
-3. 提供一条真实场景反例（附 message 说明违规点）
-4. 更新 `rules/README.md` 规则清单（若无则创建）
+---
 
-### 贡献插件 / preset
+## 文档站
 
-1. 插件协议见上文「插件开发」；把通用插件做成**示例**放进 `harness/plugins/` 供参考（如 `example.mjs`）
-2. preset 放进 `presets/`，遵循 `{ id, name, layers, gates?, docImpact }` 导出格式
-3. 至少提供一个 `plugins:list` / `init --preset <id>` 可用的验证用例
+完整文档（快速开始 / 配置参考 / 命令参考 / 插件 / 规则 / 贡献 / 路线图）见 GitHub Pages：
 
-### 贡献代码（引擎）
-
-```bash
-npm i && npm test     # node:test 合约测试必须全绿
-node --check bin/*.mjs   # 语法自检
-```
-
-改 `bin/` 下模块时注意：`config-loader.mjs` 是唯一配置入口（`loadConfig` 带进程内 memo），新命令不要自行解析配置。
-
-### 发布（维护者）
-
-1. 版本号遵循 semver（feature/修复 → minor/patch；破坏性变更 → major）
-2. 更新 `README.md` 发布信息 + 路线图状态
-3. `git tag v0.x.y && git push --tags`
-4. **终端** `npm publish`（触发浏览器 Security key 认证——需要维护者本人操作，AI/CI 无法代做）
-5. 2027 后 npm 将移除 bypass-token 直发 → 迁移 **staged publishing**（先发 `preview` tag 再 promote）或 **trusted publishing（OIDC）**（GitHub Actions 身份发布，无需本地登录）
+- **https://stevenbian9266-cyber.github.io/pallastradeharness/**
+- 源文件在仓库 `docs/` 目录（改 `docs/**` 自动部署）
 
 ---
 
@@ -265,7 +249,7 @@ node --check bin/*.mjs   # 语法自检
 | 1 | 引擎/配置解耦 + 提效（变更感知增量扫描） | ✅ 完成 |
 | 2 | 独立 npm 包 + 冷启动（init 向导 / analyze / 渐进档位）+ 插件协议 | ✅ 完成（0.1.x） |
 | 3 | 自学习（suggest）+ 报告（report）+ 官方 preset（presets/） | ✅ 完成（0.2.x） |
-| 4 | 生态（基础规则集 / 贡献指南 / staged publishing 规划） | 🚧 进行中（0.2.1） |
+| 4 | 生态（基础规则集 / 贡献指南 / 文档站 / PR 模板 / trusted publishing） | ✅ 完成（0.2.1+）；trusted publishing 待 npm 侧授权 |
 
 详见 [docs/standards/harness-standalone-roadmap.md](https://github.com/stevenbian9266-cyber/pallastrade/blob/dev/docs/standards/harness-standalone-roadmap.md)（PallasTrade 仓库）。
 

@@ -1,0 +1,33 @@
+name: Publish to npm (trusted publishing / OIDC)
+
+# 触发：推送 v* tag 或手动触发。
+# 前提（一次性配置，见 docs/contributing.md → 发布）：
+#   npm 网站 → npm org/account → Access Tokens → 添加 "Publish packages" 授权 GitHub 仓库
+#   （trusted publishing：无需 NPM_TOKEN，GitHub OIDC 直接认证 + 自动 provenance）
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write          # OIDC → npm trusted publishing + provenance
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Install dependencies
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
