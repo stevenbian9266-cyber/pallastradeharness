@@ -46,14 +46,15 @@ npm publish    # 浏览器 Security key (WebAuthn) 认证——需维护者本�
 
 > ⚠️ **npm 政策（2027-01 起）**：npm 仅支持 Security key (WebAuthn) 2FA；bypass-token 将禁止直接发布。
 
-### trusted publishing（OIDC，推荐迁移）
+### trusted publishing（OIDC，推荐，已就绪）
 
-`publish.yml` 已就绪（推送 `v*` tag 自动发布 + provenance）。一次性配置：
+`publish.yml` 已就绪（推送 `v*` tag 自动发布，**纯 OIDC 无需 token**，自动 provenance）。一次性配置：
 
-1. **npm**：组织/账号 → Access Tokens → **Granular Access Token** → 选本仓库 → 勾选 **Publish packages**
-2. **npm 授权**：token 创建流程中把 GitHub 仓库 `stevenbian9266-cyber/pallastradeharness` 加入授权
-3. **GitHub**：仓库 Settings → Secrets → Actions → 添加 `NPM_TOKEN`
-4. **验证**：推送 `v*` tag → `publish.yml` 自动发布（`--provenance` 来源证明）
+1. **npm 网站** → `Packages` → `pallastrade-harness` → **Settings** → **Trusted Publisher**
+2. 选 **GitHub Actions**，填写：Organization/user `stevenbian9266-cyber` · Repository `pallastradeharness` · Workflow filename `publish.yml` · Allowed actions `npm publish`
+3. 保存后推送 `v*` tag 即自动发布（npm CLI 自动 OIDC 认证 + 自动 provenance）
+
+> 前提：GitHub-hosted runner；`id-token: write`（已配置）；Node 22.14+/npm 11.5.1+（workflow 用 Node 24）。字段大小写需与 npm 配置精确一致。
 
 ## 行为准则
 

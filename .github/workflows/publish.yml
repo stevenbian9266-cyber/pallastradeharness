@@ -1,33 +1,36 @@
 name: Publish to npm (trusted publishing / OIDC)
 
 # 触发：推送 v* tag 或手动触发。
-# 前提（一次性配置，见 docs/contributing.md → 发布）：
-#   npm 网站 → npm org/account → Access Tokens → 添加 "Publish packages" 授权 GitHub 仓库
-#   （trusted publishing：无需 NPM_TOKEN，GitHub OIDC 直接认证 + 自动 provenance）
+# 前置（一次性配置，见 CONTRIBUTING.md → 发布 → trusted publishing）：
+#   npm 网站 → Packages → pallastrade-harness → Settings → Trusted Publisher
+#   → 选 GitHub Actions → Organization/user: stevenbian9266-cyber
+#   → Repository: pallastradeharness → Workflow filename: publish.yml
+#   → Allowed actions: npm publish
+# 纯 OIDC：无需 NPM_TOKEN，npm CLI 自动交换 OIDC 短时凭证 + 自动 provenance。
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write          # OIDC → npm trusted publishing
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write          # OIDC → npm trusted publishing + provenance
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: '24'          # npm 11.5.1+ 才支持 trusted publishing
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false  # release 构建不使用缓存
       - name: Install dependencies
         run: npm ci
       - name: Test
         run: npm test
       - name: Publish
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public   # trusted publishing 自动 OIDC 认证 + 自动 provenance

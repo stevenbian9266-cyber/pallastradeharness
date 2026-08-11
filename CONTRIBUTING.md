@@ -51,16 +51,22 @@ npm publish    # 浏览器 Security key (WebAuthn) 认证——需维护者本�
 
 > ⚠️ **npm 政策（2027-01 起）**：npm 已移除 Authenticator app (TOTP) 2FA 选项，仅支持 Security key (WebAuthn)；bypass-token 将禁止直接发布。
 
-### trusted publishing（OIDC，推荐迁移）
+### trusted publishing（OIDC，推荐，已就绪）
 
-`publish.yml` 已就绪（推送 `v*` tag 自动发布 + provenance）。一次性配置：
+`publish.yml` 已就绪（推送 `v*` tag 自动发布，**纯 OIDC 无需 token**，自动生成 provenance）。一次性配置：
 
-1. **npm 网站**：登录 → 你的组织/账号 → `Access Tokens` → **Add new token → Granular Access Token** → 选择本仓库 → 勾选 **Publish packages** 权限（`packages:write`）
-2. **npm 授权**：在 token 创建流程中把 GitHub 仓库 `stevenbian9266-cyber/pallastradeharness` 加入授权（trusted publishing 绑定 repo → OIDC 自动认证）
-3. **GitHub**：仓库 Settings → Secrets and variables → Actions → 添加 `NPM_TOKEN`（第二步生成的 token 值）
-4. **验证**：推送一个 `v*` tag，`publish.yml` 应自动发布（`--provenance` 生成来源证明）
+1. **npm 网站** → 登录 → `Packages` → 选择 `pallastrade-harness` → **Settings** → 找到 **Trusted Publisher** 区块
+2. **Select your publisher** → 选 **GitHub Actions**，填写：
+   - Organization or user: `stevenbian9266-cyber`
+   - Repository: `pallastradeharness`
+   - Workflow filename: `publish.yml`
+   - Allowed actions: 勾选 `npm publish`
+3. 保存（npm 不验证配置，填错会在发布时报错——注意字段大小写必须精确一致）
+4. **验证**：推送 `v*` tag，`publish.yml` 自动发布（npm CLI 自动用 OIDC 认证 + 自动 provenance，无需 `NPM_TOKEN`）
 
-> 说明：`NPM_TOKEN` 目前仍用于兼容；trusted publishing 完全启用后，可移除 token 让 OIDC 直接认证。GitHub Pages 发布后请把仓库 Settings → Pages → Source 设为 **GitHub Actions**。
+> 前提：GitHub Actions 使用 **GitHub-hosted runner**；workflow 需 `id-token: write`（已配置）。Node 需 22.14+/npm 11.5.1+（workflow 已用 Node 24）。
+> 若未来配置了 `NPM_TOKEN` 也不冲突——npm CLI 优先使用 OIDC，token 仅作回退。
+> 可选加固：Trusted Publisher 配置为 `npm stage publish`（staged publishing，需维护者 2FA 审批后公开）——见 [staged publishing](https://docs.npmjs.com/staged-publishing)。
 
 ## 行为准则
 
