@@ -38,6 +38,51 @@ test('generated-check fails closed when a configured generator fails', () => {
   }
 });
 
+test('generated-check compares before and after instead of rejecting pre-existing changes', () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-generated-baseline-'));
+  const previous = process.exitCode;
+  try {
+    execFileSync('git', ['init', '-b', 'main'], { cwd: rootDir });
+    execFileSync('git', ['config', 'user.email', 'harness@example.test'], { cwd: rootDir });
+    execFileSync('git', ['config', 'user.name', 'Harness Test'], { cwd: rootDir });
+    writeFileSync(join(rootDir, 'config.json'), '{"before":true}\n');
+    execFileSync('git', ['add', 'config.json'], { cwd: rootDir });
+    execFileSync('git', ['commit', '-m', 'baseline'], { cwd: rootDir });
+    writeFileSync(join(rootDir, 'config.json'), '{"planned":true}\n');
+    const result = checkGenerated({
+      rootDir,
+      config: { generatedCheck: { checks: [{ name: 'noop', cwd: '.', cmd: 'node -e "process.exit(0)"' }] } },
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.drift, false);
+  } finally {
+    process.exitCode = previous;
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('generated-check detects newly created untracked generated files', () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-generated-drift-'));
+  const previous = process.exitCode;
+  try {
+    execFileSync('git', ['init', '-b', 'main'], { cwd: rootDir });
+    execFileSync('git', ['config', 'user.email', 'harness@example.test'], { cwd: rootDir });
+    execFileSync('git', ['config', 'user.name', 'Harness Test'], { cwd: rootDir });
+    writeFileSync(join(rootDir, 'README.md'), 'baseline\n');
+    execFileSync('git', ['add', 'README.md'], { cwd: rootDir });
+    execFileSync('git', ['commit', '-m', 'baseline'], { cwd: rootDir });
+    const result = checkGenerated({
+      rootDir,
+      config: { generatedCheck: { checks: [{ name: 'generate', cwd: '.', cmd: 'node -e "require(\'fs\').writeFileSync(\'generated.json\', \'{}\')"' }] } },
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.drift, true);
+  } finally {
+    process.exitCode = previous;
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
 test('git arguments are passed without shell evaluation', () => {
   const rootDir = mkdtempSync(join(tmpdir(), 'harness-git-'));
   const marker = join(rootDir, 'injected.txt');
