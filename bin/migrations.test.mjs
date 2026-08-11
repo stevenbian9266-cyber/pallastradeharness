@@ -33,11 +33,14 @@ test('future config and state schemas are rejected without downgrade', () => {
     mkdirSync(state, { recursive: true });
     writeFileSync(join(state, 'legacy.json'), JSON.stringify({ type: 'Task', id: 'TASK-1' }));
     writeFileSync(join(state, 'future.json'), JSON.stringify({ stateSchemaVersion: '2.0', type: 'Task', id: 'TASK-2' }));
+    writeFileSync(join(state, 'current-contract.json'), JSON.stringify({ schemaVersion: '1.0', type: 'ContextPack', id: 'CTX-1' }));
     const report = migrateState({ rootDir, config: DEFAULT_CONFIG, write: true });
     assert.equal(report.migrated, 1);
     assert.equal(report.future.length, 1);
+    assert.equal(report.scanned, 3);
     assert.equal(JSON.parse(readFileSync(join(state, 'legacy.json'), 'utf-8')).stateSchemaVersion, '1.0');
     assert.equal(JSON.parse(readFileSync(join(state, 'future.json'), 'utf-8')).stateSchemaVersion, '2.0');
+    assert.equal(JSON.parse(readFileSync(join(state, 'current-contract.json'), 'utf-8')).stateSchemaVersion, undefined);
   } finally {
     rmSync(rootDir, { recursive: true, force: true });
   }

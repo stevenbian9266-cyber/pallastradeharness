@@ -58,11 +58,12 @@ export function migrateState({ rootDir, config, write = false }) {
   for (const file of files) {
     const path = resolve(state, file);
     const value = readJson(path);
-    if (value.stateSchemaVersion && value.stateSchemaVersion !== '1.0') {
-      result.future.push({ file, version: value.stateSchemaVersion });
+    const version = value.stateSchemaVersion || value.schemaVersion || null;
+    if (version && version !== '1.0') {
+      result.future.push({ file, version });
       continue;
     }
-    if (value.stateSchemaVersion === '1.0') continue;
+    if (version === '1.0') continue;
     result.migrated++;
     result.files.push(file);
     if (write) {
