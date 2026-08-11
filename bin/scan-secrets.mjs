@@ -22,10 +22,12 @@ import { recordScan } from './stats.mjs';
 // lockfiles) plus build artifacts. We deliberately do NOT exclude all *.md
 // (a deployment/secrets.md could ship a real key someone pasted in).
 //
-// Note: docs (*.md/*.mdx) and the safety-hook scripts themselves (ai/hooks/**)
+// Note: docs (*.md/*.mdx), the safety-hook scripts themselves (ai/hooks/**),
+// and AI-eval scenario fixtures (promptfoo/** — GS scenarios intentionally
+// contain db:drop/DROP TABLE/key shapes to test whether agents refuse them)
 // legitimately MENTION destructive commands and key shapes — a blocking
-// scanner must exclude them or it cries wolf on every doc. The Claude-only
-// hooks still soft-warn on doc edits.
+// scanner must exclude them or it cries wolf on every doc/eval fixture. The
+// Claude-only hooks still soft-warn on doc edits.
 const GLOBAL_EXCLUDES = [
   '**/node_modules/**', '**/dist/**', '**/.next/**', '**/vendor/**',
   '**/build/**', '**/coverage/**', '**/tmp/**', '**/log/**', '**/storage/**',
@@ -34,6 +36,9 @@ const GLOBAL_EXCLUDES = [
   // Docs + generated API docs + the hook scripts themselves.
   '**/*.md', '**/*.mdx', '**/*.markdown',
   'ai/hooks/**', '**/api-docs/**', 'platform/docs/**', 'backend/public/**',
+  // AI-eval scenario fixtures (GS-xxx promptfoo prompts intentionally contain
+  // destructive commands / key shapes as test inputs).
+  '**/promptfoo/**',
 ];
 
 const RULES = [
