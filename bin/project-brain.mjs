@@ -15,13 +15,26 @@ function identifier(prefix, seed) {
   return `${prefix}-${createHash('sha256').update(seed).digest('hex').slice(0, 12)}`;
 }
 
-function detectStacks(rootDir) {
+function stackRoots(config) {
+  const roots = new Set(['']);
+  for (const layer of config.layers || []) {
+    const path = normalize(layer.path).replace(/\/\*.*$/, '').replace(/\/$/, '');
+    if (!path) continue;
+    roots.add(path);
+    roots.add(path.split('/')[0]);
+  }
+  return [...roots];
+}
+
+function detectStacks(rootDir, config) {
+  const roots = stackRoots(config);
+  const has = names => roots.some(directory => names.some(name => existsSync(resolve(rootDir, directory, name))));
   const stacks = [];
-  if (existsSync(resolve(rootDir, 'package.json'))) stacks.push('node');
-  if (existsSync(resolve(rootDir, 'Gemfile'))) stacks.push('ruby');
-  if (existsSync(resolve(rootDir, 'requirements.txt')) || existsSync(resolve(rootDir, 'pyproject.toml'))) stacks.push('python');
-  if (existsSync(resolve(rootDir, 'go.mod'))) stacks.push('go');
-  if (existsSync(resolve(rootDir, 'Cargo.toml'))) stacks.push('rust');
+  if (has(['package.json'])) stacks.push('node');
+  if (has(['Gemfile'])) stacks.push('ruby');
+  if (has(['requirements.txt', 'pyproject.toml'])) stacks.push('python');
+  if (has(['go.mod'])) stacks.push('go');
+  if (has(['Cargo.toml'])) stacks.push('rust');
   return stacks.length > 0 ? stacks : ['unknown'];
 }
 
@@ -81,7 +94,7 @@ export function buildProjectProfile({ rootDir, config }) {
     repository: identity.repository,
     worktreeId: identity.worktreeId,
     generatedAt: new Date().toISOString(),
-    stacks: detectStacks(rootDir),
+    stacks: detectStacks(rootDir, config),
     layers: (config.layers || []).map(layer => ({ id: layer.id, path: normalize(layer.path), label: layer.label || layer.id })),
     commands: {
       test: scripts.test || null,

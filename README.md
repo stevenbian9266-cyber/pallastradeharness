@@ -69,7 +69,7 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.0.0`；`v1.0.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.0.1`；`v1.0.1` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
