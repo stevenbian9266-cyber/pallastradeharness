@@ -18,7 +18,7 @@ cp node_modules/pallastrade-harness/rules/base-anti-patterns.json \
 {% raw %}
 | id | severity | 模式 | 目标文件 | 说明 |
 |---|---|---|---|---|
-| STARTER-001 | warning | `style={{` | `**/*.{tsx,jsx}` | 内联样式对象 → 用 CSS 类/设计令牌 |
+| STARTER-001 | warning | `style=&#123;&#123;` | `**/*.{tsx,jsx}` | 内联样式对象 → 用 CSS 类/设计令牌 |
 | STARTER-002 | warning | `#[0-9a-fA-F]{3,8}` | `**/*.{tsx,jsx,css}` | 硬编码十六进制色值 → 设计令牌 |
 | STARTER-003 | error | `console.(log|debug)(` | `**/*.{ts,tsx,js,jsx}` | 源码残留 console 日志 |
 | STARTER-004 | warning | `TODO\|FIXME` | `**/*.{ts,tsx,js,jsx,rb,py}` | 技术债标记 |
