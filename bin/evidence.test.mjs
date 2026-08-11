@@ -78,3 +78,16 @@ test('failed command evidence is retained but cannot satisfy verification', () =
     rmSync(rootDir, { recursive: true, force: true });
   }
 });
+
+test('package-manager commands can be captured through platform shims', () => {
+  const { rootDir, config, task } = project();
+  try {
+    const evidence = runEvidenceCommand({ rootDir, config, task, evidenceType: 'test', summary: 'npm version', command: ['npm', '--version'] });
+    assert.equal(evidence.exitCode, 0, evidence.stderr);
+    assert.equal(evidence.success, true);
+    assert.match(evidence.stdout, /^\d+\.\d+\.\d+/);
+    assert.equal(evidence.metadata.windowsShim, process.platform === 'win32');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});

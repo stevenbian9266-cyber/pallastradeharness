@@ -53,6 +53,12 @@ function commandForPlatform(command) {
   return command;
 }
 
+function quoteCmdArgument(value) {
+  const argument = String(value);
+  if (/[\0\r\n]/.test(argument)) throw new TypeError('Evidence command arguments cannot contain NUL or newlines');
+  return `"${argument.replaceAll('^', '^^').replaceAll('%', '^%').replaceAll('"', '""')}"`;
+}
+
 function fileRecords(rootDir, files) {
   return [...new Set(files)].flatMap(path => {
     const absolute = resolve(rootDir, path);
@@ -114,10 +120,17 @@ export function recordEvidence({ rootDir, config, task, evidenceType, summary, c
 export function runEvidenceCommand({ rootDir, config, task, evidenceType, summary, command }) {
   if (!Array.isArray(command) || command.length === 0) throw new TypeError('Evidence command must be a non-empty argument array');
   const executable = commandForPlatform(command[0]);
-  const result = spawnSync(executable, command.slice(1), {
+  // Windows cannot execute .cmd package-manager shims through CreateProcess
+  // directly (Node reports EINVAL). Delegate only the known shim to cmd.exe
+  // as one quoted command string. No separate argv is passed with shell mode,
+  // avoiding Node's unsafe/deprecated shell-plus-args concatenation.
+  const usesWindowsShim = process.platform === 'win32' && executable.endsWith('.cmd');
+  const spawnExecutable = usesWindowsShim ? [executable, ...command.slice(1).map(quoteCmdArgument)].join(' ') : executable;
+  const spawnArguments = usesWindowsShim ? [] : command.slice(1);
+  const result = spawnSync(spawnExecutable, spawnArguments, {
     cwd: rootDir,
     encoding: 'utf-8',
-    shell: false,
+    shell: usesWindowsShim ? (process.env.ComSpec || true) : false,
     windowsHide: true,
     env: { ...process.env, NO_COLOR: process.env.NO_COLOR || '1' },
   });
@@ -134,7 +147,7 @@ export function runEvidenceCommand({ rootDir, config, task, evidenceType, summar
     stdout: result.stdout || '',
     stderr: result.error ? `${result.error.message}\n${result.stderr || ''}` : result.stderr || '',
     files: changed.errors.length === 0 ? implementationFiles(changed.files, config) : [],
-    metadata: { executable, spawnError: result.error?.code || null },
+    metadata: { executable, runner: usesWindowsShim ? (process.env.ComSpec || 'cmd.exe') : executable, windowsShim: usesWindowsShim, spawnError: result.error?.code || null },
   });
 }
 
