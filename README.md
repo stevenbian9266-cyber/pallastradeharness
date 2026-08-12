@@ -102,6 +102,28 @@ pre-push:
 
 ---
 
+## Auto-Standards / Auto-Skills / Auto-Docs（通用化内容供给）
+
+Harness 是"治理壳"，内容由 AI 生成、机制校验、人拍板。三个通用化命令让任意项目快速获得内容供给能力：
+
+```bash
+# Auto-Standards：读业务代码 → 规范缺口 → 起草包（AI 按 skill 补全 → validate → coverage）
+npx harness standards gap                    # 哪些领域有代码但无规范
+npx harness standards generate --write       # 生成规范骨架 + GENERATE-NOTES + 安装 standards-audit skill
+npx harness standards validate               # schema 校验
+
+# Auto-Skills：领域 Skill 自动生成 + 注册
+npx harness skill new --domain catalog       # 创建 ai/skills/catalog/SKILL.md + 注册 AGENTS.md/ai README
+npx harness skill check                      # 结构/索引校验
+
+# Auto-Docs：知识文档起草（AI 起草 → 人确认 → 写回）
+npx harness docs generate --asset README.md --write
+npx harness docs template --copy             # 安装 PRD 模板
+```
+
+> 随包分发 4 个通用方法论 skill（`skills/`）：`harness-standards-audit`、`harness-skill-author`、`harness-prd`、`harness-docs`；
+> 以及可插拔 PRD 模板（`templates/prd/`）。onboard/standards generate 会自动安装到项目 `ai/skills/`。
+
 ## 核心概念
 
 ### 配置（`harness.config.mjs`）

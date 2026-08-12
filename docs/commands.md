@@ -46,6 +46,15 @@ title: 命令参考
 | `harness cache:clean` | 清理缓存 |
 | `harness affected` | 变更影响分析 |
 | `harness analyze` | 项目栈/层/差距分析（`--write` 生成配置草案） |
+| `harness onboard [--write] [--preset auto\|nextjs\|rails\|single\|monorepo] [--tier lite\|standard\|strict]` | 冷启动：从 0 / 存量项目一键接入（配置 + policies + 通用 skills + PRD 模板 + 规范骨架） |
+| `harness standards gap` | Auto-Standards：领域代码 vs 规范覆盖缺口报告 |
+| `harness standards validate` | Auto-Standards：规范文件 schema 校验 |
+| `harness standards generate [--domains ...] [--write]` | Auto-Standards：生成规范起草包 + 安装 standards-audit skill（dry-run 优先） |
+| `harness skill new --domain <x> [--title ...]` | Auto-Skills：创建领域 Skill 骨架 + 自动注册索引 |
+| `harness skill check` | Auto-Skills：结构 + 索引一致性校验 |
+| `harness skill list [--format json]` | Auto-Skills：领域清单 |
+| `harness docs generate --asset <path> [--write]` | Auto-Docs：知识文档起草包（AI 起草 + 人确认） |
+| `harness docs template --copy [--preset x]` | Auto-Docs：安装 PRD 模板到 `docs/prd/_TEMPLATE.md` |
 
 ## 常用组合
 

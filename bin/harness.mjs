@@ -1069,10 +1069,36 @@ else if (cmd === 'analyze') {
 }
 
 // ================================================================
-// standards — machine-readable standards registry
+// standards — machine-readable standards registry + Auto-Standards
 // ================================================================
 else if (cmd === 'standards') {
-  await import('./standards.mjs').then(module => module.runStandards({ rootDir: ROOT, args, config }));
+  const sub = args[1];
+  if (sub === 'generate' || sub === 'validate' || sub === 'gap') {
+    await import('./standards-gen.mjs').then(m => m.run({ rootDir: ROOT, args, config }));
+  } else {
+    await import('./standards.mjs').then(module => module.runStandards({ rootDir: ROOT, args, config }));
+  }
+}
+
+// ================================================================
+// skill — Auto-Skills（能力 B：创建/注册/校验领域 Skill）
+// ================================================================
+else if (cmd === 'skill') {
+  await import('./skill.mjs').then(m => m.run({ rootDir: ROOT, args, config }));
+}
+
+// ================================================================
+// docs — Auto-Docs（能力 C 通用化：知识文档/PRD 模板）
+// ================================================================
+else if (cmd === 'docs') {
+  await import('./docs-gen.mjs').then(m => m.run({ rootDir: ROOT, args, config }));
+}
+
+// ================================================================
+// onboard — 冷启动（P4）：从 0 / 存量项目一键接入
+// ================================================================
+else if (cmd === 'onboard') {
+  await import('./onboard.mjs').then(m => m.run({ rootDir: ROOT, args }));
 }
 
 // ================================================================
@@ -1249,6 +1275,15 @@ Gate (MANDATORY before coding):
   gate:required                       Enforced by pre-commit: fail when no
                                       cleared gate exists on this branch.
   gate:clean [--days N]               Prune cleared gates older than N days.
+
+Onboarding (通用化接入 — Auto-Standards / Auto-Skills / Auto-Docs):
+  onboard [--write] [--preset auto|nextjs|rails|single|monorepo] [--tier lite|standard|strict]
+                                      One-command cold-start for greenfield/brownfield projects
+  standards gap|validate|generate     Auto-Standards: gap report, schema validation, drafting pack
+  skill new --domain <x>|check|list   Auto-Skills: create/register/validate domain skills
+  docs generate --asset <path> [--write]
+                                      Auto-Docs: draft knowledge doc updates (AI + human confirm)
+  docs template --copy                Install the bundled PRD template into docs/prd/
 
 Environment:
   doctor [--fix-safe] [--format json]   Diagnose local dev environment

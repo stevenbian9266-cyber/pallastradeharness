@@ -8,6 +8,9 @@ import { loadStandards, selectStandards } from './standards.mjs';
 import { reviewDiff } from './supervisor.mjs';
 import { reviewDomainSupervisors } from './domain-supervisors.mjs';
 import { resolveTask, saveTask } from './state-store.mjs';
+import { buildGapReport } from './standards-gen.mjs';
+import { createSkill } from './skill.mjs';
+import { createDocsDraft } from './docs-gen.mjs';
 
 export const MCP_PROTOCOL_VERSION = '2025-03-26';
 
@@ -22,6 +25,9 @@ export const MCP_TOOLS = Object.freeze([
   { name: 'record_evidence', description: 'Record typed non-command evidence. Arbitrary command execution is not exposed through MCP.', inputSchema: { type: 'object', required: ['type', 'summary'], properties: { taskId: { type: 'string' }, type: { type: 'string' }, summary: { type: 'string' }, file: { type: 'string' } } } },
   { name: 'review_diff', description: 'Review changed code against task scope and domain standards.', inputSchema: { type: 'object', properties: { taskId: { type: 'string' }, base: { type: 'string' }, domains: { type: 'array', items: { type: 'string' } } } } },
   { name: 'finish_task', description: 'Finish a task only when fresh evidence satisfies its policy.', inputSchema: { type: 'object', properties: { taskId: { type: 'string' } } } },
+  { name: 'generate_standards', description: 'Auto-Standards: report which code domains have no standards coverage (gap report). Deterministic; does not write files.', inputSchema: { type: 'object', properties: {} } },
+  { name: 'generate_skill', description: 'Auto-Skills: create a domain Skill skeleton (ai/skills/<domain>/SKILL.md) and register it in AGENTS.md/ai README indexes.', inputSchema: { type: 'object', required: ['domain'], properties: { domain: { type: 'string' }, title: { type: 'string' } } } },
+  { name: 'generate_docs', description: 'Auto-Docs: create a knowledge doc drafting pack for an asset (e.g. README.md). Deterministic skeleton; AI fills the body.', inputSchema: { type: 'object', required: ['asset'], properties: { asset: { type: 'string' }, base: { type: 'string' }, write: { type: 'boolean' } } } },
 ]);
 
 function content(value) {
@@ -94,6 +100,19 @@ export function createMcpHandler({ rootDir, config }) {
       const task = taskFor(args.taskId);
       const verification = verifyTaskEvidence({ rootDir, config, task });
       return finishVerifiedTask({ rootDir, config, task, verification });
+    },
+    generate_standards() {
+      const report = buildGapReport({ rootDir, config });
+      return { summary: report.summary, gaps: report.gaps.map(g => ({ category: g.category, label: g.label, total: g.total })), sources: report.sources, errors: report.errors };
+    },
+    generate_skill(args) {
+      const result = createSkill({ rootDir, config, domain: requiredString(args, 'domain'), title: args.title });
+      return result;
+    },
+    async generate_docs(args) {
+      const asset = requiredString(args, 'asset');
+      const result = await createDocsDraft({ rootDir, config, asset, base: args.base || 'origin/main', write: args.write === true });
+      return { asset: result.asset, draftPath: result.draftPath, changed: result.changed, wrote: result.wrote, targetExists: result.targetExists };
     },
   };
 
