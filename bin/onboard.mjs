@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { EXIT_CODES, getArg, hasArg } from './cli-utils.mjs';
 import { detectStack, detectLayers, detectGaps } from './analyze.mjs';
 import { atomicWriteText } from './state-store.mjs';
+import { registerInIndexes } from './skill.mjs';
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BUNDLED_SKILLS = resolve(PACKAGE_ROOT, 'skills');
@@ -190,6 +191,11 @@ export async function run({ rootDir = process.cwd(), args = [] } = {}) {
   for (const w of writes) {
     ensureDir(resolve(w.path, '..'));
     writeFileSync(w.path, w.content, 'utf-8');
+  }
+  // 通用 skills 自动注册索引（AGENTS.md §0.1 / ai/README.md）
+  for (const skillId of installedSkills) {
+    const reg = registerInIndexes(rootDir, skillId);
+    for (const r of reg) if (r.done) console.log(`   ✓ 已注册: ${r.where}`);
   }
   console.log('\n✅ 接入文件已写入');
   console.log('\n  剩余步骤（人/AI）:');

@@ -113,7 +113,7 @@ export async function runNew({ rootDir, args, config }) {
 }
 
 // ── 索引注册：AGENTS.md §0.1 表格 + ai/README.md ──────────
-function registerInIndexes(rootDir, domain) {
+export function registerInIndexes(rootDir, domain) {
   const results = [];
   const agentsPath = resolve(rootDir, 'AGENTS.md');
   if (existsSync(agentsPath)) {
