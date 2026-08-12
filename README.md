@@ -31,6 +31,9 @@ npm i -D pallastrade-harness
 # 或升级到最新版
 npm i -D pallastrade-harness@latest
 
+# 一键冷启动（greenfield/brownfield）：自动生成配置、AGENTS.md、skills、lefthook、CI
+npx harness onboard
+
 # 初始化项目配置（生成 harness.config.mjs 骨架）
 npx harness init
 
@@ -69,13 +72,12 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.0.4`；`v1.0.4` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.1.1`；`v1.1.1` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
 
-> ⚠️ **npm 政策预警（2027-01 起）**：npm 已移除 Authenticator app（TOTP）2FA 选项，仅支持 Security key（WebAuthn）；且 bypass-token 将禁止直接发布。
-> 本仓库已经使用 **trusted publishing（OIDC）**，不使用长期 npm token。发布顺序固定为：PR checks → merge main → tag → workflow → registry/provenance 验证。
+> ✅ **发布机制**：**trusted publishing（OIDC）** 自动发布——推 `v*` tag 即触发 `.github/workflows/publish.yml`，经 OIDC 认证发布到 npm（带 SLSA v1 provenance），无需 token / OTP / Security key。发布顺序固定为：PR checks → merge main → tag → workflow → registry/provenance 验证。
 
 ### 接入 lefthook（物理强制）
 
@@ -119,6 +121,9 @@ npx harness skill check                      # 结构/索引校验
 # Auto-Docs：知识文档起草（AI 起草 → 人确认 → 写回）
 npx harness docs generate --asset README.md --write
 npx harness docs template --copy             # 安装 PRD 模板
+
+# Onboard：一键冷启动（分析代码 → 生成配置/AGENTS.md/skills/lefthook/CI → 渐进档位）
+npx harness onboard --tier lite              # lite|standard|strict，--write 落盘
 ```
 
 > 随包分发 4 个通用方法论 skill（`skills/`）：`harness-standards-audit`、`harness-skill-author`、`harness-prd`、`harness-docs`；
@@ -164,6 +169,10 @@ export default {
 | 命令 | 说明 |
 |---|---|
 | `harness init` | 生成 `harness.config.mjs` 骨架（向导版规划中） |
+| `harness onboard [--preset ...] [--tier lite\|standard\|strict] [--write]` | 一键冷启动：分析代码 → 生成配置 / AGENTS.md / skills / lefthook / CI，渐进档位 |
+| `harness standards gap\|validate\|generate` | Auto-Standards：规范差距报告 / schema 校验 / 起草包（AI 按 skill 补全） |
+| `harness skill new --domain <x>\|check\|list` | Auto-Skills：领域 Skill 创建 / 注册 / 校验 + 自动索引 |
+| `harness docs generate --asset <path>\|template` | Auto-Docs：知识文档起草包 + 可安装 PRD 模板 |
 | `harness gate --task "..."` | 创建分阶段门禁（preparation → implementation → verification → finished） |
 | `harness gate:status / gate:clear / gate:migrate / gate:required / gate:clean` | 门禁状态与旧 Gate 迁移；只有绑定当前分支和 HEAD 的 finished Gate 能通过提交硬卡，提交后不可复用 |
 | `harness standards list/select/coverage` | 查询、按 Diff 选择规范并报告 Standards Enforcement Coverage |
