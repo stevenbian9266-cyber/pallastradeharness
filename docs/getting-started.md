@@ -31,7 +31,7 @@ npx harness init --preset nextjs --tier standard
 npx harness init --preset rails --tier lite --ai
 ```
 
-可用 preset：`single` / `nextjs` / `rails` / `monorepo` / `pallastrade`
+可用 preset：`single` / `nextjs` / `rails` / `monorepo`
 
 ## 3. 体检
 

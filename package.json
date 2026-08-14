@@ -1,6 +1,6 @@
 {
   "name": "pallastrade-harness",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Local-first AI-native SDLC governance, development supervision, evidence, recovery, and project knowledge orchestration.",
   "type": "module",
   "bin": {

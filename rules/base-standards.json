@@ -7,13 +7,28 @@
       "id": "STD-SCOPE-001",
       "category": "architecture",
       "title": "Implementation changes must stay inside the approved Change Plan",
-      "authority": { "file": "harness change plan", "section": "allow/deny scope" },
-      "scope": ["**/*"],
+      "authority": {
+        "file": "harness change plan",
+        "section": "allow/deny scope"
+      },
+      "scope": [
+        "**/*"
+      ],
       "severity": "error",
-      "enforcement": { "level": "blocking", "type": "deterministic", "verifier": "scope-drift" },
-      "evidence": ["changed-files", "change-plan"],
+      "enforcement": {
+        "level": "blocking",
+        "type": "deterministic",
+        "verifier": "scope-drift"
+      },
+      "evidence": [
+        "changed-files",
+        "change-plan"
+      ],
       "fix": "Update the plan after a risk review, or move the change back into the approved scope.",
-      "exception": { "allowed": true, "requiresReason": true },
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
       "knowledgeImpact": []
     },
     {
@@ -22,13 +37,28 @@
       "id": "STD-GEN-001",
       "category": "code-quality",
       "title": "Generated files must be changed through their generator",
-      "authority": { "file": "harness.config.mjs", "section": "supervisor.generatedFiles" },
-      "scope": ["**/*"],
+      "authority": {
+        "file": "harness.config.mjs",
+        "section": "supervisor.generatedFiles"
+      },
+      "scope": [
+        "**/*"
+      ],
       "severity": "error",
-      "enforcement": { "level": "critical", "type": "deterministic", "verifier": "protected-files" },
-      "evidence": ["changed-files", "generation-command"],
+      "enforcement": {
+        "level": "critical",
+        "type": "deterministic",
+        "verifier": "protected-files"
+      },
+      "evidence": [
+        "changed-files",
+        "generation-command"
+      ],
       "fix": "Change the source definition and run the configured generator.",
-      "exception": { "allowed": false, "requiresReason": false },
+      "exception": {
+        "allowed": false,
+        "requiresReason": false
+      },
       "knowledgeImpact": []
     },
     {
@@ -37,14 +67,31 @@
       "id": "STD-ARCH-001",
       "category": "architecture",
       "title": "Dependencies must follow declared architecture boundaries",
-      "authority": { "file": "harness.config.mjs", "section": "supervisor.boundaries" },
-      "scope": ["**/*.{js,mjs,cjs,ts,tsx,jsx}"],
+      "authority": {
+        "file": "harness.config.mjs",
+        "section": "supervisor.boundaries"
+      },
+      "scope": [
+        "**/*.{js,mjs,cjs,ts,tsx,jsx}"
+      ],
       "severity": "error",
-      "enforcement": { "level": "verified", "type": "deterministic", "verifier": "architecture-boundaries" },
-      "evidence": ["changed-imports", "boundary-config"],
+      "enforcement": {
+        "level": "verified",
+        "type": "deterministic",
+        "verifier": "architecture-boundaries"
+      },
+      "evidence": [
+        "changed-imports",
+        "boundary-config"
+      ],
       "fix": "Use the allowed dependency direction or introduce an explicit adapter.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["architecture decision"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "architecture decision"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -52,14 +99,30 @@
       "id": "STD-ARCH-002",
       "category": "architecture",
       "title": "Changed modules must not introduce circular dependencies",
-      "authority": { "file": "Harness built-in policy", "section": "Architecture Supervisor" },
-      "scope": ["**/*.{js,mjs,cjs,ts,tsx,jsx}"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "Architecture Supervisor"
+      },
+      "scope": [
+        "**/*.{js,mjs,cjs,ts,tsx,jsx}"
+      ],
       "severity": "error",
-      "enforcement": { "level": "verified", "type": "deterministic", "verifier": "dependency-cycles" },
-      "evidence": ["dependency-graph"],
+      "enforcement": {
+        "level": "verified",
+        "type": "deterministic",
+        "verifier": "dependency-cycles"
+      },
+      "evidence": [
+        "dependency-graph"
+      ],
       "fix": "Extract a lower-level module or invert the dependency through an interface.",
-      "exception": { "allowed": false, "requiresReason": false },
-      "knowledgeImpact": ["architecture decision"]
+      "exception": {
+        "allowed": false,
+        "requiresReason": false
+      },
+      "knowledgeImpact": [
+        "architecture decision"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -67,14 +130,34 @@
       "id": "STD-TECH-001",
       "category": "technology-selection",
       "title": "New dependencies require a technology choice review",
-      "authority": { "file": "Harness built-in policy", "section": "Technology Choice Supervisor" },
-      "scope": ["**/package.json", "**/Gemfile", "**/requirements*.txt"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "Technology Choice Supervisor"
+      },
+      "scope": [
+        "**/package.json",
+        "**/Gemfile",
+        "**/requirements*.txt"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "review-required", "type": "deterministic", "verifier": "dependency-additions" },
-      "evidence": ["dependency-diff", "technology-review"],
+      "enforcement": {
+        "level": "review-required",
+        "type": "deterministic",
+        "verifier": "dependency-additions"
+      },
+      "evidence": [
+        "dependency-diff",
+        "technology-review"
+      ],
       "fix": "Record alternatives, maintenance/security cost, exit cost, and why existing technology is insufficient.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["architecture decision", "dependency documentation"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "architecture decision",
+        "dependency documentation"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -82,13 +165,28 @@
       "id": "STD-CQ-001",
       "category": "code-quality",
       "title": "New code must stay below the configured decision complexity baseline",
-      "authority": { "file": "harness.config.mjs", "section": "supervisor.complexity.maxDecisionPoints" },
-      "scope": ["**/*.{js,mjs,cjs,ts,tsx,jsx,rb,py}"],
+      "authority": {
+        "file": "harness.config.mjs",
+        "section": "supervisor.complexity.maxDecisionPoints"
+      },
+      "scope": [
+        "**/*.{js,mjs,cjs,ts,tsx,jsx,rb,py}"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "verified", "type": "deterministic", "verifier": "new-code-complexity" },
-      "evidence": ["added-lines", "decision-count"],
+      "enforcement": {
+        "level": "verified",
+        "type": "deterministic",
+        "verifier": "new-code-complexity"
+      },
+      "evidence": [
+        "added-lines",
+        "decision-count"
+      ],
       "fix": "Split responsibilities, use guard clauses, or extract a named unit with focused tests.",
-      "exception": { "allowed": true, "requiresReason": true },
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
       "knowledgeImpact": []
     },
     {
@@ -97,13 +195,28 @@
       "id": "STD-CQ-002",
       "category": "code-quality",
       "title": "New code must not duplicate a substantial block",
-      "authority": { "file": "harness.config.mjs", "section": "supervisor.complexity.duplicateBlockLines" },
-      "scope": ["**/*.{js,mjs,cjs,ts,tsx,jsx,rb,py}"],
+      "authority": {
+        "file": "harness.config.mjs",
+        "section": "supervisor.complexity.duplicateBlockLines"
+      },
+      "scope": [
+        "**/*.{js,mjs,cjs,ts,tsx,jsx,rb,py}"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "verified", "type": "deterministic", "verifier": "new-code-duplication" },
-      "evidence": ["added-lines", "duplicate-block"],
+      "enforcement": {
+        "level": "verified",
+        "type": "deterministic",
+        "verifier": "new-code-duplication"
+      },
+      "evidence": [
+        "added-lines",
+        "duplicate-block"
+      ],
       "fix": "Reuse the existing abstraction or extract the shared behavior once.",
-      "exception": { "allowed": true, "requiresReason": true },
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
       "knowledgeImpact": []
     },
     {
@@ -112,14 +225,33 @@
       "id": "STD-DB-001",
       "category": "database",
       "title": "Historical migrations and generated schema snapshots are immutable",
-      "authority": { "file": "project agent instructions", "section": "database changes" },
-      "scope": ["**/db/migrate/**/*", "**/db/schema.rb"],
+      "authority": {
+        "file": "project agent instructions",
+        "section": "database changes"
+      },
+      "scope": [
+        "**/db/migrate/**/*",
+        "**/db/schema.rb"
+      ],
       "severity": "error",
-      "enforcement": { "level": "critical", "type": "deterministic", "verifier": "historical-migration" },
-      "evidence": ["base-tree", "changed-files"],
+      "enforcement": {
+        "level": "critical",
+        "type": "deterministic",
+        "verifier": "historical-migration"
+      },
+      "evidence": [
+        "base-tree",
+        "changed-files"
+      ],
       "fix": "Create a new reversible migration and regenerate the schema through the framework.",
-      "exception": { "allowed": false, "requiresReason": false },
-      "knowledgeImpact": ["data model documentation", "recovery plan"]
+      "exception": {
+        "allowed": false,
+        "requiresReason": false
+      },
+      "knowledgeImpact": [
+        "data model documentation",
+        "recovery plan"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -127,13 +259,28 @@
       "id": "STD-TEST-001",
       "category": "testing",
       "title": "Behavior changes require objective verification evidence",
-      "authority": { "file": "Harness built-in policy", "section": "Verification" },
-      "scope": ["**/*"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "Verification"
+      },
+      "scope": [
+        "**/*"
+      ],
       "severity": "error",
-      "enforcement": { "level": "review-required", "type": "evidence", "verifier": "verification-evidence" },
-      "evidence": ["test-evidence", "build-evidence"],
+      "enforcement": {
+        "level": "review-required",
+        "type": "evidence",
+        "verifier": "verification-evidence"
+      },
+      "evidence": [
+        "test-evidence",
+        "build-evidence"
+      ],
       "fix": "Run the applicable test/build and attach its command, exit code, commit state, and summary.",
-      "exception": { "allowed": true, "requiresReason": true },
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
       "knowledgeImpact": []
     },
     {
@@ -142,14 +289,30 @@
       "id": "STD-KNOW-001",
       "category": "knowledge",
       "title": "Changed behavior must evaluate affected knowledge assets",
-      "authority": { "file": "Harness built-in policy", "section": "Knowledge Loop" },
-      "scope": ["**/*"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "Knowledge Loop"
+      },
+      "scope": [
+        "**/*"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "review-required", "type": "evidence", "verifier": "knowledge-impact" },
-      "evidence": ["knowledge-evidence"],
+      "enforcement": {
+        "level": "review-required",
+        "type": "evidence",
+        "verifier": "knowledge-impact"
+      },
+      "evidence": [
+        "knowledge-evidence"
+      ],
       "fix": "Record each affected asset as updated, reviewed-no-change, or not-applicable.",
-      "exception": { "allowed": false, "requiresReason": false },
-      "knowledgeImpact": ["project knowledge index"]
+      "exception": {
+        "allowed": false,
+        "requiresReason": false
+      },
+      "knowledgeImpact": [
+        "project knowledge index"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -157,14 +320,30 @@
       "id": "STD-UI-001",
       "category": "ui-style",
       "title": "UI changes should reuse the project's design system and tokens",
-      "authority": { "file": "project UI standard", "section": "design system" },
-      "scope": ["**/*.{css,scss,tsx,jsx,vue}"],
+      "authority": {
+        "file": "project UI standard",
+        "section": "design system"
+      },
+      "scope": [
+        "**/*.{css,scss,tsx,jsx,vue}"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "documented", "type": "review", "verifier": null },
-      "evidence": ["ui-review"],
+      "enforcement": {
+        "level": "documented",
+        "type": "review",
+        "verifier": null
+      },
+      "evidence": [
+        "ui-review"
+      ],
       "fix": "Reuse existing components, variants, spacing, typography, and color tokens.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["style guide"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "style guide"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -172,14 +351,31 @@
       "id": "STD-INT-001",
       "category": "interaction",
       "title": "Interactive UI requires state and accessibility review",
-      "authority": { "file": "project interaction standard", "section": "state matrix" },
-      "scope": ["**/*.{tsx,jsx,vue}"],
+      "authority": {
+        "file": "project interaction standard",
+        "section": "state matrix"
+      },
+      "scope": [
+        "**/*.{tsx,jsx,vue}"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "documented", "type": "review", "verifier": null },
-      "evidence": ["dom-evidence", "accessibility-evidence"],
+      "enforcement": {
+        "level": "documented",
+        "type": "review",
+        "verifier": null
+      },
+      "evidence": [
+        "dom-evidence",
+        "accessibility-evidence"
+      ],
       "fix": "Review loading, empty, error, disabled, success, keyboard, focus, and screen-reader states.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["interaction guide"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "interaction guide"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -187,14 +383,32 @@
       "id": "STD-API-001",
       "category": "api",
       "title": "API changes require contract compatibility review",
-      "authority": { "file": "project API standard", "section": "contracts" },
-      "scope": ["**/*api*/**/*", "**/*openapi*", "**/*swagger*"],
+      "authority": {
+        "file": "project API standard",
+        "section": "contracts"
+      },
+      "scope": [
+        "**/*api*/**/*",
+        "**/*openapi*",
+        "**/*swagger*"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "documented", "type": "review", "verifier": null },
-      "evidence": ["api-contract-evidence"],
+      "enforcement": {
+        "level": "documented",
+        "type": "review",
+        "verifier": null
+      },
+      "evidence": [
+        "api-contract-evidence"
+      ],
       "fix": "Verify request/response compatibility, generated clients, authorization, and API documentation.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["API documentation"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "API documentation"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -202,14 +416,34 @@
       "id": "STD-SEC-001",
       "category": "security",
       "title": "Security-sensitive changes require a dedicated review",
-      "authority": { "file": "project security standard", "section": "security review" },
-      "scope": ["**/*auth*", "**/*security*", "**/*permission*", "**/*secret*"],
+      "authority": {
+        "file": "project security standard",
+        "section": "security review"
+      },
+      "scope": [
+        "**/*auth*",
+        "**/*security*",
+        "**/*permission*",
+        "**/*secret*"
+      ],
       "severity": "error",
-      "enforcement": { "level": "review-required", "type": "review", "verifier": "security-review" },
-      "evidence": ["security-review-evidence"],
+      "enforcement": {
+        "level": "review-required",
+        "type": "review",
+        "verifier": "security-review"
+      },
+      "evidence": [
+        "security-review-evidence"
+      ],
       "fix": "Review authentication, authorization, input handling, secrets, tenant isolation, and abuse cases.",
-      "exception": { "allowed": false, "requiresReason": false },
-      "knowledgeImpact": ["security standard", "threat model"]
+      "exception": {
+        "allowed": false,
+        "requiresReason": false
+      },
+      "knowledgeImpact": [
+        "security standard",
+        "threat model"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -217,14 +451,30 @@
       "id": "STD-A11Y-001",
       "category": "accessibility",
       "title": "Interactive UI requires keyboard, focus, and assistive technology verification",
-      "authority": { "file": "project accessibility standard", "section": "interaction accessibility" },
-      "scope": ["**/*.{tsx,jsx,vue,html}"],
+      "authority": {
+        "file": "project accessibility standard",
+        "section": "interaction accessibility"
+      },
+      "scope": [
+        "**/*.{tsx,jsx,vue,html}"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "documented", "type": "review", "verifier": null },
-      "evidence": ["accessibility-evidence"],
+      "enforcement": {
+        "level": "documented",
+        "type": "review",
+        "verifier": null
+      },
+      "evidence": [
+        "accessibility-evidence"
+      ],
       "fix": "Verify semantic roles, labels, keyboard flow, focus restoration, contrast, and screen-reader output.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["accessibility guide"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "accessibility guide"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -232,14 +482,31 @@
       "id": "STD-DOC-001",
       "category": "documentation",
       "title": "Documentation must remain traceable to code facts",
-      "authority": { "file": "project documentation standard", "section": "source of truth" },
-      "scope": ["**/*.md", "**/*.mdx"],
+      "authority": {
+        "file": "project documentation standard",
+        "section": "source of truth"
+      },
+      "scope": [
+        "**/*.md",
+        "**/*.mdx"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "review-required", "type": "evidence", "verifier": "documentation-review" },
-      "evidence": ["knowledge-evidence"],
+      "enforcement": {
+        "level": "review-required",
+        "type": "evidence",
+        "verifier": "documentation-review"
+      },
+      "evidence": [
+        "knowledge-evidence"
+      ],
       "fix": "Cite the authoritative code/config source and verify commands, examples, and file references.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["documentation index"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "documentation index"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -247,14 +514,34 @@
       "id": "STD-DEPLOY-001",
       "category": "deployment",
       "title": "Deployment changes require rollback and verification steps",
-      "authority": { "file": "project deployment standard", "section": "recovery" },
-      "scope": ["**/Dockerfile*", "**/docker-compose*.yml", "**/.github/workflows/*", "**/*deploy*"],
+      "authority": {
+        "file": "project deployment standard",
+        "section": "recovery"
+      },
+      "scope": [
+        "**/Dockerfile*",
+        "**/docker-compose*.yml",
+        "**/.github/workflows/*",
+        "**/*deploy*"
+      ],
       "severity": "error",
-      "enforcement": { "level": "review-required", "type": "review", "verifier": "deployment-review" },
-      "evidence": ["deployment-evidence", "rollback-plan"],
+      "enforcement": {
+        "level": "review-required",
+        "type": "review",
+        "verifier": "deployment-review"
+      },
+      "evidence": [
+        "deployment-evidence",
+        "rollback-plan"
+      ],
       "fix": "Document stop conditions, rollback steps, configuration changes, and post-deploy verification.",
-      "exception": { "allowed": false, "requiresReason": false },
-      "knowledgeImpact": ["deployment documentation"]
+      "exception": {
+        "allowed": false,
+        "requiresReason": false
+      },
+      "knowledgeImpact": [
+        "deployment documentation"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -262,14 +549,34 @@
       "id": "STD-DB-002",
       "category": "database",
       "title": "New database migrations must be reversible and operationally safe",
-      "authority": { "file": "Harness built-in policy", "section": "Database Supervisor" },
-      "scope": ["**/db/migrate/**/*", "**/migrations/**/*"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "Database Supervisor"
+      },
+      "scope": [
+        "**/db/migrate/**/*",
+        "**/migrations/**/*"
+      ],
       "severity": "error",
-      "enforcement": { "level": "blocking", "type": "deterministic", "verifier": "migration-safety" },
-      "evidence": ["migration-analysis", "rollback-plan", "database-evidence"],
+      "enforcement": {
+        "level": "blocking",
+        "type": "deterministic",
+        "verifier": "migration-safety"
+      },
+      "evidence": [
+        "migration-analysis",
+        "rollback-plan",
+        "database-evidence"
+      ],
       "fix": "Use a reversible migration, separate data backfills, and document lock/rollback verification.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["data model documentation", "recovery plan"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "data model documentation",
+        "recovery plan"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -277,14 +584,32 @@
       "id": "STD-DB-003",
       "category": "database",
       "title": "Application data backfills must not run inside schema migrations",
-      "authority": { "file": "Harness built-in policy", "section": "Database Supervisor" },
-      "scope": ["**/db/migrate/**/*", "**/migrations/**/*"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "Database Supervisor"
+      },
+      "scope": [
+        "**/db/migrate/**/*",
+        "**/migrations/**/*"
+      ],
       "severity": "error",
-      "enforcement": { "level": "blocking", "type": "deterministic", "verifier": "migration-backfill" },
-      "evidence": ["migration-analysis", "database-evidence"],
+      "enforcement": {
+        "level": "blocking",
+        "type": "deterministic",
+        "verifier": "migration-backfill"
+      },
+      "evidence": [
+        "migration-analysis",
+        "database-evidence"
+      ],
       "fix": "Move the backfill to a resumable application task and keep the schema migration structural.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["data migration runbook"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "data migration runbook"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -292,14 +617,30 @@
       "id": "STD-API-002",
       "category": "api",
       "title": "Application code must use the configured API client abstraction",
-      "authority": { "file": "Harness built-in policy", "section": "API Supervisor" },
-      "scope": ["**/*.{js,mjs,cjs,ts,tsx,jsx,rb,py}"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "API Supervisor"
+      },
+      "scope": [
+        "**/*.{js,mjs,cjs,ts,tsx,jsx,rb,py}"
+      ],
       "severity": "error",
-      "enforcement": { "level": "verified", "type": "deterministic", "verifier": "raw-api-call" },
-      "evidence": ["api-contract-evidence"],
+      "enforcement": {
+        "level": "verified",
+        "type": "deterministic",
+        "verifier": "raw-api-call"
+      },
+      "evidence": [
+        "api-contract-evidence"
+      ],
       "fix": "Use the project's typed API client or configured transport adapter.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["API documentation"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "API documentation"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -307,14 +648,31 @@
       "id": "STD-SEC-002",
       "category": "security",
       "title": "Changed code must not introduce dangerous execution or destructive operations",
-      "authority": { "file": "Harness built-in policy", "section": "Security Supervisor" },
-      "scope": ["**/*"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "Security Supervisor"
+      },
+      "scope": [
+        "**/*"
+      ],
       "severity": "error",
-      "enforcement": { "level": "critical", "type": "deterministic", "verifier": "dangerous-semantics" },
-      "evidence": ["security-review-evidence"],
+      "enforcement": {
+        "level": "critical",
+        "type": "deterministic",
+        "verifier": "dangerous-semantics"
+      },
+      "evidence": [
+        "security-review-evidence"
+      ],
       "fix": "Remove dynamic execution/destructive behavior or isolate it behind an explicitly reviewed safe adapter.",
-      "exception": { "allowed": false, "requiresReason": false },
-      "knowledgeImpact": ["security standard", "threat model"]
+      "exception": {
+        "allowed": false,
+        "requiresReason": false
+      },
+      "knowledgeImpact": [
+        "security standard",
+        "threat model"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -322,14 +680,31 @@
       "id": "STD-UI-002",
       "category": "ui-style",
       "title": "Changed UI code must use design tokens and project styling primitives",
-      "authority": { "file": "Harness built-in policy", "section": "UI Style Supervisor" },
-      "scope": ["**/*.{css,scss,tsx,jsx,vue}"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "UI Style Supervisor"
+      },
+      "scope": [
+        "**/*.{css,scss,tsx,jsx,vue}"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "verified", "type": "deterministic", "verifier": "ui-token-usage" },
-      "evidence": ["ui-review", "screenshot-evidence"],
+      "enforcement": {
+        "level": "verified",
+        "type": "deterministic",
+        "verifier": "ui-token-usage"
+      },
+      "evidence": [
+        "ui-review",
+        "screenshot-evidence"
+      ],
       "fix": "Replace inline/hardcoded visual values with the project's token or component API.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["style guide"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "style guide"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -337,14 +712,32 @@
       "id": "STD-INT-002",
       "category": "interaction",
       "title": "Changed interactive UI must cover its applicable state matrix",
-      "authority": { "file": "Harness built-in policy", "section": "Interaction Supervisor" },
-      "scope": ["**/*.{tsx,jsx,vue}"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "Interaction Supervisor"
+      },
+      "scope": [
+        "**/*.{tsx,jsx,vue}"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "review-required", "type": "deterministic", "verifier": "interaction-state-matrix" },
-      "evidence": ["dom-evidence", "screenshot-evidence", "interaction-review"],
+      "enforcement": {
+        "level": "review-required",
+        "type": "deterministic",
+        "verifier": "interaction-state-matrix"
+      },
+      "evidence": [
+        "dom-evidence",
+        "screenshot-evidence",
+        "interaction-review"
+      ],
       "fix": "Cover loading, empty, error, disabled/submitting, success, retry, keyboard, and focus states as applicable.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["interaction guide"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "interaction guide"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -352,14 +745,31 @@
       "id": "STD-A11Y-002",
       "category": "accessibility",
       "title": "Changed markup must preserve semantic names and keyboard operation",
-      "authority": { "file": "Harness built-in policy", "section": "Accessibility Supervisor" },
-      "scope": ["**/*.{tsx,jsx,vue,html}"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "Accessibility Supervisor"
+      },
+      "scope": [
+        "**/*.{tsx,jsx,vue,html}"
+      ],
       "severity": "error",
-      "enforcement": { "level": "verified", "type": "deterministic", "verifier": "markup-accessibility" },
-      "evidence": ["accessibility-evidence", "dom-evidence"],
+      "enforcement": {
+        "level": "verified",
+        "type": "deterministic",
+        "verifier": "markup-accessibility"
+      },
+      "evidence": [
+        "accessibility-evidence",
+        "dom-evidence"
+      ],
       "fix": "Add semantic elements, accessible names, keyboard behavior, and focus handling.",
-      "exception": { "allowed": true, "requiresReason": true },
-      "knowledgeImpact": ["accessibility guide"]
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": [
+        "accessibility guide"
+      ]
     },
     {
       "schemaVersion": "1.0",
@@ -367,14 +777,117 @@
       "id": "STD-KNOW-002",
       "category": "knowledge",
       "title": "Every behavior change must record a three-state knowledge assessment",
-      "authority": { "file": "Harness built-in policy", "section": "Knowledge Supervisor" },
-      "scope": ["**/*"],
+      "authority": {
+        "file": "Harness built-in policy",
+        "section": "Knowledge Supervisor"
+      },
+      "scope": [
+        "**/*"
+      ],
       "severity": "warning",
-      "enforcement": { "level": "review-required", "type": "evidence", "verifier": "knowledge-assessment" },
-      "evidence": ["knowledge-evidence"],
+      "enforcement": {
+        "level": "review-required",
+        "type": "evidence",
+        "verifier": "knowledge-assessment"
+      },
+      "evidence": [
+        "knowledge-evidence"
+      ],
       "fix": "Record each affected asset as updated, reviewed-no-change, or not-applicable with source references.",
-      "exception": { "allowed": false, "requiresReason": false },
-      "knowledgeImpact": ["project knowledge index"]
+      "exception": {
+        "allowed": false,
+        "requiresReason": false
+      },
+      "knowledgeImpact": [
+        "project knowledge index"
+      ]
+    },
+    {
+      "schemaVersion": "1.0",
+      "type": "Standard",
+      "id": "STD-REVIEW-001",
+      "category": "code-quality",
+      "title": "Scan-based CI checks must exclude internal records and avoid whole-word bans on common terms",
+      "authority": {
+        "file": "harness review",
+        "section": "H3"
+      },
+      "scope": [
+        "**/*"
+      ],
+      "severity": "error",
+      "enforcement": {
+        "level": "blocking",
+        "type": "deterministic",
+        "verifier": "review-derived"
+      },
+      "evidence": [
+        "review-doc"
+      ],
+      "fix": "扫描类检查应排除内部记录目录（记忆/需求/调研/research）；通用英文词不得用整词禁止，改用品牌短语/上下文匹配；检查器自身代码不得含被禁止词（注释自触发）。",
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": []
+    },
+    {
+      "schemaVersion": "1.0",
+      "type": "Standard",
+      "id": "STD-REVIEW-002",
+      "category": "security",
+      "title": "Encrypted-storage verification must read the raw column",
+      "authority": {
+        "file": "harness review",
+        "section": "H7"
+      },
+      "scope": [
+        "**/*"
+      ],
+      "severity": "error",
+      "enforcement": {
+        "level": "blocking",
+        "type": "deterministic",
+        "verifier": "review-derived"
+      },
+      "evidence": [
+        "review-doc"
+      ],
+      "fix": "验证加密存储时查原始列（before_type_cast / SQL left(col,n)），不用 ORM 解密 getter 判断明文泄露。",
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": []
+    },
+    {
+      "schemaVersion": "1.0",
+      "type": "Standard",
+      "id": "STD-REVIEW-003",
+      "category": "code-quality",
+      "title": "group.name key conversion converts only the first separator",
+      "authority": {
+        "file": "harness review",
+        "section": "H8"
+      },
+      "scope": [
+        "**/*"
+      ],
+      "severity": "error",
+      "enforcement": {
+        "level": "blocking",
+        "type": "deterministic",
+        "verifier": "review-derived"
+      },
+      "evidence": [
+        "review-doc"
+      ],
+      "fix": "`group.name` 命名转换只转换第一个分隔符（sub('_','.')），保留组内下划线，避免将 OSS_ACCESS_KEY_ID 转成 oss.access.key.id。",
+      "exception": {
+        "allowed": true,
+        "requiresReason": true
+      },
+      "knowledgeImpact": []
     }
   ]
 }

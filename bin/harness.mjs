@@ -1168,6 +1168,9 @@ else if (cmd === 'recovery') {
 else if (cmd === 'knowledge') {
   await import('./knowledge-loop.mjs').then(module => module.runKnowledge({ rootDir: ROOT, args, config }));
 }
+else if (cmd === 'review') {
+  await import('./review.mjs').then(module => module.runReview({ rootDir: ROOT, args, config }));
+}
 else if (cmd === 'adapter') {
   await import('./agent-adapters.mjs').then(module => module.runAdapters({ rootDir: ROOT, args, config }));
 }
@@ -1260,7 +1263,7 @@ else if (cmd === 'cache:clean') {
 // help
 // ================================================================
 else {
-  console.log(`PallasTrade Harness CLI
+  console.log(`Harness CLI
 
 Usage: npx harness <command> [options]
 

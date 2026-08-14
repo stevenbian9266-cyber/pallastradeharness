@@ -96,7 +96,7 @@ async function ask(question) {
 
 async function interactive(PRESETS) {
   const options = Object.keys(PRESETS).join('/');
-  console.log('\n⚙️  pallastrade-harness init — 交互向导\n');
+  console.log('\n⚙️  harness init — 交互向导\n');
   const presetKey = await ask(`技术栈？[${options}] (默认 single): `) || 'single';
   const preset = PRESETS[presetKey] ? presetKey : 'single';
   const ai = (await ask('使用 AI 编码工具吗？[y/N]: ').then(a => a.toLowerCase())) === 'y';

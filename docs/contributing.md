@@ -58,6 +58,6 @@ npm publish    # 浏览器 Security key (WebAuthn) 认证——需维护者本�
 
 ## 行为准则
 
-- 保持引擎**项目无关**：`grep -ri pallastrade bin/ presets/` 仅命中注释/测试/预设示例
+- 保持引擎**项目无关**：包内不得保留任何具体项目的品牌/表名/密钥格式/路径耦合（presets 仅通用模板；规则库示例用通用措辞；代码路径解析由项目 config 驱动）。
 - 不引入新运行时依赖（引擎只依赖 `glob`）
 - 破坏性变更需在 PR 描述标注，并同步 `docs/roadmap.md`

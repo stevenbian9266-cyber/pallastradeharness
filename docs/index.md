@@ -6,7 +6,7 @@ title: pallastrade-harness
 
 面向 AI Agent 的软件开发生命周期治理和证据编排层：分阶段门禁、机器可读规范、实际开发监督、PRD 闭环与知识同步。**本地优先、Git-native、配置驱动、项目无关**。
 
-> 源自 [PallasTrade Commerce](https://github.com/stevenbian9266-cyber/pallastrade) monorepo 的 `scripts/harness`，2026-08 完成引擎/配置解耦后独立维护并开源。
+> 分层架构：引擎层（确定性、零 LLM）+ 通用资产层（presets/rules/skills/templates，可被项目覆盖）+ 项目定制层（harness.config.mjs / ai/skills / harness/standards）。
 
 ## 它解决什么问题
 

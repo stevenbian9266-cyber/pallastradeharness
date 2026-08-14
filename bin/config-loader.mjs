@@ -6,7 +6,7 @@
  * 深合并 DEFAULT_CONFIG，提供 schema 校验与 gate check 生成工具。
  *
  * 设计原则（见 docs/standards/harness-standalone-roadmap.md §6）：
- *   - 引擎默认值 = "单层普通项目也能跑的最小可用配置"，无 PallasTrade 痕迹
+ *   - 引擎默认值 = "单层普通项目也能跑的最小可用配置"，无任何项目特定痕迹
  *   - 项目通过 harness.config.mjs 覆盖声明自身结构（layers / gates / docImpact / ...）
  *   - 规则数据（anti-patterns.json / scenarios.json）留在项目内，配置只存路径引用
  */
