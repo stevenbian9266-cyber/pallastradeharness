@@ -69,7 +69,7 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.2.0`；`v1.2.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.2.1`；`v1.2.1` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
@@ -81,6 +81,7 @@ npx harness docs:check
 
 | 版本 | 亮点 |
 |---|---|
+| **v1.2.1** | 修复：onboard 生成的 `anti-patterns.json` 规则缺 `fileGlob` 导致扫描器 `globSync(undefined)` 崩溃、pre-commit 必失败；扫描器对缺失 `fileGlob` 防御性兜底（默认 `**/*`）；`node --test` 96/96 通过 |
 | **v1.2.0** | 资产治理：新增 `harness scan`（skills/standards/agent/PRD/scenarios/索引 五维扫描 + MUST/SHOULD/NICE 分级 + `--fix` L0 自愈 + `--check` CI 硬卡）；Java/Maven 信号（pom.xml/build.gradle → Java/Spring Boot，Controller/Mapper/Flyway/*Test.java）；`skill check --freshness` 权威路径 + gate 幽灵引用；`node --test` 93/93 通过 |
 | v1.1.3 | 依赖清理：glob ^11 → ^13（弃用/安全）；`node --test` 79/79 通过，`npm audit` 0 漏洞 |
 | v1.1.2 | 新增 `harness review` 复盘驱动的规则自升级；通用化清理（去 PallasTrade 残留） |

@@ -26,11 +26,13 @@ const BUNDLED_SKILLS = resolve(PACKAGE_ROOT, 'skills');
 const BUNDLED_TEMPLATES = resolve(PACKAGE_ROOT, 'templates', 'prd');
 
 const BUILTIN_SKILLS = ['harness-standards-audit', 'harness-skill-author', 'harness-prd', 'harness-docs'];
+// 注意：每条规则必须带 fileGlob/excludeGlob——扫描器以 fileGlob 做 globSync，
+// 缺失会导致 "The 'patterns' argument must be of type string" 报错、pre-commit 必失败。
 const BUILTIN_ANTI_PATTERNS = {
   rules: [
-    { id: 'AP-001', pattern: 'color:\\s*#[0-9a-fA-F]{3,6}', message: '硬编码颜色值', severity: 'warning' },
-    { id: 'AP-002', pattern: 'fetch\\(', message: '裸 fetch 未封装', severity: 'warning' },
-    { id: 'AP-003', pattern: 'style=\\s*\\{[^}]*\\}', message: '内联样式', severity: 'warning' },
+    { id: 'AP-001', severity: 'warning', pattern: 'color:\\s*#[0-9a-fA-F]{3,6}', fileGlob: '**/*.{tsx,jsx,css}', excludeGlob: '**/node_modules/**|**/dist/**|**/.next/**|**/*.test.*|**/*.spec.*', message: '硬编码颜色值 — 使用设计 token', fix: '改用 CSS 变量 / 设计系统 token' },
+    { id: 'AP-002', severity: 'warning', pattern: 'fetch\\(', fileGlob: '**/*.{ts,tsx,js,jsx}', excludeGlob: '**/node_modules/**|**/dist/**|**/.next/**', message: '裸 fetch 未封装 — 走统一请求层', fix: '封装为 API client / SDK' },
+    { id: 'AP-003', severity: 'warning', pattern: 'style=\\s*\\{[^}]*\\}', fileGlob: '**/*.{tsx,jsx}', excludeGlob: '**/node_modules/**|**/dist/**|**/.next/**|**/*.test.*|**/*.spec.*', message: '内联样式 — 使用 CSS 类', fix: '用 className / 样式系统' },
   ],
   severity: 'warning',
 };

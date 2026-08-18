@@ -21,7 +21,9 @@ export function scan({ rootDir, files: fileFilter = null, config }) {
     try {
       // excludeGlob may contain multiple patterns separated by '|'.
       const excludes = rule.excludeGlob ? rule.excludeGlob.split('|').map(s => s.trim()).filter(Boolean) : [];
-      const globbed = globSync(rule.fileGlob, { cwd: rootDir, exclude: excludes });
+      // 防御：fileGlob 缺失（如手工/旧版生成的规则）时兜底为全量扫描，避免 globSync(undefined) 报错
+      const fileGlob = rule.fileGlob && typeof rule.fileGlob === 'string' ? rule.fileGlob : '**/*';
+      const globbed = globSync(fileGlob, { cwd: rootDir, exclude: excludes });
       // When a file filter is provided (e.g. lefthook {staged_files}), only
       // scan the intersection with this rule's glob. Normalize separators —
       // glob returns Windows backslash paths, filter may be forward-slash.

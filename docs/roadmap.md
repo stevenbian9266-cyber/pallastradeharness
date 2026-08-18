@@ -15,6 +15,7 @@ title: 路线图
 | 0.8 | Agent adapters、MCP、TUI、技术栈 presets、下一步动作 | ✅ 已完成 |
 | 1.0 | 稳定插件协议、配置/状态迁移、monorepo/worktree、长期兼容 | ✅ 当前源码 |
 | 1.2 | 资产治理（`harness scan` 扫描+自愈）、Java/Maven 信号、skill 新鲜度与幽灵引用 | ✅ 当前源码 |
+| 1.2.1 | 修复 onboard 反模式规则缺 fileGlob 导致扫描器崩溃（pre-commit 必失败） | ✅ 当前源码 |
 
 ## 详细版本记录
 
@@ -38,3 +39,4 @@ title: 路线图
 - [x] Phase 1.2 资产治理：`harness scan`（skills/standards/agent/PRD/scenarios/索引 五维检查 + MUST/SHOULD/NICE 分级 + `--fix` L0 自愈 + `--check` CI 硬卡）
 - [x] Phase 1.2 技术栈识别与 gap 信号扩展：pom.xml/build.gradle → Java/Spring Boot；Controller/Mapper/Flyway/*Test.java 信号
 - [x] Phase 1.2 skill check --freshness：权威路径存在性 + gate 幽灵引用（read-skill-* 缺失检测）
+- [x] v1.2.1 修复：onboard 生成的 anti-patterns 规则补全 fileGlob/excludeGlob；扫描器对缺失 fileGlob 兜底（`**/*`），pre-commit 不再崩溃
