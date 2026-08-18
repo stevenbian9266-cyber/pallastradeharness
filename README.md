@@ -69,7 +69,7 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.1.3`；`v1.1.3` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.2.0`；`v1.2.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
@@ -81,7 +81,8 @@ npx harness docs:check
 
 | 版本 | 亮点 |
 |---|---|
-| **v1.1.3** | 依赖清理：glob ^11 → ^13（弃用/安全）；`node --test` 79/79 通过，`npm audit` 0 漏洞 |
+| **v1.2.0** | 资产治理：新增 `harness scan`（skills/standards/agent/PRD/scenarios/索引 五维扫描 + MUST/SHOULD/NICE 分级 + `--fix` L0 自愈 + `--check` CI 硬卡）；Java/Maven 信号（pom.xml/build.gradle → Java/Spring Boot，Controller/Mapper/Flyway/*Test.java）；`skill check --freshness` 权威路径 + gate 幽灵引用；`node --test` 93/93 通过 |
+| v1.1.3 | 依赖清理：glob ^11 → ^13（弃用/安全）；`node --test` 79/79 通过，`npm audit` 0 漏洞 |
 | v1.1.2 | 新增 `harness review` 复盘驱动的规则自升级；通用化清理（去 PallasTrade 残留） |
 | v1.1.1 | onboard 一键冷启动自动注册已装 skills；README 补齐 Auto-* 说明 |
 | v1.1.0 | Auto-Standards / Auto-Skills / Auto-Docs 通用化内容供给 + onboard 冷启动 |
@@ -123,7 +124,12 @@ npx harness standards validate               # schema 校验
 
 # Auto-Skills：领域 Skill 自动生成 + 注册
 npx harness skill new --domain catalog       # 创建 ai/skills/catalog/SKILL.md + 注册 AGENTS.md/ai README
-npx harness skill check                      # 结构/索引校验
+npx harness skill check --freshness          # 结构/索引校验 + 权威路径新鲜度 + gate 幽灵引用
+
+# Asset Governance：安装后扫描项目资产 + 自愈
+npx harness scan                             # 扫描 skills/standards/agent/PRD/scenarios/索引 缺口
+npx harness scan --fix                       # 自动补齐 L0 确定性项（ai/skills、ai/README、scenarios.json 等）
+npx harness scan --check                     # CI 硬卡：must 级缺口 → exit 1
 
 # Auto-Docs：知识文档起草（AI 起草 → 人确认 → 写回）
 npx harness docs generate --asset README.md --write
@@ -209,6 +215,7 @@ export default {
 | `harness doc-impact` | 知识同步门 |
 | `harness docs:check` | 检查 Agent/README/文档站 Markdown 的本地链接目标 |
 | `harness scan-anti-patterns / scan-secrets / scan-degraded-loop` | 扫描器（供 lefthook staged_files 调用，也可用 `harness-scan-*` bin） |
+| `harness scan [--fix] [--check] [--json] [--category <id>]` | 资产治理：扫描 skills/standards/agent/PRD/scenarios/索引 + 自愈（MUST/SHOULD/NICE 分级；`--fix` 自动补齐 L0 确定性项；`--check` CI 硬卡） |
 | `harness doctor` | 项目体检 |
 | `harness config:check` | 配置校验 + 报告引擎默认值使用情况 |
 | `harness plugins:list` | 列出已加载的插件（check / scanner / preset） |

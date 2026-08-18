@@ -14,6 +14,7 @@ title: 路线图
 | 0.7 | Typed Evidence、checkpoint、Recovery、自动交付报告、证据驱动 verify | ✅ 已完成 |
 | 0.8 | Agent adapters、MCP、TUI、技术栈 presets、下一步动作 | ✅ 已完成 |
 | 1.0 | 稳定插件协议、配置/状态迁移、monorepo/worktree、长期兼容 | ✅ 当前源码 |
+| 1.2 | 资产治理（`harness scan` 扫描+自愈）、Java/Maven 信号、skill 新鲜度与幽灵引用 | ✅ 当前源码 |
 
 ## 详细版本记录
 
@@ -34,3 +35,6 @@ title: 路线图
 - [x] Phase 0.7 Evidence / Recovery / Knowledge Loop
 - [x] Phase 0.8 Agent adapters / MCP / TUI
 - [x] Phase 1.0 稳定协议与迁移
+- [x] Phase 1.2 资产治理：`harness scan`（skills/standards/agent/PRD/scenarios/索引 五维检查 + MUST/SHOULD/NICE 分级 + `--fix` L0 自愈 + `--check` CI 硬卡）
+- [x] Phase 1.2 技术栈识别与 gap 信号扩展：pom.xml/build.gradle → Java/Spring Boot；Controller/Mapper/Flyway/*Test.java 信号
+- [x] Phase 1.2 skill check --freshness：权威路径存在性 + gate 幽灵引用（read-skill-* 缺失检测）

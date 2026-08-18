@@ -55,3 +55,49 @@ test('createSkill rejects empty domain', () => {
     rmSync(rootDir, { recursive: true, force: true });
   }
 });
+
+// ── skill check --freshness / 幽灵引用 ─────────────────────
+import { skillRefsExist } from './scan.mjs';
+
+test('skillRefsExist detects stale authority paths', () => {
+  const rootDir = sampleProject();
+  try {
+    mkdirSync(join(rootDir, 'ai', 'skills', 'payments'), { recursive: true });
+    writeFileSync(join(rootDir, 'ai', 'skills', 'payments', 'SKILL.md'), `---
+name: payments
+description: payments domain
+---
+
+## 权威文件
+
+- \`app/services/payment_service.rb\` — 权威
+- \`src/main/java/com/demo/Missing.java\` — 失效
+`);
+    const fr = skillRefsExist(rootDir, join(rootDir, 'ai', 'skills', 'payments'));
+    assert.equal(fr.ok, false);
+    assert.ok(fr.missing.includes('src/main/java/com/demo/Missing.java'));
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('skillRefsExist ignores illustrative lines (create/example/output)', () => {
+  const rootDir = sampleProject();
+  try {
+    mkdirSync(join(rootDir, 'ai', 'skills', 'payments'), { recursive: true });
+    writeFileSync(join(rootDir, 'ai', 'skills', 'payments', 'SKILL.md'), `---
+name: payments
+description: payments domain
+---
+
+## 操作
+
+- 创建 \`app/services/payment_service.rb\`（示例）
+- 输出到 \`tmp/generated.rb\`
+`);
+    const fr = skillRefsExist(rootDir, join(rootDir, 'ai', 'skills', 'payments'));
+    assert.equal(fr.ok, true, 'illustrative paths must not be treated as stale');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});

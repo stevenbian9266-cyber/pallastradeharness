@@ -143,6 +143,13 @@ else if (cmd === 'affected') {
 }
 
 // ================================================================
+// scan — Asset Governance（资产治理：扫描 + 自愈）
+// ================================================================
+else if (cmd === 'scan') {
+  await import('./scan.mjs').then(m => m.run({ rootDir: ROOT, args, config }));
+}
+
+// ================================================================
 // check
 // ================================================================
 else if (cmd === 'check') {
@@ -1282,8 +1289,12 @@ Gate (MANDATORY before coding):
 Onboarding (通用化接入 — Auto-Standards / Auto-Skills / Auto-Docs):
   onboard [--write] [--preset auto|nextjs|rails|single|monorepo] [--tier lite|standard|strict]
                                       One-command cold-start for greenfield/brownfield projects
+  scan [--fix] [--check] [--json] [--category <id>]
+                                      Asset governance: scan skills/standards/agent/PRD/scenarios
+                                      + self-heal (L0 auto-fix with --fix; CI gate with --check)
   standards gap|validate|generate     Auto-Standards: gap report, schema validation, drafting pack
   skill new --domain <x>|check|list   Auto-Skills: create/register/validate domain skills
+  skill check --freshness             Also verify skill authority paths exist + ghost gate refs
   docs generate --asset <path> [--write]
                                       Auto-Docs: draft knowledge doc updates (AI + human confirm)
   docs template --copy                Install the bundled PRD template into docs/prd/

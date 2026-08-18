@@ -50,7 +50,23 @@ export async function detectStack(rootDir) {
   }
   if (existsSync(resolve(rootDir, 'pyproject.toml')) || existsSync(resolve(rootDir, 'requirements.txt'))) stack.languages.push('Python');
   if (existsSync(resolve(rootDir, 'go.mod'))) stack.languages.push('Go');
-  if (stack.languages.length === 0) stack.hints.push('未识别语言清单（package.json/Gemfile/pyproject/go.mod 均缺失）');
+  // Java / JVM 系（Maven / Gradle）
+  if (existsSync(resolve(rootDir, 'pom.xml'))) {
+    stack.languages.push('Java');
+    try {
+      const pom = await fs.readFile(resolve(rootDir, 'pom.xml'), 'utf-8');
+      if (/spring-boot-starter-parent|<parent>[\s\S]*?spring-boot/i.test(pom)) stack.frameworks.push('Spring Boot');
+      if (/mybatis|mybatis-plus/i.test(pom)) stack.hints.push('MyBatis 已就绪');
+    } catch { /* ignore */ }
+  }
+  if (existsSync(resolve(rootDir, 'build.gradle')) || existsSync(resolve(rootDir, 'build.gradle.kts'))) {
+    stack.languages.push('Java/Kotlin (Gradle)');
+    try {
+      const g = await fs.readFile(resolve(rootDir, 'build.gradle'), 'utf-8').catch(() => '');
+      if (/spring-boot/i.test(g)) stack.frameworks.push('Spring Boot');
+    } catch { /* ignore */ }
+  }
+  if (stack.languages.length === 0) stack.hints.push('未识别语言清单（package.json/Gemfile/pyproject/go.mod/pom.xml 均缺失）');
   return stack;
 }
 

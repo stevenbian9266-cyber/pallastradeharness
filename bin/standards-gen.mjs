@@ -25,16 +25,16 @@ const BUNDLED_SKILLS = resolve(PACKAGE_ROOT, 'skills');
 
 // ── 领域 → 代码路径信号（用于 gap 分析：项目里有哪些领域代码）──
 const DOMAIN_SIGNALS = [
-  { id: 'architecture',    label: '架构',       signals: ['app/services', 'app/domain', 'src/services', 'src/lib', 'packages/*/src'] },
-  { id: 'technology-selection', label: '技术选型', signals: ['package.json', 'Gemfile', 'pyproject.toml', 'go.mod', 'requirements.txt'] },
-  { id: 'code-quality',    label: '代码质量',   signals: ['src', 'app', 'lib', 'packages'] },
-  { id: 'database',        label: '数据库',     signals: ['db/migrate', 'migrations', 'prisma', 'schema.rb', '**/models/*.rb', '**/models/**/*.py'] },
-  { id: 'api',             label: '接口',       signals: ['app/controllers', '**/routes/*', 'src/app/api', '**/api/**/route.ts', '**/api/**/*.rb'] },
-  { id: 'security',        label: '安全',       signals: ['app/models/user', '**/auth', '**/security', '**/permissions', '**/middleware/auth'] },
+  { id: 'architecture',    label: '架构',       signals: ['app/services', 'app/domain', 'src/services', 'src/lib', 'packages/*/src', '**/application/**', '**/infrastructure/**', '**/src/main/java/**/domain/**'] },
+  { id: 'technology-selection', label: '技术选型', signals: ['package.json', 'Gemfile', 'pyproject.toml', 'go.mod', 'requirements.txt', 'pom.xml', 'build.gradle', 'build.gradle.kts', 'settings.gradle', '*.csproj'] },
+  { id: 'code-quality',    label: '代码质量',   signals: ['src', 'app', 'lib', 'packages', '**/src/main/java/**', '**/src/main/kotlin/**'] },
+  { id: 'database',        label: '数据库',     signals: ['db/migrate', 'migrations', 'prisma', 'schema.rb', '**/models/*.rb', '**/models/**/*.py', '**/src/main/resources/db/migration/**', '**/src/main/resources/db/migrations/**', '**/*Mapper.xml', '**/mapper/**', '**/entities/**', '**/entity/**', '**/repository/**', '**/repositories/**'] },
+  { id: 'api',             label: '接口',       signals: ['app/controllers', '**/routes/*', 'src/app/api', '**/api/**/route.ts', '**/api/**/*.rb', '**/*Controller.java', '**/controller/**', '**/rest/**'] },
+  { id: 'security',        label: '安全',       signals: ['app/models/user', '**/auth', '**/security', '**/permissions', '**/middleware/auth', '**/*SecurityConfig*', '**/interceptor/**', '**/filter/**', '**/jwt/**'] },
   { id: 'ui-style',        label: 'UI 样式',    signals: ['**/*.css', '**/*.scss', '**/*.tsx', '**/*.jsx', '**/*.vue', 'tailwind.config.*'] },
   { id: 'interaction',     label: '交互',       signals: ['**/components', '**/*.tsx', '**/*.jsx', '**/*.vue'] },
   { id: 'accessibility',   label: '无障碍',     signals: ['**/*.tsx', '**/*.jsx', '**/*.vue', '**/*.html'] },
-  { id: 'testing',         label: '测试',       signals: ['**/*.test.*', '**/*.spec.*', '**/test/**', '**/tests/**', '**/spec/**'] },
+  { id: 'testing',         label: '测试',       signals: ['**/*.test.*', '**/*.spec.*', '**/test/**', '**/tests/**', '**/spec/**', '**/src/test/**', '**/*Test.java', '**/*Tests.java'] },
   { id: 'documentation',   label: '文档',       signals: ['README.md', 'docs/**', '**/*.md'] },
   { id: 'knowledge',       label: '知识',       signals: ['AGENTS.md', 'CLAUDE.md', 'ai/skills/**', '.github/copilot-instructions.md'] },
   { id: 'deployment',      label: '部署',       signals: ['Dockerfile', 'docker-compose*', '.github/workflows/**', 'k8s/**', '**/Dockerfile'] },

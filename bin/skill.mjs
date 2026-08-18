@@ -3,7 +3,7 @@
  * skill.mjs — Auto-Skills（能力 B）
  *
  *   harness skill new --domain <x> [--title "..."]  创建领域 Skill 骨架 + 自动注册索引
- *   harness skill check [--files ...]               结构 + 索引一致性校验
+ *   harness skill check [--files ...] [--freshness] 结构 + 索引一致性 + 可选新鲜度校验
  *   harness skill list [--json]                     领域清单 + 注册状态
  *
  * 注册闭环：生成 ai/skills/<domain>/SKILL.md → 自动在 AGENTS.md §0.1 与
@@ -14,6 +14,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync, readdirSync } from 
 import { resolve, join } from 'node:path';
 import { EXIT_CODES, getArg, hasArg, parseFilesArg } from './cli-utils.mjs';
 import { atomicWriteText } from './state-store.mjs';
+import { skillRefsExist, gateSkillRefs } from './scan.mjs';
 
 const SKILL_FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
 const NAME_RE = /^name:\s*([^\r\n]+)$/m;
@@ -161,9 +162,11 @@ export function registerInIndexes(rootDir, domain) {
 // ── skill check ───────────────────────────────────────────
 export async function runCheck({ rootDir, args, config }) {
   const files = parseFilesArg(args) || [];
+  const freshness = hasArg(args, '--freshness');
   const all = listSkills(rootDir);
   const targets = files.length > 0 ? all.filter(s => files.some(f => s.path.includes(f) || f.includes(s.dir))) : all;
   const errors = [];
+  const warnings = [];
 
   for (const skill of targets) {
     const content = readFileSync(skill.file, 'utf-8');
@@ -172,13 +175,39 @@ export async function runCheck({ rootDir, args, config }) {
     if (!content.match(NAME_RE)) errors.push(`${skill.path}: frontmatter 缺 name`);
     if (!content.match(DESC_RE)) errors.push(`${skill.path}: frontmatter 缺 description`);
     if (skill.name !== skill.dir) errors.push(`${skill.path}: frontmatter name(${skill.name}) 与目录名(${skill.dir})不一致`);
+
+    // --freshness：正文反引号引用的权威路径必须真实存在
+    if (freshness) {
+      const fr = skillRefsExist(rootDir, resolve(rootDir, 'ai', 'skills', skill.dir));
+      if (!fr.ok) {
+        for (const ref of fr.missing.slice(0, 8)) {
+          errors.push(`${skill.path}: 权威路径不存在 — \`${ref}\``);
+        }
+      }
+    }
   }
 
+  // 幽灵引用检测：gate 引用了 read-skill-* 但对应 skill 缺失
+  if (config) {
+    for (const ref of gateSkillRefs(config)) {
+      if (ref === '<domain>') {
+        const anyDomain = existsSync(resolve(rootDir, 'ai', 'skills')) && readdirSync(resolve(rootDir, 'ai', 'skills'), { withFileTypes: true }).some(e => e.isDirectory() && existsSync(join(resolve(rootDir, 'ai', 'skills'), e.name, 'SKILL.md')));
+        if (!anyDomain) warnings.push(`gate 引用 read-skill-domain 但 ai/skills/ 下无任何领域 Skill（检查将空转）`);
+        continue;
+      }
+      const skillName = ref.replace(/\.md$/, '');
+      if (!existsSync(join(rootDir, 'ai', 'skills', skillName, 'SKILL.md'))) {
+        warnings.push(`gate 引用 \`${ref}\` 但 ai/skills/${skillName}/SKILL.md 缺失（幽灵引用）— 运行 npx harness skill new --domain ${skillName}`);
+      }
+    }
+  }
+
+  for (const w of warnings) console.log(`⚠️  ${w}`);
   if (errors.length > 0) {
     for (const e of errors) console.error(`❌ ${e}`);
     process.exitCode = EXIT_CODES.POLICY_FAILURE;
   } else {
-    console.log(`✅ skill check — ${targets.length} 个 Skill 结构合规`);
+    console.log(`✅ skill check — ${targets.length} 个 Skill 结构合规${freshness ? ' + 新鲜度' : ''}${warnings.length ? `（${warnings.length} 个幽灵引用警告）` : ''}`);
   }
 }
 
