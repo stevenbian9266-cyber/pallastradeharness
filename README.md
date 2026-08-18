@@ -69,13 +69,22 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.0.4`；`v1.0.4` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.1.3`；`v1.1.3` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
 
 > ⚠️ **npm 政策预警（2027-01 起）**：npm 已移除 Authenticator app（TOTP）2FA 选项，仅支持 Security key（WebAuthn）；且 bypass-token 将禁止直接发布。
 > 本仓库已经使用 **trusted publishing（OIDC）**，不使用长期 npm token。发布顺序固定为：PR checks → merge main → tag → workflow → registry/provenance 验证。
+
+### 版本记录
+
+| 版本 | 亮点 |
+|---|---|
+| **v1.1.3** | 依赖清理：glob ^11 → ^13（弃用/安全）；`node --test` 79/79 通过，`npm audit` 0 漏洞 |
+| v1.1.2 | 新增 `harness review` 复盘驱动的规则自升级；通用化清理（去 PallasTrade 残留） |
+| v1.1.1 | onboard 一键冷启动自动注册已装 skills；README 补齐 Auto-* 说明 |
+| v1.1.0 | Auto-Standards / Auto-Skills / Auto-Docs 通用化内容供给 + onboard 冷启动 |
 
 ### 接入 lefthook（物理强制）
 
@@ -123,6 +132,24 @@ npx harness docs template --copy             # 安装 PRD 模板
 
 > 随包分发 4 个通用方法论 skill（`skills/`）：`harness-standards-audit`、`harness-skill-author`、`harness-prd`、`harness-docs`；
 > 以及可插拔 PRD 模板（`templates/prd/`）。onboard/standards generate 会自动安装到项目 `ai/skills/`。
+
+---
+
+## 复盘驱动的规则自升级（harness review）
+
+一次任务 / 事故 / 评审后沉淀通用规则：AI 写复盘文档 → 对比规则库 → 输出提案 → 写回通用规则库，把经验固化为可执行规则。
+
+```bash
+npx harness review new                      # 生成复盘骨架（harness/reviews/REVIEW-YYYYMMDD.md）
+# 在文档 "## 可沉淀规则" 段按机器可解析格式填写 H1..Hn（kind / target / priority / pattern / fix / rule ...）
+npx harness review propose --path <md>      # 解析复盘 → 对比规则库 → 提案（新增 / 更新 / 跳过）
+npx harness review apply   --path <md>      # 写回 rules/base-*.json（--only H1,H2 过滤 / --dry-run 预览）
+npx harness review status                   # 列出已有复盘文档
+```
+
+> `engine` / `docs` 类提案不自动改包，输出"待人工/发版"清单，由维护者处理。
+
+---
 
 ## 核心概念
 
@@ -186,6 +213,7 @@ export default {
 | `harness config:check` | 配置校验 + 报告引擎默认值使用情况 |
 | `harness plugins:list` | 列出已加载的插件（check / scanner / preset） |
 | `harness suggest` | 自学习：分析 gate/扫描历史，建议沉淀规则或升级档位 |
+| `harness review new/propose/apply/status` | 复盘驱动的规则自升级：复盘文档 → 规则提案 → 写回通用规则库 |
 | `harness report` | 工程机制报告（gate 通过率 / 扫描趋势 / 文档资产，`--format json`） |
 | `harness eval-ai / eval-scenarios / eval-llm` | AI 行为评估（GS 场景库） |
 | `harness sync-check` | 知识同步评估门 |
