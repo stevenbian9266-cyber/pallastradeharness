@@ -69,7 +69,7 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.3.0`；`v1.3.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.4.0`；`v1.4.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
@@ -81,6 +81,7 @@ npx harness docs:check
 
 | 版本 | 亮点 |
 |---|---|
+| **v1.4.0** | **PRD 工作流默认启用**：所有项目 feature 类 gate 内置 PRD 检查（read-skill-prd / create-prd-doc / create-req-doc / req-doc-has-skill-table / user-confirmed），一句话需求 → PRD 文档 → 用户确认 → 才实施；`getGateChecks` 按 id 去重（项目重复配置不重复）；`node --test` 114/114 通过 |
 | **v1.3.0** | Auto-Skills 自动治理：新增 `harness skill audit`（技术栈/架构/领域词指纹 → 内置+项目+订阅三层目录匹配 → 应有 vs 现有对比 → MISSING/STALE/OK + 疑似新领域）；`--generate` 一键自动创建缺失 Skill（含权威文件素材）并注册索引；新领域增量检测（新增 `domain-*`/`modules/*`/`services/*` → 自动沉淀项目级 catalog 条目 → 自动建 Skill）；`skill catalog list/add`；L1-L4 升级检测（结构/权威路径/内容漂移 hash/元数据过期）；`node --test` 112/112 通过 |
 | **v1.2.1** | 修复：onboard 生成的 `anti-patterns.json` 规则缺 `fileGlob` 导致扫描器 `globSync(undefined)` 崩溃、pre-commit 必失败；扫描器对缺失 `fileGlob` 防御性兜底（默认 `**/*`）；`node --test` 96/96 通过 |
 | **v1.2.0** | 资产治理：新增 `harness scan`（skills/standards/agent/PRD/scenarios/索引 五维扫描 + MUST/SHOULD/NICE 分级 + `--fix` L0 自愈 + `--check` CI 硬卡）；Java/Maven 信号（pom.xml/build.gradle → Java/Spring Boot，Controller/Mapper/Flyway/*Test.java）；`skill check --freshness` 权威路径 + gate 幽灵引用；`node --test` 93/93 通过 |

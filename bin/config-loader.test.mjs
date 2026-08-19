@@ -58,6 +58,38 @@ test('getGateChecks falls back to feature set for unknown task type', () => {
   assert.deepEqual(checks[checks.length - 1], BASE_VERIFY_CHECK);
 });
 
+test('v1.4.0: feature 默认内置 PRD 工作流 check（所有项目触发）', () => {
+  // 空项目配置（未声明任何 checkDefs）→ feature gate 也应强制 PRD 流程
+  const checks = getGateChecks(DEFAULT_CONFIG, 'feature');
+  const ids = checks.map(c => c.id);
+  for (const prdCheck of ['read-skill-prd', 'create-prd-doc', 'create-req-doc', 'req-doc-has-skill-table', 'user-confirmed']) {
+    assert.ok(ids.includes(prdCheck), `feature 应默认含 ${prdCheck}`);
+  }
+  // 非 feature 类型不受影响（bugfix 不强制 PRD）
+  const bugfixIds = getGateChecks(DEFAULT_CONFIG, 'bugfix').map(c => c.id);
+  assert.ok(!bugfixIds.includes('create-prd-doc'), 'bugfix 不应强制 PRD');
+});
+
+test('v1.4.0: getGateChecks 按 id 去重（项目重复配置不重复出现）', () => {
+  const config = {
+    layers: [{ id: 'app', path: 'src' }],
+    gates: {
+      checkDefs: {
+        feature: [
+          { id: 'create-prd-doc', label: 'PRD（项目重复）' },
+          { id: 'create-req-doc', label: 'REQ（项目重复）' },
+          { id: 'project-only-check', label: '仅项目有' },
+        ],
+      },
+    },
+  };
+  const checks = getGateChecks(config, 'feature');
+  const ids = checks.map(c => c.id);
+  assert.equal(ids.filter(id => id === 'create-prd-doc').length, 1, 'create-prd-doc 不应重复');
+  assert.equal(ids.filter(id => id === 'create-req-doc').length, 1, 'create-req-doc 不应重复');
+  assert.ok(ids.includes('project-only-check'), '项目独有 check 应保留');
+});
+
 test('findConfigPath returns null when no config exists', () => {
   const dir = makeTmpProject({});
   assert.equal(findConfigPath(dir), null);

@@ -172,6 +172,12 @@ const BASE_CHECK_DEFS = {
   feature: [
     { id: 'read-skill-customization', label: 'Read Skill: <project>-customization/SKILL.md (always)' },
     { id: 'read-skill-domain', label: 'Read Skill: domain-specific SKILL.md(s)' },
+    // v1.4.0：PRD 工作流默认启用（所有项目 feature 类 gate 强制 一句话→PRD→确认→实施）
+    { id: 'read-skill-prd', label: 'Read Skill: harness-prd/SKILL.md (PRD workflow)' },
+    { id: 'create-prd-doc', label: 'Create PRD doc: docs/prd/PRD-*.md' },
+    { id: 'create-req-doc', label: 'Create requirements doc: harness/requirements/REQ-*.md' },
+    { id: 'req-doc-has-skill-table', label: 'REQ doc includes Skill consultation evidence table' },
+    { id: 'user-confirmed', label: 'User confirmed PRD/requirements (WAIT — do not proceed)' },
   ],
   bugfix: [
     { id: 'read-skill-domain', label: 'Read Skill: domain-specific SKILL.md(s)' },
@@ -200,7 +206,14 @@ export function getGateChecks(config, taskType) {
   const searchChecks = getLayerSearchChecks(layers);
   const base = BASE_CHECK_DEFS[taskType] || BASE_CHECK_DEFS.feature;
   const extra = config.gates?.checkDefs?.[taskType] || [];
-  const withPhase = [...base, ...extra].map(check => ({
+  // 按 id 去重（内置 base 优先；项目 config 若重复配置同 id 不重复出现）
+  const seen = new Set();
+  const merged = [...base, ...extra].filter(c => {
+    if (seen.has(c.id)) return false;
+    seen.add(c.id);
+    return true;
+  });
+  const withPhase = merged.map(check => ({
     ...check,
     phase: check.phase || GATE_PHASES.PREPARATION,
   }));

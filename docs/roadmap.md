@@ -17,6 +17,7 @@ title: 路线图
 | 1.2 | 资产治理（`harness scan` 扫描+自愈）、Java/Maven 信号、skill 新鲜度与幽灵引用 | ✅ 当前源码 |
 | 1.2.1 | 修复 onboard 反模式规则缺 fileGlob 导致扫描器崩溃（pre-commit 必失败） | ✅ 当前源码 |
 | 1.3.0 | Auto-Skills 自动治理：`harness skill audit`（能力指纹/三层目录/应有现有对比/L1-L4 升级检测/疑似新领域）、`--generate` 自动创建缺失 Skill+注册索引、新领域检测→项目级 catalog 沉淀、`skill catalog list/add` | ✅ 当前源码 |
+| 1.4.0 | **PRD 工作流默认启用**：feature gate 内置 PRD 检查（read-skill-prd/create-prd-doc/create-req-doc/req-doc-has-skill-table/user-confirmed），所有项目安装即触发；getGateChecks 按 id 去重 | ✅ 当前源码 |
 
 ## 详细版本记录
 
@@ -42,3 +43,4 @@ title: 路线图
 - [x] Phase 1.2 skill check --freshness：权威路径存在性 + gate 幽灵引用（read-skill-* 缺失检测）
 - [x] v1.2.1 修复：onboard 生成的 anti-patterns 规则补全 fileGlob/excludeGlob；扫描器对缺失 fileGlob 兜底（`**/*`），pre-commit 不再崩溃
 - [x] v1.3.0 Auto-Skills 自动治理：skill audit（能力指纹/三层目录/应有现有对比/L1-L4 升级检测/疑似新领域）、--generate 自动创建+注册索引、新领域检测→项目级 catalog 沉淀、skill catalog list/add
+- [x] v1.4.0 PRD 工作流默认启用：feature gate 内置 PRD 检查（read-skill-prd/create-prd-doc/create-req-doc/req-doc-has-skill-table/user-confirmed），所有项目安装即触发；getGateChecks 按 id 去重

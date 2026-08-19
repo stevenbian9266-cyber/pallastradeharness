@@ -30,6 +30,7 @@ title: 命令参考
 | `harness tui [--json] [--watch]` | 展示任务、风险、Gate、证据和下一步动作 |
 | `harness config:migrate / state:migrate` | dry-run 优先迁移至 1.0 schema；`--write` 后自动备份 |
 | `harness ci github` | 生成确定性的 GitHub Actions 检查矩阵，不修改分支保护 |
+| `harness skill catalog list\|add` | Auto-Skills：三层领域目录管理（内置基线 / 项目 `harness/catalog/*.json` / 订阅；`add --path <json>` 本地订阅） |
 | `harness prd new/list/verify` | PRD 工作流（骨架创建 + 查重回写 + AC→测试校验） |
 | `harness check --profile quick\|full` | 检查档案（变更感知：本地默认只扫 changed-files） |
 | `harness doc-impact --base origin/main` | 知识同步门 |
