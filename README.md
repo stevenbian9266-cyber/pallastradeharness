@@ -69,7 +69,7 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.2.1`；`v1.2.1` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.3.0`；`v1.3.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
@@ -81,6 +81,7 @@ npx harness docs:check
 
 | 版本 | 亮点 |
 |---|---|
+| **v1.3.0** | Auto-Skills 自动治理：新增 `harness skill audit`（技术栈/架构/领域词指纹 → 内置+项目+订阅三层目录匹配 → 应有 vs 现有对比 → MISSING/STALE/OK + 疑似新领域）；`--generate` 一键自动创建缺失 Skill（含权威文件素材）并注册索引；新领域增量检测（新增 `domain-*`/`modules/*`/`services/*` → 自动沉淀项目级 catalog 条目 → 自动建 Skill）；`skill catalog list/add`；L1-L4 升级检测（结构/权威路径/内容漂移 hash/元数据过期）；`node --test` 112/112 通过 |
 | **v1.2.1** | 修复：onboard 生成的 `anti-patterns.json` 规则缺 `fileGlob` 导致扫描器 `globSync(undefined)` 崩溃、pre-commit 必失败；扫描器对缺失 `fileGlob` 防御性兜底（默认 `**/*`）；`node --test` 96/96 通过 |
 | **v1.2.0** | 资产治理：新增 `harness scan`（skills/standards/agent/PRD/scenarios/索引 五维扫描 + MUST/SHOULD/NICE 分级 + `--fix` L0 自愈 + `--check` CI 硬卡）；Java/Maven 信号（pom.xml/build.gradle → Java/Spring Boot，Controller/Mapper/Flyway/*Test.java）；`skill check --freshness` 权威路径 + gate 幽灵引用；`node --test` 93/93 通过 |
 | v1.1.3 | 依赖清理：glob ^11 → ^13（弃用/安全）；`node --test` 79/79 通过，`npm audit` 0 漏洞 |
@@ -126,6 +127,12 @@ npx harness standards validate               # schema 校验
 # Auto-Skills：领域 Skill 自动生成 + 注册
 npx harness skill new --domain catalog       # 创建 ai/skills/catalog/SKILL.md + 注册 AGENTS.md/ai README
 npx harness skill check --freshness          # 结构/索引校验 + 权威路径新鲜度 + gate 幽灵引用
+
+# Auto-Skills 自动治理（v1.3.0）：缺的自动补、有的自动查升级、新增领域自动发现
+npx harness skill audit                      # 能力指纹 → 应有/现有对比 → MISSING/STALE/OK + 疑似新领域
+npx harness skill audit --generate           # 一键自动创建缺失 Skill（含权威文件素材）+ 注册索引；新领域自动补项目级 catalog 条目
+npx harness skill audit --check              # CI 硬卡：must 级缺失 → exit 1
+npx harness skill catalog list|add           # 三层领域目录管理（内置/项目/订阅）
 
 # Asset Governance：安装后扫描项目资产 + 自愈
 npx harness scan                             # 扫描 skills/standards/agent/PRD/scenarios/索引 缺口

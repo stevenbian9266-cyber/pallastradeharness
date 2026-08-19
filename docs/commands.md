@@ -53,6 +53,8 @@ title: 命令参考
 | `harness skill new --domain <x> [--title ...]` | Auto-Skills：创建领域 Skill 骨架 + 自动注册索引 |
 | `harness skill check [--freshness]` | Auto-Skills：结构 + 索引一致性校验；`--freshness` 追加权威路径新鲜度 + gate 幽灵引用检测 |
 | `harness skill list [--format json]` | Auto-Skills：领域清单 |
+| `harness skill audit [--json\|--generate\|--check]` | Auto-Skills 自动治理（v1.3.0）：技术栈/架构/领域词能力指纹 → 三层目录匹配 → 应有 vs 现有对比 → MISSING/STALE/OK + 疑似新领域；`--generate` 自动创建缺失 Skill 并注册索引（新领域自动补项目级 catalog 条目）；`--check` CI 硬卡 must 级缺失 |
+| `harness skill catalog list\|add` | Auto-Skills：三层领域目录管理（内置基线 / 项目 `harness/catalog/*.json` / 订阅；`add --path <json>` 本地订阅） |
 | `harness scan [--fix] [--check] [--json] [--category <id>]` | 资产治理：扫描 skills/standards/agent/PRD/scenarios/索引 + 自愈（`--fix` 自动补齐 L0 确定性项；`--check` CI 硬卡 must 级缺口；MUST/SHOULD/NICE 分级） |
 | `harness docs generate --asset <path> [--write]` | Auto-Docs：知识文档起草包（AI 起草 + 人确认） |
 | `harness docs template --copy [--preset x]` | Auto-Docs：安装 PRD 模板到 `docs/prd/_TEMPLATE.md` |
