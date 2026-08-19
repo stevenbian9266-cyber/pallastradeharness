@@ -19,6 +19,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { globSync } from 'glob';
 
 // ── L0 确定性模板（--fix 可直接写入）─────────────────────────
 // key: 资产 id → 相对路径 + 内容生成函数
@@ -37,7 +38,62 @@ const NAME_RE = /^name:\s*([^\r\n]+)$/m;
 // 说明性行（告诉读者"去哪里创建"）不是规范性引用，跳过（含中文关键词）。
 // 注意：故意不含 `^[-*]\s*` + 反引号 / 表格行规则——"权威文件"列表正是
 // `- \`path\` — 描述` 形态，属于必须检查的规范性引用（区别于 eval-ai 的 Rails 场景启发式）。
-const ILLUSTRATIVE_LINE = /\b(create|generate|install|rename|mkdir|touch)\b|创建|生成|安装|输出到|输出至|示例|example|your |output at|outputs to|generated at|→|add .{0,60}in `/i;
+// 否定指令（"Do NOT add / must NOT exist / never create"）同样跳过——被引路径
+// 是"不得存在"的目标，要求它存在会得到相反结论。
+const ILLUSTRATIVE_LINE = /\b(create|generate|install|rename|mkdir|touch)\b|创建|生成|安装|输出到|输出至|示例|example|your |output at|outputs to|generated at|emits|produces|scaffold|→|add .{0,60}in `|do not (add|create|use)|must not exist|never create|do NOT add|^\|\s*`/i;
+
+// 智能路径解析：与 eval-ai 的 resolveSmartPath 对齐，支持 monorepo 各层前缀
+// （backend/ storefront/ platform/ docs/）与 gem 内 fallback，避免把 skill 中
+// 合理的相对路径误判为失效。
+function resolveSmartRef(rootDir, ref) {
+  // Glob: 用 globSync 检查是否有文件匹配（要求至少一个匹配）。
+  if (ref.includes('*')) {
+    try {
+      const hits = globSync(ref, { cwd: rootDir, nodir: true });
+      if (hits.length > 0) return true;
+      // Also try with common monorepo prefixes for glob refs.
+      for (const prefix of ['backend/', 'storefront/', 'platform/']) {
+        const prefixed = globSync(`${prefix}${ref}`, { cwd: rootDir, nodir: true });
+        if (prefixed.length > 0) return true;
+      }
+    } catch {
+      // fall through to path-based checks below
+    }
+    return false;
+  }
+
+  const candidates = [resolve(rootDir, ref)];
+  if (!ref.startsWith('backend/') && !ref.startsWith('platform/') && !ref.startsWith('storefront/') && !ref.startsWith('ai/') && !ref.startsWith('harness/') && !ref.startsWith('scripts/') && !ref.startsWith('docs/')) {
+    candidates.push(resolve(rootDir, 'backend', ref));
+    candidates.push(resolve(rootDir, 'storefront', ref));
+    if (!ref.startsWith('src/')) candidates.push(resolve(rootDir, 'storefront', 'src', ref));
+    candidates.push(resolve(rootDir, 'platform', ref));
+    // Storefront page/route shorthand: `account/page.tsx` means
+    // storefront/src/app/[country]/[locale]/(storefront)/account/page.tsx
+    candidates.push(resolve(rootDir, 'storefront', 'src', 'app', '[country]', '[locale]', '(storefront)', ref));
+  }
+
+  // 旧式 gem 路径 pallastrade/<gem>/... → pallastrade_<gem>/...
+  const gemMatch = ref.match(/^pallastrade\/(\w+)\/(.+)/);
+  if (gemMatch) candidates.push(resolve(rootDir, 'backend', 'pallastrade_gems', `pallastrade_${gemMatch[1]}`, gemMatch[2]));
+  // pallastrade_<gem>/... → backend/pallastrade_gems/pallastrade_<gem>/...
+  const gemDirMatch = ref.match(/^pallastrade_(\w+)\/(.+)/);
+  if (gemDirMatch) candidates.push(resolve(rootDir, 'backend', 'pallastrade_gems', `pallastrade_${gemDirMatch[1]}`, gemDirMatch[2]));
+
+  if (ref.startsWith('packages/')) candidates.push(resolve(rootDir, 'platform', ref));
+  if (ref.startsWith('docs/')) { candidates.push(resolve(rootDir, 'platform', ref)); candidates.push(resolve(rootDir, ref)); }
+
+  // gem 内 fallback（app/lib/config 等 gem 内相对路径）
+  if (!ref.startsWith('backend/') && !ref.startsWith('platform/') && !ref.startsWith('storefront/') && !ref.startsWith('ai/') && !ref.startsWith('harness/') && !ref.startsWith('scripts/')) {
+    const gemsRoot = resolve(rootDir, 'backend', 'pallastrade_gems');
+    if (existsSync(gemsRoot)) {
+      const gems = readdirSync(gemsRoot, { withFileTypes: true }).filter(d => d.isDirectory() && d.name.startsWith('pallastrade_')).map(d => d.name);
+      for (const gem of gems) candidates.push(resolve(gemsRoot, gem, ref));
+    }
+  }
+
+  return candidates.some(c => existsSync(c));
+}
 
 export function skillRefsExist(rootDir, skillDir) {
   const skillFile = join(skillDir, 'SKILL.md');
@@ -49,9 +105,9 @@ export function skillRefsExist(rootDir, skillDir) {
     for (const m of line.matchAll(/`([a-z0-9_.-]+\/[a-z0-9_\/.\-\[\]\*]+)`/gi)) {
       const ref = m[1];
       if (!ref.includes('/') || ref.startsWith('http') || ref.includes(' ')) continue;
-      if (ref.startsWith('dist/') || ref.includes('node_modules/')) continue;
+      if (ref.startsWith('dist/') || ref.includes('node_modules/') || ref.startsWith('artifacts/')) continue;
       if (!/\.(java|rb|ts|tsx|js|jsx|json|yml|yaml|md|mjs|css|vue|xml|sql|properties)$/i.test(ref)) continue;
-      if (!existsSync(resolve(rootDir, ref)) && !missing.includes(ref)) missing.push(ref);
+      if (!resolveSmartRef(rootDir, ref) && !missing.includes(ref)) missing.push(ref);
     }
   }
   return { ok: missing.length === 0, missing };

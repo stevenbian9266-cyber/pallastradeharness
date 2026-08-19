@@ -168,3 +168,123 @@ test('summarize groups status by tier', () => {
   assert.equal(s.byTier.must, 1);
   assert.equal(s.byTier.should, 1);
 });
+
+// ── 修复回归：monorepo 相对路径不应误报 ──────────────────────
+// 2026-08-19: scan 曾把 skill 中合理的相对路径（backend/ storefront/ platform/
+// 前缀省略）误判为"权威路径失效"。修复后 skillRefsExist 使用智能解析。
+test('skill freshness: backend-relative path resolves (no false positive)', () => {
+  const rootDir = sampleProject();
+  try {
+    mkdirSync(join(rootDir, 'backend', 'config', 'initializers'), { recursive: true });
+    writeFileSync(join(rootDir, 'backend', 'config', 'initializers', 'pallastrade.rb'), '# config\n');
+    mkdirSync(join(rootDir, 'ai', 'skills', 'payments'), { recursive: true });
+    writeFileSync(join(rootDir, 'ai', 'skills', 'payments', 'SKILL.md'), `---
+name: payments
+description: Use when working with payments.
+---
+
+## 权威文件
+
+- \`config/initializers/pallastrade.rb\` — runtime config
+`);
+    const items = buildScanItems({ rootDir, config: { name: 'demo' } });
+    const skill = items.find(i => i.id === 'skill-payments-fresh');
+    assert.equal(skill, undefined, 'backend-relative path should resolve; no stale item expected');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('skill freshness: storefront src shorthand resolves (no false positive)', () => {
+  const rootDir = sampleProject();
+  try {
+    mkdirSync(join(rootDir, 'storefront', 'src', 'lib', 'data'), { recursive: true });
+    writeFileSync(join(rootDir, 'storefront', 'src', 'lib', 'data', 'posts.ts'), 'export {};\n');
+    mkdirSync(join(rootDir, 'ai', 'skills', 'cms'), { recursive: true });
+    writeFileSync(join(rootDir, 'ai', 'skills', 'cms', 'SKILL.md'), `---
+name: cms
+description: Use when working with CMS.
+---
+
+## 权威文件
+
+- \`src/lib/data/posts.ts\` — data layer
+`);
+    const items = buildScanItems({ rootDir, config: { name: 'demo' } });
+    const skill = items.find(i => i.id === 'skill-cms-fresh');
+    assert.equal(skill, undefined, 'storefront src shorthand should resolve; no stale item expected');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('skill freshness: glob paths resolve (no false positive)', () => {
+  const rootDir = sampleProject();
+  try {
+    mkdirSync(join(rootDir, 'storefront', 'messages'), { recursive: true });
+    writeFileSync(join(rootDir, 'storefront', 'messages', 'en.json'), '{}');
+    mkdirSync(join(rootDir, 'ai', 'skills', 'i18n'), { recursive: true });
+    writeFileSync(join(rootDir, 'ai', 'skills', 'i18n', 'SKILL.md'), `---
+name: i18n
+description: Use when working with i18n.
+---
+
+## 权威文件
+
+- \`storefront/messages/*.json\` — locale files
+`);
+    const items = buildScanItems({ rootDir, config: { name: 'demo' } });
+    const skill = items.find(i => i.id === 'skill-i18n-fresh');
+    assert.equal(skill, undefined, 'glob path should resolve; no stale item expected');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('skill freshness: generator-output table rows and negative instructions are skipped', () => {
+  const rootDir = sampleProject();
+  try {
+    mkdirSync(join(rootDir, 'ai', 'skills', 'admin'), { recursive: true });
+    writeFileSync(join(rootDir, 'ai', 'skills', 'admin', 'SKILL.md'), `---
+name: admin
+description: Use when working with admin.
+---
+
+## Scaffold output
+
+| File | Purpose |
+|---|---|
+| \`backend/app/controllers/pallastrade/admin/brands_controller.rb\` | generated controller |
+
+Do NOT add \`storefront/src/middleware.ts\` — it must not exist.
+`);
+    const items = buildScanItems({ rootDir, config: { name: 'demo' } });
+    const skill = items.find(i => i.id === 'skill-admin-fresh');
+    assert.equal(skill, undefined, 'generator table rows + negative instructions should be skipped');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('skill freshness: storefront page shorthand resolves via app route dir', () => {
+  const rootDir = sampleProject();
+  try {
+    mkdirSync(join(rootDir, 'storefront', 'src', 'app', '[country]', '[locale]', '(storefront)', 'account'), { recursive: true });
+    writeFileSync(join(rootDir, 'storefront', 'src', 'app', '[country]', '[locale]', '(storefront)', 'account', 'page.tsx'), 'export default () => null;\n');
+    mkdirSync(join(rootDir, 'ai', 'skills', 'storefront'), { recursive: true });
+    writeFileSync(join(rootDir, 'ai', 'skills', 'storefront', 'SKILL.md'), `---
+name: storefront
+description: Use when working with the storefront.
+---
+
+## 权威文件
+
+- \`account/page.tsx\` — account page
+`);
+    const items = buildScanItems({ rootDir, config: { name: 'demo' } });
+    const skill = items.find(i => i.id === 'skill-storefront-fresh');
+    assert.equal(skill, undefined, 'storefront page shorthand should resolve via app route dir');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});

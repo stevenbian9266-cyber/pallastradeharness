@@ -85,7 +85,16 @@ export function resolveSmartPath(rootDir, ref) {
   // 2. With backend/ prefix (for Rails app paths like config/..., app/...)
   if (!ref.startsWith('backend/') && !ref.startsWith('platform/') && !ref.startsWith('storefront/') && !ref.startsWith('ai/') && !ref.startsWith('harness/') && !ref.startsWith('scripts/') && !ref.startsWith('docs/')) {
     candidates.push(resolve(rootDir, 'backend', ref));
-    candidates.push(resolve(rootDir, 'storefront', 'src', ref));
+    // `src/...` / `components/...` / `lib/...` / `app/...` are storefront-relative:
+    // resolve against the storefront root, NOT `storefront/src/<ref>` (which would
+    // double the `src/` segment for `src/...` refs).
+    candidates.push(resolve(rootDir, 'storefront', ref));
+    // Legacy heuristic kept for refs that already omit the top-level dir
+    // (e.g. `src/lib/data/...` historically resolved via storefront/src/src/...):
+    // harmless when the correct candidate above matches first.
+    if (!ref.startsWith('src/')) {
+      candidates.push(resolve(rootDir, 'storefront', 'src', ref));
+    }
     candidates.push(resolve(rootDir, 'platform', ref));
   }
 
@@ -150,7 +159,12 @@ export function resolveSmartDir(rootDir, ref) {
 
   if (!ref.startsWith('backend/') && !ref.startsWith('platform/') && !ref.startsWith('storefront/') && !ref.startsWith('ai/')) {
     candidates.push(resolve(rootDir, 'backend', ref));
-    candidates.push(resolve(rootDir, 'storefront', 'src', ref));
+    // Storefront-relative dirs (`src/...`, `components/...`, `lib/...`, `messages/`):
+    // resolve against the storefront root (avoid `storefront/src/<src/...>` doubling).
+    candidates.push(resolve(rootDir, 'storefront', ref));
+    if (!ref.startsWith('src/')) {
+      candidates.push(resolve(rootDir, 'storefront', 'src', ref));
+    }
     candidates.push(resolve(rootDir, 'platform', ref));
   }
 
@@ -219,7 +233,10 @@ async function checkFreshnessImpl(rootDir) {
     // Covers: create/generate/install verbs, "Output at X", "X → Y" mapping,
     // "Add ... in X", pipe-table file-layout rows (`| \`path\` | desc |`),
     // and list items that begin with a backticked path (`- \`path\` — desc`).
-    const ILLUSTRATIVE_LINE = /\b(create|generate|install|rename|mkdir|touch)\b|example|your |output at|outputs to|generated at|^\|\s*`|^[-*]\s*`|→|add .{0,60}in `/i;
+    // Negative instructions ("Do NOT add / must NOT exist / never create") are
+    // also illustrative: the path they cite is the one that must NOT exist, so
+    // requiring it would be exactly backwards.
+    const ILLUSTRATIVE_LINE = /\b(create|generate|install|rename|mkdir|touch)\b|example|your |output at|outputs to|generated at|^\|\s*`|^[-*]\s*`|→|add .{0,60}in `|do not (add|create|use)|must not exist|never create|do NOT add/i;
 
     for (const line of content.split('\n')) {
       if (ILLUSTRATIVE_LINE.test(line)) continue;
@@ -243,8 +260,9 @@ async function checkFreshnessImpl(rootDir) {
       for (const m of line.matchAll(/`([a-z_]+\/[a-z0-9_\/\.\-]+)\/`/gi)) {
         const ref = m[1];
         if (ref.includes(' ') || ref.startsWith('http')) continue;
-        // Skip build output dirs
-        if (ref.startsWith('dist/') || ref.includes('node_modules/')) continue;
+        // Skip build output / runtime-generated dirs (dist/, node_modules/,
+        // artifacts/ — e.g. `harness docs generate` writes to artifacts/...).
+        if (ref.startsWith('dist/') || ref.includes('node_modules/') || ref.startsWith('artifacts/')) continue;
         const found = resolveSmartDir(rootDir, ref);
         if (!found) {
           console.log(`❌ ${skill}/SKILL.md: directory not found — \`${ref}/\``);
