@@ -27,13 +27,15 @@ import { createHash } from 'node:crypto';
 import { globSync } from 'glob';
 import { EXIT_CODES, getArg, hasArg } from './cli-utils.mjs';
 import { skillRefsExist } from './scan.mjs';
+import { registerInIndexes } from './skill.mjs';
 
 // ── 常量 ─────────────────────────────────────────────────────
 const SKILL_FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
 const NAME_RE = /^name:\s*([^\r\n]+)$/m;
 const REVIEWED_RE = /^lastReviewedAt:\s*([^\r\n]+)$/m;
 // 权威文件引用行：`- \`path\`` 或 `- path`（反引号可选）
-const REF_LINE_RE = /^[-*]\s*`?([a-zA-Z0-9_.\/\-\[\]*]+\.(?:java|rb|ts|tsx|js|jsx|json|yml|yaml|md|mjs|css|vue|xml|sql|properties))`?/m;
+// 注意：长扩展名(如 json/tsx/yaml)必须排在短前缀(js/ts/yml)之前，并用 (?![\w]) 防截断
+const REF_LINE_RE = /^[-*]\s*`?([a-zA-Z0-9_.\/\-\[\]*]+\.(?:json|tsx|yaml|java|ts|jsx|js|yml|rb|md|mjs|css|vue|xml|sql|properties))(?![\w])`?/m;
 const ILLUSTRATIVE_RE = /\b(create|generate|install|rename|mkdir|touch)\b|创建|生成|安装|示例|example|output at|generated at/i;
 
 // 内置目录文件（与 presets/ 对齐）
@@ -470,6 +472,63 @@ ${authority.length > 0 ? authority.map(a => `- \`${a}\``).join('\n') : '- （AI 
   return created;
 }
 
+// ── 自动创建缺失 Skill 正式文件（--generate 核心动作）─────────
+// 语义：缺的自动补——把草稿直接落位为 ai/skills/<id>/SKILL.md + 注册索引，
+// 骨架可先用，AI/人后续按 harness-skill-author 完善正文。
+export function createMissingSkills({ rootDir, config = {}, missing }) {
+  const created = [];
+  for (const item of missing) {
+    const dir = resolve(rootDir, 'ai', 'skills', item.id);
+    const skillFile = join(dir, 'SKILL.md');
+    if (existsSync(skillFile)) { created.push({ id: item.id, created: false, path: `ai/skills/${item.id}/SKILL.md` }); continue; }
+
+    // 权威文件素材：从 authorityGlobs 找真实存在的文件（路径统一正斜杠）
+    const authority = [];
+    for (const g of item.authorityGlobs || []) {
+      try {
+        for (const f of globSync(g, { cwd: rootDir, nodir: true, ignore: ['**/node_modules/**', '**/target/**'] }).slice(0, 10)) {
+          authority.push(f.replace(/\\/g, '/'));
+        }
+      } catch { /* 忽略 */ }
+    }
+    const scoreNote = item.dirsHit ? '（命中架构目录）' : `（关键词/文件命中 ${item.score}）`;
+    const body = `---
+name: ${item.id}
+description: Use when working on this project's ${item.title} area — <TODO 补全：触发场景/常见表述/操作>. Common phrasings include "<TODO 补全>".
+lastReviewedAt: ${new Date().toISOString().slice(0, 10)}
+---
+
+# ${item.title}
+
+> ⚠️ 由 \`harness skill audit --generate\` 自动创建。请按 \`ai/skills/harness-skill-author/SKILL.md\` 补全正文
+> （核心概念 / 常用操作 / 常见问题与陷阱 / 权威文件），完成后运行 \`npx harness skill check\`。
+> 检测依据：${scoreNote}，来源 ${item.source}。
+
+## 核心概念
+
+- （AI 填充：本项目 ${item.title} 领域的概念图与关键实体）
+
+## 常用操作
+
+- （AI 填充：本项目该领域最常见的操作、命令、入口）
+
+## 常见问题与陷阱
+
+- （AI 填充：本项目该领域高频报错、反模式与规避方法）
+
+## 权威文件
+
+${authority.length > 0 ? authority.map(a => `- \`${a}\``).join('\n') : '- （AI 填充：关键源码/文档路径）'}
+`;
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(skillFile, body, 'utf-8');
+    // 注册索引（AGENTS.md §0.1 + ai/README.md）
+    const registered = registerInIndexes(rootDir, item.id);
+    created.push({ id: item.id, created: true, path: `ai/skills/${item.id}/SKILL.md`, authority: authority.length, registered });
+  }
+  return created;
+}
+
 // ── catalog 子命令 ──────────────────────────────────────────
 function runCatalogList({ rootDir, config }) {
   const { catalog, sources } = loadCatalog({ rootDir, config });
@@ -552,10 +611,13 @@ export async function run({ rootDir = process.cwd(), args = [], config = {} } = 
 
     const gen = hasArg(args, '--generate');
     if (gen && result.missing.length > 0) {
-      const created = generateDrafts({ rootDir, config, missing: result.missing });
-      console.log('\n📝 已生成 Skill 起草包（.harness-cache/skill-drafts/）：');
-      for (const c of created) console.log(`  ${c.id} → ${c.draft}（权威文件素材 ${c.authority} 个）`);
-      console.log('\n  下一步：补全正文 → 移动至 ai/skills/<id>/SKILL.md → npx harness skill check');
+      const created = createMissingSkills({ rootDir, config, missing: result.missing });
+      console.log('\n📝 已自动创建缺失 Skill（ai/skills/）：');
+      for (const c of created) {
+        console.log(`  ${c.created ? '✅' : '⏭'} ${c.id} → ${c.path}${c.authority !== undefined ? `（权威文件素材 ${c.authority} 个）` : ''}`);
+        for (const r of c.registered || []) console.log(`      ${r.done ? '✓' : '○'} ${r.where}`);
+      }
+      console.log('\n  下一步：AI 按 harness-skill-author 补全正文 → npx harness skill check');
     }
   }
 

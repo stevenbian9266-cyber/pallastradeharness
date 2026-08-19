@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import {
   loadCatalog, detectFingerprint, buildExpected,
-  auditOneSkill, audit, generateDrafts,
+  auditOneSkill, audit, generateDrafts, createMissingSkills,
 } from './skill-audit.mjs';
 
 function makeTmp() {
@@ -202,5 +202,31 @@ test('generateDrafts 产出草稿并含权威文件素材', () => {
     const draft = join(root, '.harness-cache/skill-drafts/api.md');
     const content = readFileSync(draft, 'utf-8');
     assert.match(content, /docs\/api\/store\.yaml/);
+  } finally { cleanup(); }
+});
+
+test('createMissingSkills 自动创建正式 SKILL.md 并注册索引', () => {
+  const { root, cleanup } = makeTmp();
+  try {
+    w(root, 'AGENTS.md', '# AGENTS\n\n### 0.1 规范文件总表\n\n| 文件 | 类别 |\n|---|---|\n');
+    w(root, 'ai/README.md', '# AI Skills 索引\n');
+    w(root, 'docs/api/store.yaml', 'openapi: 3.0');
+    const missing = [{ id: 'api', title: 'API', priority: 'should', source: 'bundled', score: 3, dirsHit: false, authorityGlobs: ['docs/api/**'] }];
+    const created = createMissingSkills({ rootDir: root, config: {}, missing });
+    assert.equal(created.length, 1);
+    assert.equal(created[0].created, true);
+    assert.equal(created[0].path, 'ai/skills/api/SKILL.md');
+    // 正式文件存在且含权威文件素材
+    const skill = readFileSync(join(root, 'ai/skills/api/SKILL.md'), 'utf-8');
+    assert.match(skill, /^---\r?\nname: api/m);
+    assert.match(skill, /docs\/api\/store\.yaml/);
+    // 索引已注册
+    const agents = readFileSync(join(root, 'AGENTS.md'), 'utf-8');
+    assert.match(agents, /ai\/skills\/api\/SKILL\.md/);
+    const readme = readFileSync(join(root, 'ai/README.md'), 'utf-8');
+    assert.match(readme, /api/);
+    // 幂等：重复创建不重复写
+    const created2 = createMissingSkills({ rootDir: root, config: {}, missing });
+    assert.equal(created2[0].created, false);
   } finally { cleanup(); }
 });
