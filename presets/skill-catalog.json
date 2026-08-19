@@ -1,0 +1,167 @@
+// presets/skill-catalog.json — 内置通用领域 Skill 目录（v1.3.0）
+//
+// 通用设计原则：
+//   1. 引擎不认识具体业务（微信支付/小程序…），只认识「元领域」（payment/frontend-style…）
+//   2. 检测器全通用：目录命中 + 文件 glob 命中 + 源码关键词命中 → 打分
+//   3. 三层可插拔：本文件为「内置基线」；项目可用 harness.config.mjs 的
+//      skills.catalogSources 追加项目目录；订阅目录通过 skill catalog add 写入
+//      harness/catalog/ 后自动合并
+//
+// 目录项字段：
+//   id            — 元领域 ID（kebab-case，也是建议的 skill 目录名）
+//   title         — 人类可读标题
+//   detect.dirs        — 命中任一目录 → 强推荐（dirsHit: true）
+//   detect.fileGlobs   — 命中任一文件 glob → +1 分
+//   detect.keywords    — 源码中出现任一关键词 → +1 分（每词限 +1）
+//   minScore      — 关键词/文件命中需达到的分数（dirs 命中不受限）
+//   authorityGlobs — 生成 skill 草稿时扫描的权威文件 glob
+//   template      — 生成模板 ID（预留，v1.4 接 harness-skill-author 模板）
+//   priority      — must | should | nice
+{
+  "schemaVersion": 1,
+  "catalog": [
+    {
+      "id": "api",
+      "title": "API / 对外接口",
+      "detect": {
+        "dirs": [],
+        "fileGlobs": ["**/api-docs/**", "**/openapi*.yaml", "**/swagger*.yaml"],
+        "keywords": ["/api/", "controller", "endpoint", "openapi", "swagger", "serializer", "RequestParam", "RestController", "@GetMapping", "@PostMapping", "router.get", "app.get("]
+      },
+      "minScore": 2,
+      "authorityGlobs": ["docs/api/**", "**/*.yaml"],
+      "template": "api",
+      "priority": "should"
+    },
+    {
+      "id": "data-model",
+      "title": "数据模型 / 持久化",
+      "detect": {
+        "dirs": ["domains", "models", "entities", "migrations"],
+        "fileGlobs": ["**/db/migrate/**", "**/*Entity.java", "**/*.entity.ts"],
+        "keywords": ["@Entity", "JpaRepository", "create table", "ALTER TABLE", "migration", "schema", "CREATE TABLE", "Entity", "Sequelize", "TypeORM", "prisma"]
+      },
+      "minScore": 2,
+      "authorityGlobs": ["**/db/**", "docs/**/data-model*"],
+      "template": "data-model",
+      "priority": "should"
+    },
+    {
+      "id": "payment",
+      "title": "支付 / 退款 / 对账",
+      "detect": {
+        "dirs": ["payment", "payments", "billing", "checkout"],
+        "fileGlobs": ["**/payment/**/*.java", "**/payments/**/*.{ts,js}", "**/gateway/**"],
+        "keywords": ["wechat", "微信支付", "wxpay", "alipay", "stripe", "refund", "refund", "callback", "回调", "prepay", "支付", "transaction", "pay_", "PayService"]
+      },
+      "minScore": 2,
+      "authorityGlobs": ["docs/**/*pay*", "docs/**/*支付*"],
+      "template": "payment",
+      "priority": "should"
+    },
+    {
+      "id": "security",
+      "title": "安全 / 认证授权",
+      "detect": {
+        "dirs": ["security", "auth", "rbac"],
+        "fileGlobs": ["**/security/**/*.java", "**/auth/**/*.{ts,js}"],
+        "keywords": ["login", "token", "jwt", "password", "permission", "role", "rbac", "auth", "密钥", "encrypt", "加密", "signature", "验签", "@PreAuthorize", "OAuth"]
+      },
+      "minScore": 2,
+      "authorityGlobs": ["docs/**/*security*", "docs/**/*安全*"],
+      "template": "security",
+      "priority": "should"
+    },
+    {
+      "id": "deployment",
+      "title": "部署 / CI-CD / 容器",
+      "detect": {
+        "dirs": ["deploy", "k8s", "docker"],
+        "fileGlobs": ["Dockerfile", "docker-compose*.yml", "docker-compose*.yaml", ".github/workflows/**", ".gitlab-ci.yml", "Jenkinsfile"],
+        "keywords": ["docker", "kubectl", "image:", "npm run build", "pnpm build", "mvn package", "部署"]
+      },
+      "minScore": 2,
+      "authorityGlobs": ["deploy/**", ".github/workflows/**", "docs/**/部署*"],
+      "template": "deployment",
+      "priority": "should"
+    },
+    {
+      "id": "testing",
+      "title": "测试 / 质量保障",
+      "detect": {
+        "dirs": ["test", "tests", "spec", "__tests__", "e2e"],
+        "fileGlobs": ["**/*.test.{ts,js,tsx,jsx}", "**/*.spec.{ts,js,py,rb}", "**/pom.xml"],
+        "keywords": ["junit", "vitest", "jest", "rspec", "pytest", "playwright", "describe(", "it(", "test(", "@Test"]
+      },
+      "minScore": 2,
+      "authorityGlobs": ["docs/**/test*", "docs/**/测试*"],
+      "template": "testing",
+      "priority": "should"
+    },
+    {
+      "id": "frontend-style",
+      "title": "前端样式 / 设计系统",
+      "detect": {
+        "dirs": ["apps", "src"],
+        "fileGlobs": ["**/uni.scss", "**/tailwind.config.*", "**/theme.scss", "**/*.css", "**/styles/**"],
+        "keywords": ["--brand-", "design token", "样式规范", "视觉规范", "tailwind", "sass", "scss", "rpx", "主题色"]
+      },
+      "minScore": 2,
+      "authorityGlobs": ["docs/**/style*", "docs/**/视觉*", "docs/**/样式*"],
+      "template": "frontend-style",
+      "priority": "nice"
+    },
+    {
+      "id": "i18n",
+      "title": "多语言 / 国际化",
+      "detect": {
+        "dirs": ["locales", "i18n", "lang"],
+        "fileGlobs": ["**/locales/**", "**/messages*.json", "**/en-US.json", "**/zh-CN.json"],
+        "keywords": ["i18n", "locale", "translate(", "t(", "lang", "多语言", "国际化"]
+      },
+      "minScore": 2,
+      "authorityGlobs": ["**/locales/**", "docs/**/i18n*"],
+      "template": "i18n",
+      "priority": "nice"
+    },
+    {
+      "id": "events",
+      "title": "事件 / 消息 / Webhook",
+      "detect": {
+        "dirs": ["subscribers", "listeners", "consumers", "webhooks"],
+        "fileGlobs": ["**/subscribers/**", "**/listeners/**", "**/webhook*/**"],
+        "keywords": ["subscribes_to", "event.", "message", "rabbitmq", "kafka", "webhook", "hmac", "订阅", "事件", "MQ"]
+      },
+      "minScore": 2,
+      "authorityGlobs": ["docs/**/*event*", "docs/**/事件*"],
+      "template": "events",
+      "priority": "nice"
+    },
+    {
+      "id": "observability",
+      "title": "日志 / 监控 / 可观测",
+      "detect": {
+        "dirs": ["observability", "monitoring", "metrics"],
+        "fileGlobs": ["**/logback*.xml", "**/prometheus*/**", "**/grafana*/**"],
+        "keywords": ["slf4j", "logback", "logger.", "prometheus", "grafana", "opentelemetry", "trace", "metrics", "监控", "日志"]
+      },
+      "minScore": 2,
+      "authorityGlobs": ["docs/**/监控*", "docs/**/observability*"],
+      "template": "observability",
+      "priority": "nice"
+    },
+    {
+      "id": "performance",
+      "title": "性能 / 缓存 / 优化",
+      "detect": {
+        "dirs": [],
+        "fileGlobs": ["**/redis/**", "**/cache/**"],
+        "keywords": ["redis", "cache", "缓存", "@Cacheable", "n+1", "N+1", "慢查询", "索引", "connectionPool", "线程池"]
+      },
+      "minScore": 3,
+      "authorityGlobs": ["docs/**/性能*", "docs/**/performance*"],
+      "template": "performance",
+      "priority": "nice"
+    }
+  ]
+}

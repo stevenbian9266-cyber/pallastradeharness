@@ -88,6 +88,13 @@ export const DEFAULT_CONFIG = {
     includeBundled: true,
     sources: ['harness/standards/**/*.json'],
   },
+  // ⑫ Skills 自动治理（v1.3.0）
+  //    catalogSources — 项目级领域目录（glob，可多个）；内置基线 presets/skill-catalog.json 自动合并
+  //    freshnessDays  — L4 元数据过期阈值（frontmatter lastReviewedAt 距今超此天数提示复审）
+  skills: {
+    catalogSources: ['harness/catalog/*.json'],
+    freshnessDays: 90,
+  },
   supervisor: {
     mode: 'guard',
     plansDir: '.harness-cache/plans',

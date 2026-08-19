@@ -227,10 +227,16 @@ export async function runList({ rootDir, args }) {
 
 export async function run({ rootDir = process.cwd(), args = [], config = {} } = {}) {
   const sub = args[1] || 'list';
+  // v1.3.0：skill audit / skill catalog — Skill 自动治理（通用）
+  if (sub === 'audit' || sub === 'catalog') {
+    const auditModule = await import('./skill-audit.mjs');
+    const handled = await auditModule.run({ rootDir, args, config });
+    if (handled !== null) return;
+  }
   if (sub === 'new') return runNew({ rootDir, args, config });
   if (sub === 'check') return runCheck({ rootDir, args, config });
   if (sub === 'list') return runList({ rootDir, args });
   console.error(`Unknown skill subcommand: ${sub}`);
-  console.error('Usage: harness skill new --domain <x> | check | list [--format json]');
+  console.error('Usage: harness skill new --domain <x> | check | list | audit [--json|--generate|--check] | catalog list|add');
   process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
 }
