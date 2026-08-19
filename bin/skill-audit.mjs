@@ -418,7 +418,10 @@ export function audit({ rootDir, config = {} }) {
     else ok.push({ id: name, title: name, priority: 'nice', source: 'existing', ...r });
   }
 
-  return { catalog: catalog.sources, fingerprint, expected, missing, stale, ok };
+  // 疑似新领域（新增功能 → 未被 catalog/现有 skill 覆盖的高领域目录）
+  const newDomains = findNewDomains({ rootDir, config, catalog: catalog.catalog });
+
+  return { catalog: catalog.sources, fingerprint, expected, missing, stale, ok, newDomains };
 }
 
 // ── 草稿生成（--generate）──────────────────────────────────
@@ -529,6 +532,100 @@ ${authority.length > 0 ? authority.map(a => `- \`${a}\``).join('\n') : '- （AI 
   return created;
 }
 
+// ── 新领域增量检测（v1.3.0：新增功能 → 自动发现 → 补目录 → 建 skill）──
+// 领域信号：`xxx-domains/domain-<x>`、`modules/<x>`、`services/<x>` 等新出现的高领域目录。
+// 未被 catalog 覆盖且无对应 skill → 判定为「疑似新领域」。
+
+function loadAuditState(rootDir) {
+  const p = resolve(rootDir, '.harness-cache', 'skill-audit-state.json');
+  try { return JSON.parse(readFileSync(p, 'utf-8')); } catch { return { schemaVersion: 1, newDomains: {} }; }
+}
+function saveAuditState(rootDir, state) {
+  const p = resolve(rootDir, '.harness-cache', 'skill-audit-state.json');
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, JSON.stringify({ ...state, lastRunAt: new Date().toISOString() }, null, 2) + '\n', 'utf-8');
+}
+
+/** 扫描潜在领域目录（目录名即领域信号） */
+export function detectCandidateDomains({ rootDir }) {
+  const candidates = [];
+  const rootEntries = existsSync(rootDir) ? readdirSync(rootDir, { withFileTypes: true }) : [];
+  for (const e of rootEntries) {
+    if (!e.isDirectory()) continue;
+    // xxx-domains/domain-*（如 hajizone-domains/domain-lottery）
+    if (/-domains$/.test(e.name)) {
+      let subs = [];
+      try { subs = readdirSync(resolve(rootDir, e.name), { withFileTypes: true }); } catch { continue; }
+      for (const s of subs) {
+        const m = /^domain-([a-z0-9-]+)$/.exec(s.name);
+        if (s.isDirectory() && m) candidates.push({ dir: `${e.name}/${s.name}`, slug: m[1], kind: 'domain' });
+      }
+    }
+    // modules/* 或 services/*（单层）
+    if (/^(modules|services)$/.test(e.name)) {
+      let subs = [];
+      try { subs = readdirSync(resolve(rootDir, e.name), { withFileTypes: true }); } catch { continue; }
+      for (const s of subs) {
+        if (s.isDirectory() && /^[a-z0-9-]+$/.test(s.name)) candidates.push({ dir: `${e.name}/${s.name}`, slug: s.name, kind: 'module' });
+      }
+    }
+  }
+  return candidates;
+}
+
+/** 疑似新领域 = 候选目录 - (catalog 已覆盖 | 已有 skill | 已创建) */
+export function findNewDomains({ rootDir, config = {}, catalog }) {
+  const candidates = detectCandidateDomains({ rootDir });
+  const existingSkills = (() => {
+    const dir = resolve(rootDir, 'ai', 'skills');
+    if (!existsSync(dir)) return new Set();
+    return new Set(readdirSync(dir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name));
+  })();
+  const coveredIds = new Set();
+  const coveredDirs = new Set();
+  for (const item of catalog) {
+    coveredIds.add(item.id);
+    for (const d of item.detect?.dirs || []) coveredDirs.add(d);
+  }
+  const state = loadAuditState(rootDir);
+  state.newDomains = state.newDomains || {};
+  const newDomains = [];
+  for (const c of candidates) {
+    if (coveredIds.has(c.slug) || coveredDirs.has(c.dir) || existingSkills.has(c.slug)) continue;
+    const rec = state.newDomains[c.dir];
+    if (rec?.createdAt) continue; // 已自动创建过，不再重复报
+    newDomains.push({ ...c, firstSeenAt: rec?.firstSeenAt || new Date().toISOString().slice(0, 10), reported: !!rec });
+  }
+  // 记录本次发现（供后续 delta 判断 / 防重复刷屏）
+  for (const n of newDomains) {
+    if (!state.newDomains[n.dir]) state.newDomains[n.dir] = { id: n.slug, firstSeenAt: n.firstSeenAt };
+  }
+  saveAuditState(rootDir, state);
+  return newDomains;
+}
+
+/** 把新领域沉淀为项目级 catalog 条目（harness/catalog/<slug>.json，可提交可共享） */
+export function createProjectCatalogEntry({ rootDir, domain }) {
+  const { dir, slug } = domain;
+  const file = resolve(rootDir, 'harness', 'catalog', `${slug}.json`);
+  if (existsSync(file)) return { slug, created: false, path: `harness/catalog/${slug}.json` };
+  const entry = {
+    schemaVersion: 1,
+    catalog: [{
+      id: slug,
+      title: `${slug}（${dir}）`,
+      detect: { dirs: [dir], keywords: [slug] },
+      minScore: 1,
+      authorityGlobs: [`${dir}/**`, `docs/**/*${slug}*`],
+      template: slug,
+      priority: 'nice',
+    }],
+  };
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify(entry, null, 2) + '\n', 'utf-8');
+  return { slug, created: true, path: `harness/catalog/${slug}.json` };
+}
+
 // ── catalog 子命令 ──────────────────────────────────────────
 function runCatalogList({ rootDir, config }) {
   const { catalog, sources } = loadCatalog({ rootDir, config });
@@ -581,7 +678,7 @@ export async function run({ rootDir = process.cwd(), args = [], config = {} } = 
   }
   if (sub !== 'audit') return null; // 交给 skill.mjs 处理 new/check/list
 
-  const result = audit({ rootDir, config });
+  let result = audit({ rootDir, config });
   const json = hasArg(args, '--json');
 
   if (json) {
@@ -592,6 +689,7 @@ export async function run({ rootDir = process.cwd(), args = [], config = {} } = 
       missing: result.missing.map(m => ({ id: m.id, priority: m.priority })),
       stale: result.stale.map(s => ({ id: s.id, tier: s.tier, detail: s.detail })),
       ok: result.ok.map(o => o.id),
+      newDomains: result.newDomains.map(n => ({ dir: n.dir, id: n.slug })),
     }, null, 2));
   } else {
     const { stack, arch } = result.fingerprint;
@@ -609,15 +707,37 @@ export async function run({ rootDir = process.cwd(), args = [], config = {} } = 
     for (const s of result.stale) console.log(`  ${s.id}: ${s.detail}`);
     console.log('\n✅ OK（健康）:', result.ok.length ? result.ok.map(o => o.id).join(' ') : '（无匹配）');
 
+    console.log('\n🔍 疑似新领域（目录存在但无 skill/catalog 覆盖，新增功能？）:');
+    if (result.newDomains.length === 0) console.log('  （无）');
+    for (const n of result.newDomains) {
+      console.log(`  🆕 ${n.slug} — ${n.dir}${n.firstSeenAt ? `（首次发现 ${n.firstSeenAt}）` : ''}`);
+    }
+
     const gen = hasArg(args, '--generate');
-    if (gen && result.missing.length > 0) {
-      const created = createMissingSkills({ rootDir, config, missing: result.missing });
-      console.log('\n📝 已自动创建缺失 Skill（ai/skills/）：');
-      for (const c of created) {
-        console.log(`  ${c.created ? '✅' : '⏭'} ${c.id} → ${c.path}${c.authority !== undefined ? `（权威文件素材 ${c.authority} 个）` : ''}`);
-        for (const r of c.registered || []) console.log(`      ${r.done ? '✓' : '○'} ${r.where}`);
+    if (gen) {
+      // ① 新领域 → 沉淀为项目级 catalog 条目
+      let createdEntry = 0;
+      for (const nd of result.newDomains) {
+        const r = createProjectCatalogEntry({ rootDir, domain: nd });
+        if (r.created) createdEntry++;
+        console.log(`  ${r.created ? '✅' : '⏭'} 新领域目录条目 ${r.path}`);
+        const st = loadAuditState(rootDir);
+        st.newDomains[nd.dir] = { ...(st.newDomains[nd.dir] || {}), id: nd.slug, createdAt: new Date().toISOString().slice(0, 10) };
+        saveAuditState(rootDir, st);
       }
-      console.log('\n  下一步：AI 按 harness-skill-author 补全正文 → npx harness skill check');
+      // ② 重跑 audit（新目录条目并入后，新领域进入 expected/missing）→ 自动创建 skill
+      if (result.newDomains.length > 0) result = audit({ rootDir, config });
+      if (result.missing.length > 0) {
+        const created = createMissingSkills({ rootDir, config, missing: result.missing });
+        console.log('\n📝 已自动创建缺失 Skill（ai/skills/）：');
+        for (const c of created) {
+          console.log(`  ${c.created ? '✅' : '⏭'} ${c.id} → ${c.path}${c.authority !== undefined ? `（权威文件素材 ${c.authority} 个）` : ''}`);
+          for (const r of c.registered || []) console.log(`      ${r.done ? '✓' : '○'} ${r.where}`);
+        }
+        console.log('\n  下一步：AI 按 harness-skill-author 补全正文 → npx harness skill check');
+      } else if (createdEntry === 0) {
+        console.log('\n📝 无缺失 skill 需创建');
+      }
     }
   }
 

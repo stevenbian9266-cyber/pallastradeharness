@@ -11,6 +11,7 @@ import { resolve, join } from 'node:path';
 import {
   loadCatalog, detectFingerprint, buildExpected,
   auditOneSkill, audit, generateDrafts, createMissingSkills,
+  detectCandidateDomains, findNewDomains, createProjectCatalogEntry,
 } from './skill-audit.mjs';
 
 function makeTmp() {
@@ -202,6 +203,64 @@ test('generateDrafts 产出草稿并含权威文件素材', () => {
     const draft = join(root, '.harness-cache/skill-drafts/api.md');
     const content = readFileSync(draft, 'utf-8');
     assert.match(content, /docs\/api\/store\.yaml/);
+  } finally { cleanup(); }
+});
+
+test('detectCandidateDomains 扫描 domain-*/modules/* 领域目录', () => {
+  const { root, cleanup } = makeTmp();
+  try {
+    w(root, 'hajizone-domains/domain-lottery/pom.xml', '');
+    w(root, 'hajizone-domains/domain-payment/pom.xml', '');
+    w(root, 'modules/foo/src/a.js', 'x');
+    const c = detectCandidateDomains({ rootDir: root });
+    assert.ok(c.some(x => x.slug === 'lottery' && x.dir === 'hajizone-domains/domain-lottery'));
+    assert.ok(c.some(x => x.slug === 'payment'));
+    assert.ok(c.some(x => x.slug === 'foo' && x.kind === 'module'));
+  } finally { cleanup(); }
+});
+
+test('findNewDomains 识别未被覆盖的新领域（跳过已有 skill/catalog）', () => {
+  const { root, cleanup } = makeTmp();
+  try {
+    w(root, 'hajizone-domains/domain-lottery/pom.xml', '');
+    w(root, 'hajizone-domains/domain-payment/pom.xml', '');
+    // payment 已有 skill → 不算新领域
+    w(root, 'ai/skills/payment/SKILL.md', '---\nname: payment\ndescription: d\n---\n\n## 核心概念\n- a\n');
+    const catalog = loadCatalog({ rootDir: root, config: {} }).catalog;
+    const fresh = findNewDomains({ rootDir: root, config: {}, catalog });
+    const slugs = fresh.map(n => n.slug);
+    assert.ok(slugs.includes('lottery'), 'lottery 应为新领域');
+    assert.ok(!slugs.includes('payment'), 'payment 已有 skill 不应算新领域');
+    // 二次运行：已在状态中，不再重复报（reported 标记）
+    const fresh2 = findNewDomains({ rootDir: root, config: {}, catalog });
+    assert.ok(!fresh2.some(n => n.slug === 'lottery' && !n.reported), '二次运行不应重复刷屏');
+  } finally { cleanup(); }
+});
+
+test('createProjectCatalogEntry 生成项目级 catalog 条目（可被 audit 再次加载）', () => {
+  const { root, cleanup } = makeTmp();
+  try {
+    const r = createProjectCatalogEntry({ rootDir: root, domain: { dir: 'hajizone-domains/domain-lottery', slug: 'lottery' } });
+    assert.equal(r.created, true);
+    assert.equal(r.path, 'harness/catalog/lottery.json');
+    const { catalog, sources } = loadCatalog({ rootDir: root, config: {} });
+    assert.ok(sources.some(s => s.kind === 'project'), '项目目录应被加载');
+    const item = catalog.find(c => c.id === 'lottery');
+    assert.ok(item, 'lottery 应进入合并目录');
+    assert.ok(item.detect.dirs.includes('hajizone-domains/domain-lottery'));
+    // 幂等
+    const r2 = createProjectCatalogEntry({ rootDir: root, domain: { dir: 'hajizone-domains/domain-lottery', slug: 'lottery' } });
+    assert.equal(r2.created, false);
+  } finally { cleanup(); }
+});
+
+test('audit 集成：新增领域目录后返回 newDomains', () => {
+  const { root, cleanup } = makeTmp();
+  try {
+    w(root, 'pom.xml', '<project/>');
+    w(root, 'hajizone-domains/domain-lottery/src/LotteryService.java', 'class LotteryService { void draw(){} } // 抽奖 积分');
+    const result = audit({ rootDir: root, config: { layers: [{ path: 'src' }] } });
+    assert.ok(result.newDomains.some(n => n.slug === 'lottery'), '应检测到 lottery 新领域');
   } finally { cleanup(); }
 });
 
