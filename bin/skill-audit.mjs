@@ -28,6 +28,7 @@ import { globSync } from 'glob';
 import { EXIT_CODES, getArg, hasArg } from './cli-utils.mjs';
 import { skillRefsExist } from './scan.mjs';
 import { registerInIndexes } from './skill.mjs';
+import { resolveSkillBody } from './skill-template.mjs';
 
 // ── 常量 ─────────────────────────────────────────────────────
 const SKILL_FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
@@ -441,7 +442,11 @@ export function generateDrafts({ rootDir, config = {}, missing }) {
       } catch { /* 忽略 */ }
     }
     const scoreNote = item.dirsHit ? '（命中架构目录）' : `（关键词/文件命中 ${item.score}）`;
-    const body = `---
+    const engineRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+    const projectName = config.name || rootDir.split(/[\\/]/).pop() || 'project';
+    const authorityList = authority.length > 0 ? authority.map(a => `- \`${a}\``).join('\n') : '- （AI 填充：关键源码/文档路径）';
+    const rendered = resolveSkillBody({ engineRoot, templateId: item.template, item, projectName, note: scoreNote, authorityList });
+    const body = rendered ?? `---
 name: ${item.id}
 description: Use when the user is working on this project's ${item.title} area — <TODO 补全：触发场景/常见表述/操作>. Common phrasings include "<TODO 补全>".
 lastReviewedAt: ${new Date().toISOString().slice(0, 10)}
@@ -467,7 +472,7 @@ lastReviewedAt: ${new Date().toISOString().slice(0, 10)}
 
 ## 权威文件
 
-${authority.length > 0 ? authority.map(a => `- \`${a}\``).join('\n') : '- （AI 填充：关键源码/文档路径）'}
+${authorityList}
 `;
     writeFileSync(draftFile, body, 'utf-8');
     created.push({ id: item.id, draft: relative(rootDir, draftFile), authority: authority.length });
@@ -495,7 +500,11 @@ export function createMissingSkills({ rootDir, config = {}, missing }) {
       } catch { /* 忽略 */ }
     }
     const scoreNote = item.dirsHit ? '（命中架构目录）' : `（关键词/文件命中 ${item.score}）`;
-    const body = `---
+    const engineRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+    const projectName = config.name || rootDir.split(/[\\/]/).pop() || 'project';
+    const authorityList = authority.length > 0 ? authority.map(a => `- \`${a}\``).join('\n') : '- （AI 填充：关键源码/文档路径）';
+    const rendered = resolveSkillBody({ engineRoot, templateId: item.template, item, projectName, note: scoreNote, authorityList });
+    const body = rendered ?? `---
 name: ${item.id}
 description: Use when working on this project's ${item.title} area — <TODO 补全：触发场景/常见表述/操作>. Common phrasings include "<TODO 补全>".
 lastReviewedAt: ${new Date().toISOString().slice(0, 10)}
@@ -521,7 +530,7 @@ lastReviewedAt: ${new Date().toISOString().slice(0, 10)}
 
 ## 权威文件
 
-${authority.length > 0 ? authority.map(a => `- \`${a}\``).join('\n') : '- （AI 填充：关键源码/文档路径）'}
+${authorityList}
 `;
     mkdirSync(dir, { recursive: true });
     writeFileSync(skillFile, body, 'utf-8');

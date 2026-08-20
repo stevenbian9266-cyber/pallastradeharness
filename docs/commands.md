@@ -47,14 +47,14 @@ title: 命令参考
 | `harness cache:clean` | 清理缓存 |
 | `harness affected` | 变更影响分析 |
 | `harness analyze` | 项目栈/层/差距分析（`--write` 生成配置草案；支持 Java/Maven/Gradle/Spring Boot 识别） |
-| `harness onboard [--write] [--preset auto\|nextjs\|rails\|single\|monorepo] [--tier lite\|standard\|strict]` | 冷启动：从 0 / 存量项目一键接入（配置 + policies + 通用 skills + PRD 模板 + 规范骨架） |
+| `harness onboard [--write] [--preset auto\|nextjs\|rails\|single\|monorepo] [--tier lite\|standard\|strict]` | 冷启动：从 0 / 存量项目一键接入（配置 + policies + 通用 skills + PRD 模板 + 规范骨架）；v1.5.0 起 `--write` 自动检测技术栈并批量生成领域 Skill（内容模板渲染，含项目权威文件） |
 | `harness standards gap` | Auto-Standards：领域代码 vs 规范覆盖缺口报告（含 Java/Maven 信号） |
 | `harness standards validate` | Auto-Standards：规范文件 schema 校验 |
 | `harness standards generate [--domains ...] [--write]` | Auto-Standards：生成规范起草包 + 安装 standards-audit skill（dry-run 优先） |
-| `harness skill new --domain <x> [--title ...]` | Auto-Skills：创建领域 Skill 骨架 + 自动注册索引 |
+| `harness skill new --domain <x> [--title ...]` | Auto-Skills：创建领域 Skill + 自动注册索引；v1.5.0 起若有 `presets/skills/<x>.md` 内容模板则渲染有实质内容版（非空骨架） |
 | `harness skill check [--freshness]` | Auto-Skills：结构 + 索引一致性校验；`--freshness` 追加权威路径新鲜度 + gate 幽灵引用检测 |
 | `harness skill list [--format json]` | Auto-Skills：领域清单 |
-| `harness skill audit [--json\|--generate\|--check]` | Auto-Skills 自动治理（v1.3.0）：技术栈/架构/领域词能力指纹 → 三层目录匹配 → 应有 vs 现有对比 → MISSING/STALE/OK + 疑似新领域；`--generate` 自动创建缺失 Skill 并注册索引（新领域自动补项目级 catalog 条目）；`--check` CI 硬卡 must 级缺失 |
+| `harness skill audit [--json\|--generate\|--check]` | Auto-Skills 自动治理（v1.3.0）：技术栈/架构/领域词能力指纹 → 三层目录匹配 → 应有 vs 现有对比 → MISSING/STALE/OK + 疑似新领域；`--generate` 自动创建 缺失 Skill 并注册索引（v1.5.0 起用 `presets/skills/` 内容模板渲染，注入项目权威文件）；`--check` CI 硬卡 must 级缺失 |
 | `harness skill catalog list\|add` | Auto-Skills：三层领域目录管理（内置基线 / 项目 `harness/catalog/*.json` / 订阅；`add --path <json>` 本地订阅） |
 | `harness scan [--fix] [--check] [--json] [--category <id>]` | 资产治理：扫描 skills/standards/agent/PRD/scenarios/索引 + 自愈（`--fix` 自动补齐 L0 确定性项；`--check` CI 硬卡 must 级缺口；MUST/SHOULD/NICE 分级） |
 | `harness docs generate --asset <path> [--write]` | Auto-Docs：知识文档起草包（AI 起草 + 人确认） |

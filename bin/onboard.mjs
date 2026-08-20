@@ -20,6 +20,7 @@ import { EXIT_CODES, getArg, hasArg } from './cli-utils.mjs';
 import { detectStack, detectLayers, detectGaps } from './analyze.mjs';
 import { atomicWriteText } from './state-store.mjs';
 import { registerInIndexes } from './skill.mjs';
+import { loadCatalog, detectFingerprint, buildExpected, createMissingSkills } from './skill-audit.mjs';
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BUNDLED_SKILLS = resolve(PACKAGE_ROOT, 'skills');
@@ -198,6 +199,29 @@ export async function run({ rootDir = process.cwd(), args = [] } = {}) {
   for (const skillId of installedSkills) {
     const reg = registerInIndexes(rootDir, skillId);
     for (const r of reg) if (r.done) console.log(`   ✓ 已注册: ${r.where}`);
+  }
+
+  // v1.5.0：安装后自动触发「领域 Skill 内容生成」——检测项目技术栈/架构/关键词，
+  // 匹配元领域目录，用 presets/skills/<id>.md 内容模板渲染生成有实质内容的 SKILL.md
+  // （不再是空骨架），并自动注册索引。
+  const autoCreated = [];
+  try {
+    const { catalog } = loadCatalog({ rootDir, config: {} });
+    const fingerprint = detectFingerprint({ rootDir, config: {}, catalog });
+    const expected = buildExpected({ catalog, fingerprint });
+    const missing = expected.filter(item => !existsSync(resolve(rootDir, 'ai', 'skills', item.id, 'SKILL.md')));
+    if (missing.length > 0) {
+      const created = createMissingSkills({ rootDir, config: {}, missing });
+      autoCreated.push(...created.filter(c => c.created));
+    }
+  } catch (error) {
+    console.log(`   ⚠️ 领域 Skill 自动生成跳过：${String(error.message).split('\n')[0]}`);
+  }
+  if (autoCreated.length > 0) {
+    console.log('\n  ✅ 自动生成领域 Skill（内容模板渲染，含项目权威文件）:');
+    for (const c of autoCreated) {
+      console.log(`    ✓ ai/skills/${c.id}/SKILL.md` + (c.authority > 0 ? `（权威文件 ${c.authority} 个）` : ''));
+    }
   }
   console.log('\n✅ 接入文件已写入');
   console.log('\n  剩余步骤（人/AI）:');

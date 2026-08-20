@@ -11,10 +11,12 @@
  * 引擎只做骨架与索引，正文由 AI 按 harness-skill-author skill 生成。
  */
 import { existsSync, readFileSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { resolve, join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { EXIT_CODES, getArg, hasArg, parseFilesArg } from './cli-utils.mjs';
 import { atomicWriteText } from './state-store.mjs';
 import { skillRefsExist, gateSkillRefs } from './scan.mjs';
+import { resolveSkillBody } from './skill-template.mjs';
 
 const SKILL_FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
 const NAME_RE = /^name:\s*([^\r\n]+)$/m;
@@ -58,7 +60,18 @@ export function createSkill({ rootDir, config = {}, domain, title }) {
   }
 
   mkdirSync(dir, { recursive: true });
-  const content = `---
+  // v1.5.0：若有 presets/skills/<domain>.md 内容模板 → 渲染有实质内容的 SKILL.md；
+  // 无模板回退旧空骨架（向后兼容）
+  const engineRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+  const rendered = resolveSkillBody({
+    engineRoot,
+    templateId: domainSlug,
+    item: { id: domainSlug, title: titleText },
+    projectName,
+    note: `skill new --domain ${domainSlug}`,
+    authorityList: '- （AI 填充：关键源码/文档路径，作为 field-level 细节的权威来源）',
+  });
+  const content = rendered ?? `---
 name: ${domainSlug}
 description: Use when the user is working with ${projectName}'s ${titleText} area — <TODO 补全：触发场景/常见表述/操作>. Common phrasings include "<TODO 补全>". Provides the ${titleText} domain knowledge and operations; defers to authoritative files listed below.
 ---

@@ -289,3 +289,40 @@ test('createMissingSkills 自动创建正式 SKILL.md 并注册索引', () => {
     assert.equal(created2[0].created, false);
   } finally { cleanup(); }
 });
+
+// ── v1.5.0：内容模板渲染（非空骨架）────────────────────────
+test('createMissingSkills 用内容模板渲染（有实质内容，非空骨架）', () => {
+  const { root, cleanup } = makeTmp();
+  try {
+    w(root, 'AGENTS.md', '# AGENTS\n\n### 0.1 规范文件总表\n\n| 文件 | 类别 |\n|---|---|\n');
+    w(root, 'ai/README.md', '# AI Skills 索引\n');
+    const missing = [{ id: 'api', title: 'API / 对外接口', priority: 'should', source: 'bundled', score: 3, dirsHit: false, authorityGlobs: [] }];
+    const created = createMissingSkills({ rootDir: root, config: { name: 'demo' }, missing });
+    assert.equal(created.length, 1);
+    assert.equal(created[0].created, true);
+    const skill = readFileSync(join(root, 'ai/skills/api/SKILL.md'), 'utf-8');
+    // 有实质内容：模板的通用最佳实践在文件中
+    assert.match(skill, /契约优先/, '应含模板实质内容（契约优先）');
+    assert.match(skill, /幂等/, '应含模板实质内容（幂等）');
+    assert.match(skill, /## 常用操作/);
+    // 占位符全部替换
+    assert.doesNotMatch(skill, /\{\{/, '不应残留占位符');
+    // 项目名注入
+    assert.match(skill, /demo/);
+    // 不是空骨架（不含 AI 填充主结构）
+    assert.doesNotMatch(skill, /# 核心概念\n\n- （AI 填充：本项目/);
+  } finally { cleanup(); }
+});
+
+test('createMissingSkills 无模板领域回退旧骨架（向后兼容）', () => {
+  const { root, cleanup } = makeTmp();
+  try {
+    w(root, 'AGENTS.md', '# AGENTS\n\n### 0.1 规范文件总表\n\n| 文件 | 类别 |\n|---|---|\n');
+    w(root, 'ai/README.md', '# AI Skills 索引\n');
+    const missing = [{ id: 'lottery', title: '抽奖', priority: 'nice', source: 'project', score: 1, dirsHit: true, authorityGlobs: [] }];
+    const created = createMissingSkills({ rootDir: root, config: {}, missing });
+    const skill = readFileSync(join(root, 'ai/skills/lottery/SKILL.md'), 'utf-8');
+    assert.match(skill, /^---\r?\nname: lottery/m);
+    assert.match(skill, /AI 填充/, '无模板应回退旧骨架（含 AI 填充指引）');
+  } finally { cleanup(); }
+});
