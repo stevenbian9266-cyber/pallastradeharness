@@ -59,6 +59,55 @@ function buildConfigDraft(name, stack, layers, preset, tier) {
       ],
     },`
     : '';
+  // v1.6.0：自动化深度配置段（tier=standard/strict 全量；lite 仅核心治理段）
+  const riskBlock = `  // ⑦ 风险路径（critical/standard 档位判定）
+  risk: {
+    criticalPaths: ['**/db/migrate/**', '**/*payment*', '**/*auth*', '**/*permission*', '**/*secret*', '**/*deploy*', '.github/workflows/**', '**/Dockerfile*'],
+    standardPaths: ['**/package.json', '**/Gemfile', '**/*config*', '**/*schema*', '**/api/**'],
+  },`;
+  const brainBlock = `  // ⑧ Project Brain 知识索引来源
+  brain: {
+    sources: ['AGENTS.md', 'README.md', 'docs/**/*.{md,mdx,json,yaml,yml}', 'ai/skills/**/SKILL.md', 'harness/**/*.{md,json,yaml,yml}'],
+    exclude: ['**/node_modules/**', '**/.git/**', '**/.env*', '**/*secret*', 'harness/gates/**', '.harness-state/**', '.harness-cache/**'],
+    maxAssetBytes: 524288,
+    maxContextAssets: 24,
+    maxAssets: 20000,
+    shardSize: 500,
+  },`;
+  const supervisorBlock = `  // ⑨ 开发监督器（范围/复杂度/架构边界；generatedFiles/protectedFiles 按项目补）
+  supervisor: {
+    mode: 'guard',
+    generatedFiles: [],
+    protectedFiles: [],
+    dependencyFiles: ['package.json', '**/Gemfile', '**/package.json'],
+    complexity: { maxDecisionPoints: 12, duplicateBlockLines: 6 },
+  },`;
+  const evidenceBlock = `  // ⑩ 证据自动校验
+  evidence: { autoVerify: true, maxOutputBytes: 262144 },`;
+  const coreBlocks = [riskBlock, brainBlock, supervisorBlock, evidenceBlock];
+  const deepBlocks = [
+    `  // ⑪ 检查档位（quick/full/nightly/release；check --profile 消费）
+  profiles: {
+    quick: { timeout: 300, checks: ['lint', 'typecheck', 'affected-tests', 'anti-patterns', 'degraded-loop'] },
+    full: { timeout: 2700, checks: ['quick', 'security', 'coverage', 'generated-check', 'doc-impact', 'ai-freshness'] },
+    nightly: { checks: ['full', 'flaky-rerun', 'performance'] },
+    release: { checks: ['full', 'sbom', 'provenance'] },
+  },`,
+    `  // ⑫ 覆盖率门禁（coverage --enforce 消费；targets 按项目补）
+  coverage: { thresholds: {}, targets: [] },`,
+    `  // ⑬ 知识同步矩阵（sync-check 消费）
+  syncCheck: {
+    rules: [
+      { label: 'API / 接口变更', re: /(controllers\\/.*\\/api|config\\/routes)/, assets: ['API 文档', 'API Skill'] },
+      { label: '数据模型变更', re: /(models|db\\/migrate)/, assets: ['数据模型 Skill', '迁移测试'] },
+      { label: '样式 / 设计 token', re: /\\.(css|scss)$|tailwind\\.config/, assets: ['样式规范', '反模式检查'] },
+      { label: 'Skill / 机制变更', re: /(ai\\/skills|harness\\/requirements|docs\\/prd)/, assets: ['AGENTS.md', 'scenarios.json'] },
+    ],
+  },`,
+    `  // ⑭ 生成物漂移检查（generated:check 消费；checks 按项目补）
+  generatedCheck: { checks: [] },`,
+  ];
+  const deepBlock = tier === 'lite' ? '' : `\n${deepBlocks.join('\n')}\n`;
   return `// harness.config.mjs — 由 \`harness onboard\` 生成（草案，请 review）
 export default {
   schemaVersion: '1.0',
@@ -88,7 +137,8 @@ ${docImpactBlock}    ],
     sources: ['harness/standards/**/*.json'],
   },
 
-  // ⑥ 状态/产物路径
+${coreBlocks.join('\n')}
+${deepBlock}  // ⑮ 状态/产物路径
   paths: {
     gates: 'harness/gates',
     requirements: 'harness/requirements',
@@ -157,6 +207,28 @@ export async function run({ rootDir = process.cwd(), args = [] } = {}) {
     writes.push({ path: prdTemplate, content: existsSync(src) ? readFileSync(src, 'utf-8') : '# PRD 模板\n' });
   }
 
+  // 5.5 v1.6.0：lefthook.yml 提交物理拦截（若缺则生成模板）
+  const lefthookPath = resolve(rootDir, 'lefthook.yml');
+  const lefthookExists = existsSync(lefthookPath);
+  pushStep('lefthook', 'lefthook 拦截', true, lefthookExists ? '已存在' : '将生成', lefthookExists ? null : '生成后需: npm i -D lefthook && npx lefthook install');
+  if (!lefthookExists) {
+    const src = resolve(PACKAGE_ROOT, 'templates', 'lefthook.yml');
+    writes.push({ path: lefthookPath, content: existsSync(src) ? readFileSync(src, 'utf-8') : '' });
+  }
+
+  // 5.6 v1.6.0：AI 行为级安全钩子（ai/hooks — 拦截破坏性命令 / 警告硬编码密钥）
+  const hooksDir = resolve(rootDir, 'ai', 'hooks');
+  const hooksFile = resolve(hooksDir, 'hooks.json');
+  const hooksExists = existsSync(hooksFile);
+  pushStep('ai-hooks', 'AI 安全钩子', true, hooksExists ? '已存在' : '将生成', hooksExists ? null : '（Claude Code 钩子：拦截破坏性 DB/force-push、警告密钥）');
+  if (!hooksExists) {
+    const tplDir = resolve(PACKAGE_ROOT, 'templates', 'ai-hooks');
+    for (const name of ['hooks.json', 'block_destructive_db.sh', 'warn_on_secrets.sh']) {
+      const src = resolve(tplDir, name);
+      if (existsSync(src)) writes.push({ path: resolve(hooksDir, name), content: readFileSync(src, 'utf-8') });
+    }
+  }
+
   // 6. 规范骨架
   const standardsFile = resolve(rootDir, 'harness', 'standards', `${name}.json`);
   const standardsExists = existsSync(standardsFile);
@@ -165,10 +237,9 @@ export async function run({ rootDir = process.cwd(), args = [] } = {}) {
     writes.push({ path: standardsFile, content: JSON.stringify({ schemaVersion: '1.0', draft: true, generatedAt: new Date().toISOString(), project: name, standards: [] }, null, 2) });
   }
 
-  // 7. Gate 激活检查
-  const lefthookExists = existsSync(resolve(rootDir, 'lefthook.yml'));
+  // 7. Gate 激活检查（lefthook.yml 已由 5.5 自动生成）
   const gateReady = gaps.every(g => g.severity !== 'must' || g.item === 'harness.config.mjs' || g.item === 'AGENTS.md');
-  pushStep('gate', 'Gate 激活', !lefthookExists ? false : true, lefthookExists ? 'lefthook.yml 已存在' : '缺少 lefthook.yml（提交拦截）', 'npx harness init 生成 lefthook.yml + npm i -D lefthook');
+  pushStep('gate', 'Gate 激活', true, lefthookExists ? 'lefthook.yml 已存在' : '将生成 lefthook.yml（提交拦截）', lefthookExists ? null : '生成后运行: npm i -D lefthook && npx lefthook install');
 
   if (json) {
     console.log(JSON.stringify({ project: name, preset: effectivePreset, tier, steps, writes: write ? writes.map(w => w.path.replace(rootDir + '/', '')) : writes.map(w => w.path.replace(rootDir + '/', '')), dryRun: !write }, null, 2));
@@ -225,9 +296,11 @@ export async function run({ rootDir = process.cwd(), args = [] } = {}) {
   }
   console.log('\n✅ 接入文件已写入');
   console.log('\n  剩余步骤（人/AI）:');
-  console.log('    1. npx harness standards generate --write   → AI 补全规范');
-  console.log('    2. npx harness skill new --domain <领域>    → 生成领域 Skill');
-  console.log('    3. 安装 lefthook: npm i -D lefthook && npx lefthook install');
-  console.log('    4. npx harness doctor 确认就绪');
+  console.log('    1. 安装 lefthook: npm i -D lefthook && npx lefthook install  （提交物理拦截）');
+  console.log('    2. npx harness standards generate --write   → AI 补全规范');
+  console.log('    3. npx harness skill new --domain <领域>    → 生成领域 Skill');
+  console.log('    4. npx harness ci github --write            → 生成多档位 CI（PR 门禁/nightly/release）');
+  console.log('    5. npx harness doctor 确认就绪');
+  console.log('  备注: ai/hooks/ 已生成 AI 行为级安全钩子（Claude Code 插件引用 ${CLAUDE_PLUGIN_ROOT}/hooks 时启用）');
   process.exitCode = EXIT_CODES.OK;
 }

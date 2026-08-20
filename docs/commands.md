@@ -29,7 +29,7 @@ title: 命令参考
 | `harness mcp` | 启动无任意 shell 能力的 stdio MCP 服务 |
 | `harness tui [--json] [--watch]` | 展示任务、风险、Gate、证据和下一步动作 |
 | `harness config:migrate / state:migrate` | dry-run 优先迁移至 1.0 schema；`--write` 后自动备份 |
-| `harness ci github` | 生成确定性的 GitHub Actions 检查矩阵，不修改分支保护 |
+| `harness ci github [--base main] [--write]` | 生成多档位 CI（v1.6.0）：`harness.yml`（PR 快速门禁：anti-patterns/secrets/doc-impact/generated-check/coverage-gate 分工 job + 主矩阵）、`harness-nightly.yml`（cron 定时：check --profile full + coverage --enforce + scenarios/freshness）、`harness-release.yml`（tag 触发：全档 + 发布清单） |
 | `harness skill catalog list\|add` | Auto-Skills：三层领域目录管理（内置基线 / 项目 `harness/catalog/*.json` / 订阅；`add --path <json>` 本地订阅） |
 | `harness prd new/list/verify` | PRD 工作流（骨架创建 + 查重回写 + AC→测试校验） |
 | `harness check --profile quick\|full` | 检查档案（变更感知：本地默认只扫 changed-files） |
@@ -47,7 +47,7 @@ title: 命令参考
 | `harness cache:clean` | 清理缓存 |
 | `harness affected` | 变更影响分析 |
 | `harness analyze` | 项目栈/层/差距分析（`--write` 生成配置草案；支持 Java/Maven/Gradle/Spring Boot 识别） |
-| `harness onboard [--write] [--preset auto\|nextjs\|rails\|single\|monorepo] [--tier lite\|standard\|strict]` | 冷启动：从 0 / 存量项目一键接入（配置 + policies + 通用 skills + PRD 模板 + 规范骨架）；v1.5.0 起 `--write` 自动检测技术栈并批量生成领域 Skill（内容模板渲染，含项目权威文件） |
+| `harness onboard [--write] [--preset auto\|nextjs\|rails\|single\|monorepo] [--tier lite\|standard\|strict]` | 冷启动：从 0 / 存量项目一键接入（配置 + policies + 通用 skills + PRD 模板 + 规范骨架）；v1.5.0 起 `--write` 自动检测技术栈并批量生成领域 Skill（内容模板渲染，含项目权威文件）；v1.6.0 起自动生成 `lefthook.yml`（提交拦截）+ `ai/hooks/`（AI 行为级安全钩子）+ 配置深度补全（profiles/coverage/risk/brain/syncCheck/generatedCheck，lite 档降级） |
 | `harness standards gap` | Auto-Standards：领域代码 vs 规范覆盖缺口报告（含 Java/Maven 信号） |
 | `harness standards validate` | Auto-Standards：规范文件 schema 校验 |
 | `harness standards generate [--domains ...] [--write]` | Auto-Standards：生成规范起草包 + 安装 standards-audit skill（dry-run 优先） |

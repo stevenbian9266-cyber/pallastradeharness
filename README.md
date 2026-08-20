@@ -69,7 +69,7 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.5.0`；`v1.5.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.6.0`；`v1.6.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
@@ -81,6 +81,7 @@ npx harness docs:check
 
 | 版本 | 亮点 |
 |---|---|
+| **v1.6.0** | **自动化触发补全**：`ci github --write` 生成多档位 CI（`harness.yml` PR 快速门禁：anti-patterns/secrets/doc-impact/generated-check/coverage-gate 分工 job + `harness-nightly.yml` cron 定时 full+覆盖率+场景 + `harness-release.yml` tag 触发全档+发布清单）；`onboard --write` 自动生成 `lefthook.yml`（提交物理拦截）+ `ai/hooks/`（AI 行为级安全钩子：PreToolUse 拦截破坏性 DB/force-push、PostToolUse 警告硬编码密钥）+ 配置深度补全（profiles/coverage/risk/brain/syncCheck/generatedCheck/evidence.autoVerify/supervisor，lite 档降级）；`node --test` 138/138 通过 |
 | **v1.5.0** | **Auto-Content 自动内容生成**：领域 Skill 从“空骨架”变为“有实质内容”——新增 `presets/skills/` 11 个元领域内容模板（api/data-model/payment/security/deployment/testing/frontend-style/i18n/events/observability/performance），`skill new` / `skill audit --generate` 渲染模板并注入项目名/检测依据/权威文件 → 安装即得可直接使用的最佳实践基线（不再是占位符）；`harness onboard --write` 安装后自动检测技术栈并批量生成领域 Skill；无模板领域回退旧骨架（向后兼容）；`node --test` 132/132 通过 |
 | **v1.4.0** | **PRD 工作流默认启用**：所有项目 feature 类 gate 内置 PRD 检查（read-skill-prd / create-prd-doc / create-req-doc / req-doc-has-skill-table / user-confirmed），一句话需求 → PRD 文档 → 用户确认 → 才实施；`getGateChecks` 按 id 去重（项目重复配置不重复）；`node --test` 114/114 通过 |
 | **v1.3.0** | Auto-Skills 自动治理：新增 `harness skill audit`（技术栈/架构/领域词指纹 → 内置+项目+订阅三层目录匹配 → 应有 vs 现有对比 → MISSING/STALE/OK + 疑似新领域）；`--generate` 一键自动创建缺失 Skill（含权威文件素材）并注册索引；新领域增量检测（新增 `domain-*`/`modules/*`/`services/*` → 自动沉淀项目级 catalog 条目 → 自动建 Skill）；`skill catalog list/add`；L1-L4 升级检测（结构/权威路径/内容漂移 hash/元数据过期）；`node --test` 112/112 通过 |

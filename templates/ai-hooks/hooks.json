@@ -1,0 +1,27 @@
+{
+  "description": "AI 行为级安全钩子（v1.6.0，由 harness onboard 生成）— 在 AI 执行工具时拦截破坏性命令、警告硬编码密钥。比 git 钩子更早一层：AI 在对话中执行危险操作即被拦，无需等到 commit。",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block_destructive_db.sh\""
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/warn_on_secrets.sh\""
+          }
+        ],
+        "matcher": "Edit|Write|MultiEdit"
+      }
+    ]
+  }
+}

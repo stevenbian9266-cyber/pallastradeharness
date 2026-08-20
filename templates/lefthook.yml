@@ -1,0 +1,23 @@
+# lefthook.yml — 由 `harness onboard --write` 生成（v1.6.0）
+# 提交前物理拦截（agent 无关：Copilot/Codex/Claude/人 都拦截）。
+# 安装一次：npm i -D lefthook && npx lefthook install
+pre-commit:
+  commands:
+    harness-gate:
+      run: npx harness gate:required
+    harness-anti-patterns:
+      glob: "**/*.{rb,ts,tsx,js,jsx,css}"
+      exclude: "**/node_modules/**|**/dist/**|**/.next/**|**/build/**|**/vendor/**"
+      run: npx harness scan-anti-patterns scan --files {staged_files}
+    harness-degraded-loop:
+      glob: "**/*.{ts,tsx,js,jsx}"
+      exclude: "**/node_modules/**|**/dist/**|**/.next/**|**/build/**"
+      run: npx harness scan-degraded-loop --files {staged_files}
+    harness-secrets:
+      glob: "**/*.{rb,ts,tsx,js,jsx,yml,yaml,env,sh}"
+      exclude: "**/node_modules/**|**/dist/**|**/.next/**|**/build/**|**/coverage/**|**/vendor/**"
+      run: npx harness scan-secrets scan --files {staged_files}
+pre-push:
+  commands:
+    harness-doc-impact:
+      run: npx harness doc-impact --base origin/main
