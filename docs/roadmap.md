@@ -20,7 +20,8 @@ title: 路线图
 | 1.4.0 | **PRD 工作流默认启用**：feature gate 内置 PRD 检查（read-skill-prd/create-prd-doc/create-req-doc/req-doc-has-skill-table/user-confirmed），所有项目安装即触发；getGateChecks 按 id 去重 | ✅ 当前源码 |
 | 1.5.0 | **Auto-Content 自动内容生成**：新增 `presets/skills/` 11 个元领域内容模板，`skill new`/`skill audit --generate` 渲染有实质内容的 SKILL.md（注入项目名/检测依据/权威文件）；`onboard --write` 安装后自动批量生成领域 Skill；无模板回退旧骨架 | ✅ 当前源码 |
 | 1.6.0 | **自动化触发补全**：`ci github` 多档位 CI（PR 门禁/nightly cron/release tag）；`onboard` 自动生成 `lefthook.yml` + `ai/hooks/` AI 安全钩子 + 配置深度补全（profiles/coverage/risk/brain/syncCheck/generatedCheck） | ✅ 当前源码 |
-| 1.7.0 | **Trust Kernel（可信内核）**：ChangeSnapshot（Task/Gate/Evidence/提交绑定同一快照）、Verifier Registry（`harness verify`，任意命令降级 diagnostic）、Task 强绑定（Taskless Gate 隔离）、手工证据收紧（success:null + `--approve`）、Node 化安全 Hook（`harness hooks doctor`）、独立仓自治理 | 🔨 实施中（2026-08-22） |
+| 1.7.0 | **Trust Kernel（可信内核）**：ChangeSnapshot（Task/Gate/Evidence/提交绑定同一快照）、Verifier Registry（`harness verify`，任意命令降级 diagnostic）、Task 强绑定（Taskless Gate 隔离）、手工证据收紧（success:null + `--approve`）、Node 化安全 Hook（`harness hooks doctor`）、独立仓自治理 + GitHub Ruleset `main-protection`；P1 引导体验（do/next 零认知路径 + setup 统一接入） | ✅ 已发布（2026-08-22） |
+| 1.8.0 | **Guided UX + External Validation**：交互式 TUI（HTH-016）、Brain 检索 adapter 与评测框架（HTH-017，recall@10 基线 69% 可复现）、本地指标（HTH-019）、插件合同测试（HTH-021）、Tier A fixtures（HTH-018）、小白试点包（HTH-020）、双语核心文档 + Go/No-Go 报告（HTH-022） | 🔨 实施中（2026-08-22） |
 ## 详细版本记录
 
 版本演进与决策记录见 `docs/standards/harness-standalone-roadmap.md`（PallasTrade 仓库），或本仓库 git 历史提交信息。
@@ -48,3 +49,6 @@ title: 路线图
 - [x] v1.4.0 PRD 工作流默认启用：feature gate 内置 PRD 检查（read-skill-prd/create-prd-doc/create-req-doc/req-doc-has-skill-table/user-confirmed），所有项目安装即触发；getGateChecks 按 id 去重
 - [x] v1.5.0 Auto-Content 自动内容生成：`presets/skills/` 11 个元领域内容模板（api/data-model/payment/security/deployment/testing/frontend-style/i18n/events/observability/performance）；`skill new`/`skill audit --generate` 模板渲染有实质内容 SKILL.md（注入项目名/检测依据/权威文件）；`onboard --write` 安装后自动批量生成领域 Skill；无模板回退旧骨架
 - [x] v1.6.0 自动化触发补全：`ci github` 多档位 CI（`harness.yml` PR 分工门禁 + `harness-nightly.yml` cron 定时 + `harness-release.yml` tag 触发）；`onboard` 自动生成 `lefthook.yml` + `ai/hooks/`（PreToolUse 拦截破坏性命令/PostToolUse 警告密钥）+ 配置深度补全（profiles/coverage/risk/brain/syncCheck/generatedCheck/evidence.autoVerify/supervisor）
+- [x] v1.7.0 Trust Kernel：ChangeSnapshot / Verifier Registry / Task 强绑定 / Node Hook / 独立仓自治理 + Ruleset；P1 do/next + setup
+- [ ] v1.8.0 剩余：Brain eval 达标（Recall@10≥90%，BM25/中文/符号检索）、Tier A nightly 14 天、外部试点执行（HTH-020 ≥10 人）、2.0.0-beta.1 发布决策复核（Go/No-Go：`docs/rfc/0003-release-gate.md`）
+- [ ] 2.0.0 正式版：八项条件全部达标后重新评估（见 `docs/rfc/0003-release-gate.md` §5）
