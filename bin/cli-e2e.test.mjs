@@ -67,6 +67,8 @@ test('gate:required blocks commit when staged tree changes after verification (I
     git(rootDir, ['config', 'user.name', 'Harness Test']);
     mkdirSync(join(rootDir, 'src'), { recursive: true });
     writeFileSync(join(rootDir, 'src', 'x.txt'), 'v1\n');
+    // unit verifier（node --test **/*.test.mjs）需要可运行的测试文件
+    writeFileSync(join(rootDir, 'src', 'ok.test.mjs'), "import { test } from 'node:test'; test('ok', () => {});\n");
     git(rootDir, ['add', '.']);
     git(rootDir, ['commit', '-m', 'init']);
 
@@ -85,11 +87,12 @@ test('gate:required blocks commit when staged tree changes after verification (I
       }
     }
 
-    // 记录含 ChangeSnapshot 的测试证据 + review/knowledge（task-bound gate 的 verify-test 只能由 evidence verify 关闭）
-    const ev = run(rootDir, ['evidence', 'run', '--task', taskId, '--type', 'test', '--', process.execPath, '-e', 'process.exit(0)']);
+    // 记录含 ChangeSnapshot 的受信测试证据（verifier 注册命令）+ review/knowledge（approved）
+    // task-bound gate 的 verify-test 只能由 evidence verify 关闭
+    const ev = run(rootDir, ['evidence', 'run', '--task', taskId, '--type', 'test', '--verifier', 'unit']);
     assert.equal(ev.status, 0, ev.stderr);
-    run(rootDir, ['evidence', 'record', '--task', taskId, '--type', 'review', '--summary', 'docs reviewed']);
-    run(rootDir, ['evidence', 'record', '--task', taskId, '--type', 'knowledge', '--summary', 'knowledge assessed']);
+    run(rootDir, ['evidence', 'record', '--task', taskId, '--type', 'review', '--summary', 'docs reviewed', '--approve']);
+    run(rootDir, ['evidence', 'record', '--task', taskId, '--type', 'knowledge', '--summary', 'knowledge assessed', '--approve']);
     const verified = run(rootDir, ['evidence', 'verify', '--task', taskId, '--gate', gate.id]);
     assert.equal(verified.status, 0, verified.stdout);
 
@@ -128,6 +131,8 @@ test('task-bound gate closes only through fresh typed evidence', () => {
     git(rootDir, ['init', '-b', 'main']);
     git(rootDir, ['config', 'user.email', 'harness@example.test']);
     git(rootDir, ['config', 'user.name', 'Harness Test']);
+    mkdirSync(join(rootDir, 'src'), { recursive: true });
+    writeFileSync(join(rootDir, 'src', 'ok.test.mjs'), "import { test } from 'node:test'; test('ok', () => {});\n");
     git(rootDir, ['add', '.']);
     git(rootDir, ['commit', '-m', 'init']);
 
@@ -146,7 +151,7 @@ test('task-bound gate closes only through fresh typed evidence', () => {
     assert.match(manual.stderr + manual.stdout, /evidence verify/i);
 
     writeFileSync(join(rootDir, 'README.md'), '# Verified lifecycle\n');
-    const evidence = run(rootDir, ['evidence', 'run', '--task', taskId, '--type', 'test', '--', process.execPath, '-e', 'process.exit(0)']);
+    const evidence = run(rootDir, ['evidence', 'run', '--task', taskId, '--type', 'test', '--verifier', 'unit']);
     assert.equal(evidence.status, 0, evidence.stderr);
     const verified = run(rootDir, ['evidence', 'verify', '--task', taskId, '--gate', gateId]);
     assert.equal(verified.status, 0, verified.stderr);

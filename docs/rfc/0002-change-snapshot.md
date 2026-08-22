@@ -1,8 +1,8 @@
 # RFC-0002: ChangeSnapshot — 变更快照数据合同
 
-> 状态：部分实施完成（HTH-002/003/004 已实现；Verifier Registry 集成待 HTH-005）  
+> 状态：部分实施完成（HTH-002/003/004/005/006 已实现；Taskless 隔离待 HTH-007）  
 > 日期：2026-08-22  
-> 关联：RFC-0001（INV-01/04）、HTH-002~004、方案 §5.1
+> 关联：RFC-0001（INV-01/02/04）、HTH-002~006、方案 §5.1/§5.2
 
 ## 1. 问题
 
@@ -104,3 +104,14 @@ manifest = lines.sorted(by: relativePath) joined by "\n"
 已知边界（后续 HTH-005 收紧）：
 - 任意命令仍可按 `test` 类型记录证据（F-02 需 Verifier Registry 解决）
 - 无 snapshot 的旧证据在 `gate:required` 中降级跳过（向后兼容，方案 §11.2）
+
+## 9. 实施记录追加（2026-08-22，HTH-005/006 — F-02 修复）
+
+| 工作包 | 状态 | 交付 |
+|---|---|---|
+| HTH-005 | ✅ 已实现 | `bin/verifier.mjs` + `harness verify` 命令 + `config.evidence.verifiers` 注册表（默认 unit/docs）+ `evidence run --type test` 无验证器降级 `diagnostic` + 验证器定义 hash 失效（INV-04）+ `bin/glob-utils.mjs` 跨平台 glob 展开 |
+| HTH-006 | ✅ 已实现 | `evidence record` 手工证据默认 `success:null`，`--approve` 显式审批；`verifyTaskEvidence` 区分 pending（未审批/诊断证据）与 missing |
+
+边界更新：
+- `evidence run --type test --verifier <id>` 运行验证器注册命令（忽略用户传入命令，防伪冒）；任意命令只能记为 diagnostic
+- review/knowledge 等非 test 类型不受 verifier 限制，但手工记录需 `--approve` 才满足 Gate

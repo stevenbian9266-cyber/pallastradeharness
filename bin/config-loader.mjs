@@ -143,6 +143,24 @@ export const DEFAULT_CONFIG = {
   evidence: {
     autoVerify: true,
     maxOutputBytes: 262144,
+    // 验证器注册表（HTH-005）：满足 Gate 的证据必须来自已注册验证器。
+    // 项目可在 harness.config.mjs 覆盖/扩展；定义变化会使旧证据失效。
+    verifiers: {
+      unit: {
+        type: 'test',
+        command: ['node', '--test', '**/*.test.mjs'],
+        cwd: '.',
+        timeoutMs: 300000,
+        profiles: ['quick', 'standard', 'critical'],
+      },
+      docs: {
+        type: 'test',
+        command: ['npx', 'harness', 'docs:check'],
+        cwd: '.',
+        timeoutMs: 120000,
+        profiles: ['quick', 'standard', 'critical'],
+      },
+    },
   },
   plugins: {
     apiVersion: '1.0',

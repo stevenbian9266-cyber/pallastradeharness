@@ -127,6 +127,66 @@ test('evidence freshness fails when staged tree changes after verification (INV-
   }
 });
 
+// ────────────────────────────────────────────────────────────────
+// Verifier Registry（HTH-005）与手工证据收紧（HTH-006）
+// ────────────────────────────────────────────────────────────────
+test('diagnostic test evidence (no registered verifier) cannot satisfy verification (F-02)', () => {
+  const { rootDir, config, task } = project();
+  try {
+    const evidence = runEvidenceCommand({ rootDir, config, task, evidenceType: 'test', summary: 'arbitrary cmd', command: [process.execPath, '-e', 'process.exit(0)'], diagnostic: true });
+    assert.equal(evidence.metadata.diagnostic, true);
+    const verification = verifyTaskEvidence({ rootDir, config, task });
+    assert.equal(verification.ok, false);
+    assert.deepEqual(verification.missing, ['test']);
+    assert.equal(verification.pending.length, 1);
+    assert.ok(verification.pending[0].reason.includes('diagnostic'));
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('manual evidence without approval has success:null and cannot satisfy verification', () => {
+  const { rootDir, config, task } = project();
+  try {
+    const evidence = recordEvidence({ rootDir, config, task, evidenceType: 'knowledge', summary: 'assessed' });
+    assert.equal(evidence.success, null);
+    const verification = verifyTaskEvidence({ rootDir, config, task });
+    assert.equal(verification.ok, false);
+    assert.equal(verification.pending.length, 1);
+    assert.ok(verification.reasons.some(reason => reason.includes('pending')));
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('approved manual evidence satisfies the knowledge requirement', () => {
+  const { rootDir, config, task } = project();
+  try {
+    const evidence = recordEvidence({ rootDir, config, task, evidenceType: 'knowledge', summary: 'assessed', exitCode: 0, metadata: { approved: true } });
+    assert.equal(evidence.success, true);
+    const verification = verifyTaskEvidence({ rootDir, config, task });
+    // 已审批的 knowledge 证据进入 valid（满足 requiredEvidence 中的 knowledge 维度时可用）
+    assert.ok(verification.evidence.includes(evidence.id), 'approved knowledge evidence is valid');
+    assert.equal(verification.ok, false, 'test type still missing');
+    assert.equal(verification.missing.includes('test'), true);
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('verifier definition change makes old evidence stale (INV-04)', () => {
+  const { rootDir, config, task } = project();
+  try {
+    const evidence = runEvidenceCommand({ rootDir, config, task, evidenceType: 'test', summary: 'bound to verifier', command: [process.execPath, '-e', 'process.exit(0)'], verifierId: 'unit', verifierDefinitionHash: 'deadbeef' });
+    assert.equal(evidence.verifierId, 'unit');
+    const freshness = evidenceFreshness({ rootDir, config, evidence });
+    assert.equal(freshness.fresh, false);
+    assert.ok(freshness.reasons.some(reason => reason.includes('verifier definition changed')));
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
 test('package-manager commands can be captured through platform shims', () => {
   const { rootDir, config, task } = project();
   try {

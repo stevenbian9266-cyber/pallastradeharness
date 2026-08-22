@@ -121,7 +121,7 @@ export function relativePath(rootDir, absolutePath) {
 // ────────────────────────────────────────────────────────────────
 // Policy / config hashes
 // ────────────────────────────────────────────────────────────────
-function stableStringify(value) {
+export function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
   if (value && typeof value === 'object') {
     return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;

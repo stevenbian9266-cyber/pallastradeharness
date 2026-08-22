@@ -299,6 +299,38 @@ else if (cmd === 'diagnostics') {
 }
 
 // ================================================================
+// verify — Verifier Registry（HTH-005）
+// 满足 Gate 的 test 证据必须来自已注册验证器；任意命令降级 diagnostic。
+// ================================================================
+else if (cmd === 'verify') {
+  const { listVerifiers, runVerifier } = await import('./verifier.mjs');
+  const sub = args[1];
+  if (!sub || sub === '--list' || sub === 'list') {
+    const verifiers = listVerifiers(config);
+    if (verifiers.length === 0) { console.log('No verifiers registered.'); process.exit(0); }
+    console.log('Registered verifiers:');
+    for (const verifier of verifiers) console.log(`  ${verifier.id}  (${verifier.type})  ${verifier.command.join(' ')}`);
+    process.exit(0);
+  }
+  const taskId = getArg(args, '--task');
+  if (!taskId) {
+    console.error('Usage: harness verify <verifier-id> --task <task-id>   |   harness verify --list');
+    process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+  }
+  const { resolveTask } = await import('./state-store.mjs');
+  const task = resolveTask(ROOT, config, taskId, { allowTerminal: false });
+  try {
+    const evidence = runVerifier({ rootDir: ROOT, config, task, verifierId: sub });
+    const verdict = evidence.success === true ? '✅' : evidence.success === null ? '⏳' : '❌';
+    console.log(`${verdict} verifier:${sub} — ${evidence.summary} (${evidence.id})`);
+    if (evidence.success !== true) process.exitCode = EXIT_CODES.POLICY_FAILURE;
+  } catch (error) {
+    console.error(`❌ ${error.message}`);
+    process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+  }
+}
+
+// ================================================================
 // gate — MANDATORY pre-coding gate
 // ================================================================
 else if (cmd === 'gate') {

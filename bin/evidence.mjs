@@ -3,8 +3,9 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { relative, resolve, sep } from 'node:path';
 import { createContract, EVIDENCE_TYPES } from './contracts.mjs';
-import { createSnapshot, indexTree, snapshotsEqual } from './change-snapshot.mjs';
+import { createSnapshot, indexTree, snapshotsEqual, stableStringify } from './change-snapshot.mjs';
 import { EXIT_CODES, getArg, hasArg } from './cli-utils.mjs';
+import { expandCommandArgs } from './glob-utils.mjs';
 import { GATE_PHASES, migrateGateState, recomputeGateState } from './gate-lifecycle.mjs';
 import { getChangedFiles } from './git-files.mjs';
 import {
@@ -84,7 +85,7 @@ function implementationFiles(files, config) {
   });
 }
 
-export function recordEvidence({ rootDir, config, task, evidenceType, summary, command = null, exitCode = null, stdout = '', stderr = '', files = [], metadata = {}, snapshot = null }) {
+export function recordEvidence({ rootDir, config, task, evidenceType, summary, command = null, exitCode = null, stdout = '', stderr = '', files = [], metadata = {}, snapshot = null, verifierId = null, verifierDefinitionHash = null }) {
   const type = normalizeType(evidenceType);
   const identity = repositoryIdentity(rootDir);
   if (task.repository && identity.repository !== task.repository) throw new TypeError('Evidence repository does not match the task repository');
@@ -103,13 +104,15 @@ export function recordEvidence({ rootDir, config, task, evidenceType, summary, c
     workspaceFingerprint: workspaceFingerprint(rootDir, config),
     command,
     exitCode,
-    success: exitCode === null ? true : exitCode === 0,
+    // HTH-006: 无 exitCode 的手工证据 success 为 null（未定），需独立 approval 才可满足 Gate（F-02）
+    success: exitCode === null ? null : exitCode === 0,
     environment: { node: process.version, platform: process.platform, arch: process.arch },
     files: fileRecords(rootDir, files),
     stdout: String(stdout || '').slice(0, maxOutput),
     stderr: String(stderr || '').slice(0, maxOutput),
     metadata,
     ...(snapshot ? { snapshot } : {}),
+    ...(verifierId ? { verifierId, verifierDefinitionHash } : {}),
   });
   const directory = evidenceDirectory(rootDir, config, task.id);
   mkdirSync(directory, { recursive: true });
@@ -119,7 +122,7 @@ export function recordEvidence({ rootDir, config, task, evidenceType, summary, c
   return evidence;
 }
 
-export function runEvidenceCommand({ rootDir, config, task, evidenceType, summary, command }) {
+export function runEvidenceCommand({ rootDir, config, task, evidenceType, summary, command, verifierId = null, verifierDefinitionHash = null, diagnostic = false }) {
   if (!Array.isArray(command) || command.length === 0) throw new TypeError('Evidence command must be a non-empty argument array');
   const allow = task.changePlan?.allow || [];
   const startSnapshot = safeSnapshot(rootDir, config, task, allow);
@@ -163,8 +166,11 @@ export function runEvidenceCommand({ rootDir, config, task, evidenceType, summar
       windowsShim: usesWindowsShim,
       spawnError: result.error?.code || null,
       snapshotStatus: snapshot?.status || null,
+      ...(diagnostic ? { diagnostic: true } : {}),
     },
     snapshot,
+    verifierId,
+    verifierDefinitionHash,
   });
 }
 
@@ -214,6 +220,12 @@ export function evidenceFreshness({ rootDir, config, evidence }) {
       // git 不可用时跳过快照校验
     }
   }
+  // Verifier 定义 hash（HTH-005/INV-04）：验证器定义变化或注销 → 证据失效
+  if (evidence.verifierId) {
+    const verifier = config.evidence?.verifiers?.[evidence.verifierId];
+    if (!verifier) reasons.push(`verifier no longer registered: ${evidence.verifierId}`);
+    else if (verifierDefinitionHash(verifier) !== evidence.verifierDefinitionHash) reasons.push(`verifier definition changed: ${evidence.verifierId}`);
+  }
   return { fresh: reasons.length === 0, reasons };
 }
 
@@ -223,6 +235,11 @@ function requiredTypes(task) {
   if (normalized.length > 0) return [...new Set(normalized)];
   return task.riskLevel === 'critical' ? ['test', 'review', 'approval', 'knowledge']
     : task.riskLevel === 'standard' ? ['test', 'review', 'knowledge'] : ['test'];
+}
+
+/** Verifier 定义 hash：与 bin/verifier.mjs 一致（避免循环依赖，内联 stableStringify 实现） */
+function verifierDefinitionHash(verifier) {
+  return createHash('sha256').update(stableStringify(verifier || {})).digest('hex');
 }
 
 function recoveryValid(rootDir, config, taskId) {
@@ -238,10 +255,13 @@ export function verifyTaskEvidence({ rootDir, config, task }) {
   const stale = [];
   const failed = [];
   const valid = [];
+  const pending = [];
   for (const evidence of all) {
     const freshness = evidenceFreshness({ rootDir, config, evidence });
     if (!freshness.fresh) stale.push({ id: evidence.id, reasons: freshness.reasons });
+    else if (evidence.success === null) pending.push({ id: evidence.id, reason: 'manual evidence without approval (success:null)' });
     else if (!evidence.success) failed.push({ id: evidence.id, exitCode: evidence.exitCode });
+    else if (evidence.evidenceType === 'test' && evidence.metadata?.diagnostic === true) pending.push({ id: evidence.id, reason: 'diagnostic evidence (not from a registered verifier)' });
     else valid.push(evidence);
   }
   const required = requiredTypes(task);
@@ -253,6 +273,7 @@ export function verifyTaskEvidence({ rootDir, config, task }) {
   if (missing.length > 0) reasons.push(`missing evidence: ${missing.join(', ')}`);
   if (!hasRecovery) reasons.push('critical task has no valid recovery plan');
   if (stale.length > 0) reasons.push(`${stale.length} evidence record(s) are stale`);
+  if (pending.length > 0) reasons.push(`${pending.length} evidence record(s) pending approval/verifier (${pending.map(p => p.id).join(', ')})`);
   return {
     schemaVersion: '1.0',
     type: 'EvidenceVerification',
@@ -267,6 +288,7 @@ export function verifyTaskEvidence({ rootDir, config, task }) {
     evidence: valid.map(item => item.id),
     stale,
     failed,
+    pending,
     reasons,
   };
 }
@@ -341,11 +363,32 @@ function humanEvidence(evidence) {
 
 function runCommand({ rootDir, config, args, task, json }) {
   const separator = args.indexOf('--');
-  const command = separator >= 0 ? args.slice(separator + 1) : [];
+  const userCommand = separator >= 0 ? args.slice(separator + 1) : [];
   const evidenceType = getArg(args, '--type') || 'command';
-  const evidence = runEvidenceCommand({ rootDir, config, task, evidenceType, summary: getArg(args, '--summary'), command });
+  const verifierId = getArg(args, '--verifier') || null;
+  const verifier = verifierId ? config.evidence?.verifiers?.[verifierId] : null;
+  if (verifierId && !verifier) {
+    console.error(`Unknown verifier: ${verifierId}`);
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
+  // HTH-005: test 类型证据必须来自已注册验证器；否则降级 diagnostic（不满足严格 Gate）
+  // 验证器存在时运行其注册命令（glob 展开），忽略用户原始命令，防止任意命令冒充受信验证器（F-02）
+  const command = verifier ? expandCommandArgs(rootDir, verifier.command) : userCommand;
+  const diagnostic = evidenceType === 'test' && !verifier;
+  if (command.length === 0) {
+    console.error('No command to run.');
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
+  const evidence = runEvidenceCommand({
+    rootDir, config, task, evidenceType, summary: getArg(args, '--summary'), command,
+    verifierId: verifierId || undefined,
+    verifierDefinitionHash: verifier ? verifierDefinitionHash(verifier) : undefined,
+    diagnostic,
+  });
   if (json) console.log(JSON.stringify(evidence, null, 2));
-  else console.log(humanEvidence(evidence));
+  else console.log(humanEvidence(evidence) + (diagnostic ? ' (diagnostic — not from a registered verifier)' : ''));
   if (!evidence.success) process.exitCode = EXIT_CODES.POLICY_FAILURE;
 }
 
@@ -353,8 +396,9 @@ function recordCommand({ rootDir, config, args, task, json }) {
   const evidenceType = getArg(args, '--type');
   const summary = getArg(args, '--summary');
   const file = getArg(args, '--file');
+  const approved = hasArg(args, '--approve');
   if (!evidenceType || !summary) {
-    console.error('Usage: harness evidence record --task <id> --type <type> --summary <text> [--file <path>]');
+    console.error('Usage: harness evidence record --task <id> --type <type> --summary <text> [--file <path>] [--approve]');
     process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
     return;
   }
@@ -363,9 +407,10 @@ function recordCommand({ rootDir, config, args, task, json }) {
     process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
     return;
   }
-  const evidence = recordEvidence({ rootDir, config, task, evidenceType, summary, files: file ? [file] : [], metadata: { source: file || 'manual-record' } });
+  // HTH-006: 手工证据默认 success:null（未定）；--approve 视为已独立审批（success:true）
+  const evidence = recordEvidence({ rootDir, config, task, evidenceType, summary, files: file ? [file] : [], exitCode: approved ? 0 : null, metadata: { source: file || 'manual-record', ...(approved ? { approved: true } : {}) } });
   if (json) console.log(JSON.stringify(evidence, null, 2));
-  else console.log(humanEvidence(evidence));
+  else console.log(humanEvidence(evidence) + (approved ? '' : ' (pending approval)'));
 }
 
 function listCommand({ rootDir, config, task, json }) {
