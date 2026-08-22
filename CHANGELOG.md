@@ -6,13 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: 
 
 ## [Unreleased]
 
-### Planned — Trust Kernel (1.7.0)
+### Trust Kernel (1.7.0) — 实施中（2026-08-22）
 
-- ChangeSnapshot: Task/Gate/Evidence/commit bound to one recomputable change snapshot (index tree + worktree/untracked manifest + config hash) — RFC `docs/rfc/0002-change-snapshot.md`
-- Verifier Registry: evidence must come from registered trusted verifiers; arbitrary commands downgraded to `diagnostic`
-- Task-strong binding: every new Gate requires a Task; Taskless Gates isolated and deprecated
-- Agent-native hooks: Node JSON parsing, install/verify/explain, `hooks doctor`
-- Repo self-governance: this file, `AGENTS.md`, `harness.config.mjs`, `lefthook.yml`, branch protection
+- ChangeSnapshot: Task/Gate/Evidence/commit 绑定同一可重算变更快照（index tree + worktree/untracked manifest + config hash）— RFC `docs/rfc/0002-change-snapshot.md` ✅
+- Verifier Registry: `harness verify`；任意命令降级 diagnostic；手工证据 `success:null` + `--approve` ✅
+- Task 强绑定: 新 Gate 必须绑定 Task；Taskless Gate 隔离 + 弃用路径；verify-test 一律证据控制 ✅
+- Node 化安全 Hook: `bin/hook-agent.mjs` + `harness hooks doctor`（支持级别 matrix）✅
+- 可执行文档: getting-started task-bound 生命周期；docs:check 过时命令防漂移 ✅
+- 独立仓自治理: AGENTS.md/harness.config.mjs/lefthook.yml/SECURITY.md/CHANGELOG.md + **GitHub Ruleset `main-protection`**（禁直推/强推/删除、PR+review、6 个 required checks）✅
 
 ## [1.6.0] — 2026-08-20
 
