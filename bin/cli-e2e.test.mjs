@@ -208,3 +208,45 @@ test('gate requires a Task by default; taskless gate cannot clear verify-test (I
     rmSync(rootDir, { recursive: true, force: true });
   }
 });
+
+test('next returns machine-readable JSON; gate --lite skips PRD checks (HTH-013/014)', () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-cli-next-'));
+  try {
+    assert.equal(run(rootDir, ['init', '--preset', 'single', '--tier', 'lite', '--name', 'e2e']).status, 0);
+    git(rootDir, ['init', '-b', 'main']);
+    git(rootDir, ['config', 'user.email', 'harness@example.test']);
+    git(rootDir, ['config', 'user.name', 'Harness Test']);
+    git(rootDir, ['add', '.']);
+    git(rootDir, ['commit', '-m', 'init']);
+
+    // 无任务：next --json 返回稳定 no-task 结构
+    const next1 = run(rootDir, ['next', '--json']);
+    assert.equal(next1.status, 0, next1.stderr);
+    const parsed1 = JSON.parse(next1.stdout);
+    assert.equal(parsed1.phase, 'no-task');
+    assert.ok(Array.isArray(parsed1.commands) && parsed1.commands.length > 0);
+    assert.equal(typeof parsed1.humanDecisionRequired, 'boolean');
+
+    // 创建任务后：next 返回 no-gate
+    const started = run(rootDir, ['task', 'start', '--title', '优化：Fix x', '--allow', 'src/**', '--json']);
+    assert.equal(started.status, 0, started.stderr);
+    const taskId = JSON.parse(started.stdout).id;
+    const next2 = run(rootDir, ['next', '--json']);
+    assert.equal(JSON.parse(next2.stdout).phase, 'no-gate');
+
+    // gate --lite：feature 类型但不含 PRD 检查（真 Lite）
+    const opened = run(rootDir, ['gate', '--task', '优化：Fix x', '--task-id', taskId, '--lite']);
+    assert.equal(opened.status, 1);
+    const gateFile = readdirSync(join(rootDir, 'harness', 'gates')).find(f => f.endsWith('.json'));
+    const gate = JSON.parse(readFileSync(join(rootDir, 'harness', 'gates', gateFile), 'utf-8'));
+    const checkIds = gate.checks.map(check => check.id);
+    assert.ok(!checkIds.includes('create-prd-doc'), 'lite gate must not include PRD checks');
+    assert.ok(!checkIds.includes('user-confirmed'), 'lite gate must not include user-confirmed');
+
+    // next 现在指向 preparation（列出待 clear 项）
+    const next3 = run(rootDir, ['next', '--json']);
+    assert.equal(JSON.parse(next3.stdout).phase, 'preparation');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});

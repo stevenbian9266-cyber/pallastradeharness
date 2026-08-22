@@ -40,7 +40,23 @@ npx harness doctor     # 项目缺什么
 npx harness config:check   # 配置校验
 ```
 
-## 4. 开始一次编码任务
+## 4. 零认知路径（推荐新手，HTH-013）
+
+不需要理解 Task ID / Gate ID / check ID——只需要两个命令：
+
+```bash
+npx harness next          # 永远告诉你下一步该做什么
+npx harness do "优化：我的需求"   # 一句话开始（有活动任务时引导下一步）
+```
+
+`harness next --json` 返回稳定结构，供工具/脚本消费：
+
+```json
+{ "taskId": "...", "gateId": "...", "phase": "no-task|no-gate|preparation|verification|finish",
+  "blockingReason": "...", "nextAction": "...", "commands": ["..."], "humanDecisionRequired": true }
+```
+
+## 5. 标准编码任务（完整生命周期）
 
 任务前缀自动判定类型（feature/bugfix/style/docs/audit/research/refactor/security/test）。Gate 生命周期为 preparation → implementation → verification → finished；**每个新 Gate 必须绑定一个 Task**（INV-03），verification 只能由 typed evidence 关闭（不可手工 clear `verify-test`）。
 
@@ -82,7 +98,7 @@ npx harness task finish --task <TASK-ID>
 > - `harness gate:clear --gate <GATE-ID> --clear verify-test`（verification 只能由 `evidence verify` 关闭）
 > - 任意命令冒充测试：`evidence run --type test -- <任意命令>` 现在标记为 `diagnostic`，不满足 Gate；请用 `harness verify <verifier-id>`
 
-## 5. 接入 lefthook（物理强制）
+## 6. 接入 lefthook（物理强制）
 
 ```yaml
 pre-commit:
@@ -103,7 +119,7 @@ pre-push:
       run: npx harness doc-impact --base origin/main
 ```
 
-## 6. 渐进式档位
+## 7. 渐进式档位
 
 | 档位 | 适用 | 特点 |
 |---|---|---|
