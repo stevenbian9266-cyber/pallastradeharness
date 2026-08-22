@@ -132,3 +132,9 @@ manifest = lines.sorted(by: relativePath) joined by "\n"
 | 工作包 | 状态 | 交付 |
 |---|---|---|
 | HTH-011 | ✅ 已实现 | `docs/getting-started.md` 重写为 task-bound 生命周期（task start → gate --task-id → verify → evidence verify → task finish）；删除手工 clear verify-test 示例；`docs/roadmap.md` 修复 1.5.0/1.6.0 行拼接并追加 1.7.0 Trust Kernel 计划；`docs:check` 增加 fenced-block 级过时命令防漂移检查（含警示块跳过） |
+
+## 12. 实施记录追加（2026-08-22，HTH-010 — F-05 修复）
+
+| 工作包 | 状态 | 交付 |
+|---|---|---|
+| HTH-010 | ✅ 已实现 | 独立仓 GitHub Ruleset `main-protection`（id 21200575, enforcement active）：deletion（禁删 main）+ non_fast_forward（禁强推）+ pull_request（1 approval、对话解决、stale 失效）+ required_status_checks（6 个 CI check：ubuntu/macos/windows × Node 22/24）；已验证 `rules/branches/main` 返回 4 条规则 |
