@@ -1,0 +1,30 @@
+# pallastradeharness — agent-agnostic physical enforcement.
+# Install once:  npm i && npx lefthook install
+#
+# pre-commit: block error-severity anti-patterns in staged files + require a
+#   cleared gate on this branch.
+# pre-push:   doc-impact requires knowledge docs to be synced with code.
+#
+# These hooks work regardless of which AI agent or human drives the repo.
+
+pre-commit:
+  commands:
+    harness-gate:
+      run: npx harness gate:required
+    harness-anti-patterns:
+      glob: "**/*.{ts,tsx,js,jsx,mjs,css}"
+      exclude: "**/node_modules/**|**/dist/**|**/.next/**|**/build/**"
+      run: npx harness scan-anti-patterns --files {staged_files}
+    harness-degraded-loop:
+      glob: "**/*.{ts,tsx,js,jsx,mjs}"
+      exclude: "**/node_modules/**|**/dist/**|**/build/**"
+      run: npx harness scan-degraded-loop --files {staged_files}
+    harness-secrets:
+      glob: "**/*.{mjs,js,ts,tsx,yml,yaml,env,sh,json}"
+      exclude: "**/node_modules/**|**/dist/**|**/build/**|**/coverage/**"
+      run: npx harness scan-secrets --files {staged_files}
+
+pre-push:
+  commands:
+    harness-doc-impact:
+      run: npx harness doc-impact --base origin/main

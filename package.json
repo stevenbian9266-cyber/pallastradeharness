@@ -11,6 +11,7 @@
   },
   "exports": {
     "./config-loader": "./bin/config-loader.mjs",
+    "./change-snapshot": "./bin/change-snapshot.mjs",
     "./contracts": "./bin/contracts.mjs",
     "./gate-lifecycle": "./bin/gate-lifecycle.mjs",
     "./standards": "./bin/standards.mjs",
@@ -61,5 +62,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/stevenbian9266-cyber/pallastradeharness.git"
+  },
+  "devDependencies": {
+    "pallastrade-harness": "^1.6.0"
   }
 }
