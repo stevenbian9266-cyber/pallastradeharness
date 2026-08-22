@@ -57,6 +57,39 @@ npx harness do "优化：我的需求"   # 一句话开始（有活动任务时�
   "blockingReason": "...", "nextAction": "...", "commands": ["..."], "humanDecisionRequired": true }
 ```
 
+### 交互式任务视图（HTH-016）
+
+在终端直接运行 `npx harness tui`（无需参数）进入交互模式：
+
+```
+> TASK-...  implementing  evidence:3  优化：交互式 TUI
+  TASK-...  planned       evidence:0  新增：支付网关
+↑/↓ navigate · Enter detail · r refresh · q quit
+```
+
+- **↑/↓** 移动光标；**Enter** 查看任务详情（goals / acceptance criteria / blockers / evidence / nextAction）
+- 详情页按 **Enter** 直接执行下一步 CLI 命令；**b** 返回列表；**q** 退出
+- 非 TTY（管道/CI）自动回退静态输出；`--json` / `--watch` 等价物保持不变
+- **所有交互动作均有 CLI/JSON 等价物**：查看详情 = `harness task status --task <id> --json`；执行动作 = nextAction 本身即 CLI 命令
+
+### Brain 检索与离线评测（HTH-017）
+
+检索已索引的项目知识资产（AGENTS / Skills / PRD / RFC / 需求文档等）：
+
+```bash
+npx harness brain index                         # 先建立知识索引
+npx harness brain query --query "change snapshot 证据 freshness" --top 10
+npx harness brain query --query "支付流程" --top 5 --json
+```
+
+离线评测检索质量（Recall@K 与必需资产遗漏率，确定性可复现）：
+
+```bash
+npx harness brain eval                          # 内置 50 查询评测集（presets/brain-eval/default.json）
+npx harness brain eval --file my-queries.json   # 自定义评测集（[{query, requiredAssets:[...]}]
+npx harness brain eval --top 5 --json           # 机器可读报告
+```
+
 ## 5. 标准编码任务（完整生命周期）
 
 任务前缀自动判定类型（feature/bugfix/style/docs/audit/research/refactor/security/test）。Gate 生命周期为 preparation → implementation → verification → finished；**每个新 Gate 必须绑定一个 Task**（INV-03），verification 只能由 typed evidence 关闭（不可手工 clear `verify-test`）。
