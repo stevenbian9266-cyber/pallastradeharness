@@ -79,6 +79,54 @@ test('failed command evidence is retained but cannot satisfy verification', () =
   }
 });
 
+// ────────────────────────────────────────────────────────────────
+// ChangeSnapshot 集成（HTH-003 / INV-01）
+// ────────────────────────────────────────────────────────────────
+test('evidence run records ChangeSnapshot start/end and stays valid when nothing changes', () => {
+  const { rootDir, config, task } = project();
+  try {
+    const evidence = runEvidenceCommand({ rootDir, config, task, evidenceType: 'test', summary: 'snapshot bound', command: [process.execPath, '-e', 'process.exit(0)'] });
+    assert.ok(evidence.snapshot, 'evidence should carry a ChangeSnapshot');
+    assert.ok(evidence.snapshot.start.indexTree, 'snapshot.start.indexTree is required');
+    assert.equal(evidence.snapshot.status, 'valid');
+    assert.equal(evidence.metadata.snapshotStatus, 'valid');
+    assert.equal(evidence.snapshot.start.taskId, task.id);
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('evidence is superseded when files change during the run (INV-01)', () => {
+  const { rootDir, config, task } = project();
+  try {
+    const evidence = runEvidenceCommand({
+      rootDir, config, task, evidenceType: 'test', summary: 'mutating run',
+      // 写入 allow 范围（startTask 默认 allow: app/**/*, src/**/*）内的文件
+      command: [process.execPath, '-e', "require('node:fs').mkdirSync('src', { recursive: true }); require('node:fs').writeFileSync('src/changed.txt', 'boom')"],
+    });
+    assert.equal(evidence.snapshot.status, 'superseded');
+    assert.equal(evidence.metadata.snapshotStatus, 'superseded');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('evidence freshness fails when staged tree changes after verification (INV-01)', () => {
+  const { rootDir, config, task } = project();
+  try {
+    const evidence = runEvidenceCommand({ rootDir, config, task, evidenceType: 'test', summary: 'bound', command: [process.execPath, '-e', 'process.exit(0)'] });
+    assert.equal(evidenceFreshness({ rootDir, config, evidence }).fresh, true);
+    // 验证后修改并暂存目标文件 → staged tree 变化 → 证据失效
+    writeFileSync(join(rootDir, 'README.md'), '# Changed\n');
+    execFileSync('git', ['add', 'README.md'], { cwd: rootDir });
+    const freshness = evidenceFreshness({ rootDir, config, evidence });
+    assert.equal(freshness.fresh, false);
+    assert.ok(freshness.reasons.some(reason => reason.includes('change snapshot mismatch')), `expected snapshot mismatch, got: ${freshness.reasons.join('; ')}`);
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
 test('package-manager commands can be captured through platform shims', () => {
   const { rootDir, config, task } = project();
   try {

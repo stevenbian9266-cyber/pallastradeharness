@@ -1,6 +1,6 @@
 # RFC-0002: ChangeSnapshot — 变更快照数据合同
 
-> 状态：draft（待 HTH-002 评审通过后 approved）  
+> 状态：部分实施完成（HTH-002/003/004 已实现；Verifier Registry 集成待 HTH-005）  
 > 日期：2026-08-22  
 > 关联：RFC-0001（INV-01/04）、HTH-002~004、方案 §5.1
 
@@ -92,3 +92,15 @@ manifest = lines.sorted(by: relativePath) joined by "\n"
 - AC-003：新增/删除/重命名/大小写/符号链接/Windows 路径均有测试。
 - AC-004：失效信息含旧/新 snapshot ID、变化文件、下一条修复命令。
 - AC-005：三平台 × Node 22/24 的同一 fixture 生成相同 manifest hash。
+
+## 8. 实施记录（2026-08-22，HTH-002/003/004）
+
+| 工作包 | 状态 | 交付 |
+|---|---|---|
+| HTH-002 | ✅ 已实现 | `bin/change-snapshot.mjs`（canonical manifest + createSnapshot + 比较/持久化），15 个单元测试 |
+| HTH-003 | ✅ 已实现 | `bin/evidence.mjs`：run 前后生成 start/end snapshot，变化标记 `superseded`；`evidenceFreshness` 校验 staged tree 一致性（INV-01） |
+| HTH-004 | ✅ 已实现 | `bin/harness.mjs` `gate:required`：staged tree 与最新 snapshot-bound 证据不一致时阻止提交，输出修复命令 |
+
+已知边界（后续 HTH-005 收紧）：
+- 任意命令仍可按 `test` 类型记录证据（F-02 需 Verifier Registry 解决）
+- 无 snapshot 的旧证据在 `gate:required` 中降级跳过（向后兼容，方案 §11.2）

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,6 +53,54 @@ test('init -> task plan -> phased gate -> verify -> finish lifecycle', () => {
     git(rootDir, ['add', 'after-gate.txt']);
     git(rootDir, ['commit', '-m', 'move head']);
     assert.equal(run(rootDir, ['gate:required']).status, 1, 'a cleared gate cannot be reused after HEAD moves');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('gate:required blocks commit when staged tree changes after verification (INV-01)', () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-cli-snap-'));
+  try {
+    assert.equal(run(rootDir, ['init', '--preset', 'single', '--tier', 'lite', '--name', 'e2e']).status, 0);
+    git(rootDir, ['init', '-b', 'main']);
+    git(rootDir, ['config', 'user.email', 'harness@example.test']);
+    git(rootDir, ['config', 'user.name', 'Harness Test']);
+    mkdirSync(join(rootDir, 'src'), { recursive: true });
+    writeFileSync(join(rootDir, 'src', 'x.txt'), 'v1\n');
+    git(rootDir, ['add', '.']);
+    git(rootDir, ['commit', '-m', 'init']);
+
+    // task start 持久化 task 状态（supervise plan 只产生 plan，不写 task 文件）
+    const started = run(rootDir, ['task', 'start', '--title', '修复：Fix a bug', '--allow', 'src/**', '--json']);
+    assert.equal(started.status, 0, started.stderr);
+    const taskId = JSON.parse(started.stdout).id;
+
+    const opened = run(rootDir, ['gate', '--task', '修复：Fix a bug', '--task-id', taskId]);
+    assert.equal(opened.status, 1);
+    const gateFile = readdirSync(join(rootDir, 'harness', 'gates')).find(file => file.endsWith('.json'));
+    const gate = JSON.parse(readFileSync(join(rootDir, 'harness', 'gates', gateFile), 'utf-8'));
+    for (const check of gate.checks) {
+      if (check.phase === 'preparation' && check.status !== 'done') {
+        run(rootDir, ['gate:clear', '--gate', gate.id, '--clear', check.id]);
+      }
+    }
+
+    // 记录含 ChangeSnapshot 的测试证据 + review/knowledge（task-bound gate 的 verify-test 只能由 evidence verify 关闭）
+    const ev = run(rootDir, ['evidence', 'run', '--task', taskId, '--type', 'test', '--', process.execPath, '-e', 'process.exit(0)']);
+    assert.equal(ev.status, 0, ev.stderr);
+    run(rootDir, ['evidence', 'record', '--task', taskId, '--type', 'review', '--summary', 'docs reviewed']);
+    run(rootDir, ['evidence', 'record', '--task', taskId, '--type', 'knowledge', '--summary', 'knowledge assessed']);
+    const verified = run(rootDir, ['evidence', 'verify', '--task', taskId, '--gate', gate.id]);
+    assert.equal(verified.status, 0, verified.stdout);
+
+    assert.equal(run(rootDir, ['gate:required']).status, 0, 'gate passes while staged tree matches verified snapshot');
+
+    // 验证后修改并暂存 → staged tree 变化 → 阻止提交（INV-01）
+    writeFileSync(join(rootDir, 'src', 'x.txt'), 'v2\n');
+    git(rootDir, ['add', 'src/x.txt']);
+    const blocked = run(rootDir, ['gate:required']);
+    assert.equal(blocked.status, 1, 'staged tree change after verification must block commit');
+    assert.match(blocked.stdout, /staged tree changed/);
   } finally {
     rmSync(rootDir, { recursive: true, force: true });
   }

@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { relative, resolve, sep } from 'node:path';
 import { createContract, EVIDENCE_TYPES } from './contracts.mjs';
+import { createSnapshot, indexTree, snapshotsEqual } from './change-snapshot.mjs';
 import { EXIT_CODES, getArg, hasArg } from './cli-utils.mjs';
 import { GATE_PHASES, migrateGateState, recomputeGateState } from './gate-lifecycle.mjs';
 import { getChangedFiles } from './git-files.mjs';
@@ -83,7 +84,7 @@ function implementationFiles(files, config) {
   });
 }
 
-export function recordEvidence({ rootDir, config, task, evidenceType, summary, command = null, exitCode = null, stdout = '', stderr = '', files = [], metadata = {} }) {
+export function recordEvidence({ rootDir, config, task, evidenceType, summary, command = null, exitCode = null, stdout = '', stderr = '', files = [], metadata = {}, snapshot = null }) {
   const type = normalizeType(evidenceType);
   const identity = repositoryIdentity(rootDir);
   if (task.repository && identity.repository !== task.repository) throw new TypeError('Evidence repository does not match the task repository');
@@ -108,6 +109,7 @@ export function recordEvidence({ rootDir, config, task, evidenceType, summary, c
     stdout: String(stdout || '').slice(0, maxOutput),
     stderr: String(stderr || '').slice(0, maxOutput),
     metadata,
+    ...(snapshot ? { snapshot } : {}),
   });
   const directory = evidenceDirectory(rootDir, config, task.id);
   mkdirSync(directory, { recursive: true });
@@ -119,6 +121,8 @@ export function recordEvidence({ rootDir, config, task, evidenceType, summary, c
 
 export function runEvidenceCommand({ rootDir, config, task, evidenceType, summary, command }) {
   if (!Array.isArray(command) || command.length === 0) throw new TypeError('Evidence command must be a non-empty argument array');
+  const allow = task.changePlan?.allow || [];
+  const startSnapshot = safeSnapshot(rootDir, config, task, allow);
   const executable = commandForPlatform(command[0]);
   // Windows cannot execute .cmd package-manager shims through CreateProcess
   // directly (Node reports EINVAL). Delegate only the known shim to cmd.exe
@@ -135,20 +139,49 @@ export function runEvidenceCommand({ rootDir, config, task, evidenceType, summar
     env: { ...process.env, NO_COLOR: process.env.NO_COLOR || '1' },
   });
   const exitCode = result.error ? (result.error.code === 'ENOENT' ? 127 : 3) : (result.status ?? 3);
+  const endSnapshot = safeSnapshot(rootDir, config, task, allow);
+  const snapshot = startSnapshot && endSnapshot ? {
+    start: startSnapshot,
+    end: endSnapshot,
+    status: snapshotsEqual(startSnapshot, endSnapshot) ? 'valid' : 'superseded',
+  } : null;
   const changed = getChangedFiles(rootDir, 'HEAD');
   return recordEvidence({
     rootDir,
     config,
     task,
     evidenceType,
-    summary: summary || `${command.join(' ')} exited ${exitCode}`,
+    summary: summary || `${command.join(' ')} exited ${exitCode}`, // + (snapshot?.status === 'superseded' ? ' [SUPERSEDED: files changed during run]' : ''),
     command,
     exitCode,
     stdout: result.stdout || '',
     stderr: result.error ? `${result.error.message}\n${result.stderr || ''}` : result.stderr || '',
     files: changed.errors.length === 0 ? implementationFiles(changed.files, config) : [],
-    metadata: { executable, runner: usesWindowsShim ? (process.env.ComSpec || 'cmd.exe') : executable, windowsShim: usesWindowsShim, spawnError: result.error?.code || null },
+    metadata: {
+      executable,
+      runner: usesWindowsShim ? (process.env.ComSpec || 'cmd.exe') : executable,
+      windowsShim: usesWindowsShim,
+      spawnError: result.error?.code || null,
+      snapshotStatus: snapshot?.status || null,
+    },
+    snapshot,
   });
+}
+
+/** 生成 ChangeSnapshot；git 不可用时降级为 null（不阻止证据记录） */
+function safeSnapshot(rootDir, config, task, allow) {
+  try {
+    return createSnapshot({
+      rootDir,
+      taskId: task.id,
+      branch: task.branch || undefined,
+      baseHead: task.baseHead || undefined,
+      allow,
+      config,
+    });
+  } catch {
+    return null;
+  }
 }
 
 export function listEvidence(rootDir, config, taskId) {
@@ -168,6 +201,18 @@ export function evidenceFreshness({ rootDir, config, evidence }) {
   for (const file of evidence.files || []) {
     const absolute = resolve(rootDir, file.path);
     if (!existsSync(absolute) || sha256(readFileSync(absolute)) !== file.sha256) reasons.push(`file changed: ${file.path}`);
+  }
+  // ChangeSnapshot 绑定（INV-01）：证据验证的 staged tree 与当前 staged tree 不一致 → 失效
+  const endSnap = evidence.snapshot?.end;
+  if (endSnap?.indexTree) {
+    try {
+      const currentIndex = indexTree(rootDir);
+      if (currentIndex !== endSnap.indexTree) {
+        reasons.push(`change snapshot mismatch: staged tree changed after verification (${endSnap.indexTree.slice(0, 8)} → ${currentIndex.slice(0, 8)})`);
+      }
+    } catch {
+      // git 不可用时跳过快照校验
+    }
   }
   return { fresh: reasons.length === 0, reasons };
 }

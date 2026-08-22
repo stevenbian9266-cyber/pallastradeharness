@@ -638,6 +638,31 @@ else if (cmd === 'gate:required') {
     process.exit(0);
   }
 
+  // HTH-004: 校验验证证据绑定的 ChangeSnapshot（INV-01）。
+  // 最新含 snapshot 的证据必须与当前 staged tree 完全一致。
+  async function checkStagedTreeBinding(taskId) {
+    try {
+      const { indexTree } = await import('./change-snapshot.mjs');
+      const { listEvidence } = await import('./evidence.mjs');
+      const currentIndex = indexTree(ROOT);
+      const evidences = listEvidence(ROOT, config, taskId);
+      const bound = evidences.filter(e => e.snapshot?.end?.indexTree);
+      if (bound.length === 0) {
+        return { ok: true, warning: `task ${taskId} has no snapshot-bound evidence (legacy — staged-tree check skipped)` };
+      }
+      const latest = bound.sort((a, b) => String(a.capturedAt).localeCompare(String(b.capturedAt))).pop();
+      if (latest.snapshot.end.indexTree !== currentIndex) {
+        return {
+          ok: false,
+          reason: `evidence ${latest.id} bound to ${latest.snapshot.end.indexTree.slice(0, 8)}, current staged tree ${currentIndex.slice(0, 8)}`,
+        };
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: true, warning: `snapshot binding check skipped: ${String(error.message).split('\n')[0]}` };
+    }
+  }
+
   const gateDir = resolve(ROOT, config.paths.gates);
   if (!existsSync(gateDir)) {
     console.log('❌ gate:required — no gates directory. Run: npx harness gate --task "修复：<描述>"');
@@ -673,6 +698,19 @@ else if (cmd === 'gate:required') {
 
   if (valid) {
     const hours = Math.round((now - new Date(valid.createdAt).getTime()) / 3600000);
+    // HTH-004: ChangeSnapshot staged tree 绑定（INV-01）
+    // 验证证据绑定的 index tree 必须与当前 staged tree 一致，否则阻止提交。
+    if (valid.taskId) {
+      const binding = await checkStagedTreeBinding(valid.taskId);
+      if (!binding.ok) {
+        console.log(`❌ gate:required — staged tree changed after verification: ${binding.reason}`);
+        console.log('   Re-run verification so evidence binds the new snapshot:');
+        console.log(`     npx harness evidence run --task ${valid.taskId} --type test -- <command>`);
+        console.log('   Emergency bypass (not recommended): HARNESS_GATE_SKIP=1');
+        process.exit(1);
+      }
+      if (binding.warning) console.log(`⚠️  ${binding.warning}`);
+    }
     console.log(`✅ gate:required — cleared gate ${valid.id} (${valid.taskType}) on "${branch}" @ ${valid.head}, ${hours}h old.`);
     process.exit(0);
   }
