@@ -1,8 +1,8 @@
 # RFC-0002: ChangeSnapshot — 变更快照数据合同
 
-> 状态：部分实施完成（HTH-002~008 已实现；Node Hook 待 HTH-009）  
+> 状态：部分实施完成（HTH-002~008 + HTH-011 已实现；HTH-009 见 RFC-0001、HTH-010 待 GitHub 操作）  
 > 日期：2026-08-22  
-> 关联：RFC-0001（INV-01/02/03/04）、HTH-002~008、方案 §5.1~§5.3/§11.1
+> 关联：RFC-0001（INV-01/02/03/04）、HTH-002~008/011、方案 §5.1~§5.3/§5.6/§11.1
 
 ## 1. 问题
 
@@ -126,3 +126,9 @@ manifest = lines.sorted(by: relativePath) joined by "\n"
 边界更新：
 - Taskless Gate 是弃用路径（2.0.0-beta 移除默认兼容入口）；所有新 Gate 100% 绑定 Task
 - 状态迁移失败保持旧文件不变；Windows 文件占用失败时停止并给出恢复方法（现有原子写保证）
+
+## 11. 实施记录追加（2026-08-22，HTH-011 — F-06 修复）
+
+| 工作包 | 状态 | 交付 |
+|---|---|---|
+| HTH-011 | ✅ 已实现 | `docs/getting-started.md` 重写为 task-bound 生命周期（task start → gate --task-id → verify → evidence verify → task finish）；删除手工 clear verify-test 示例；`docs/roadmap.md` 修复 1.5.0/1.6.0 行拼接并追加 1.7.0 Trust Kernel 计划；`docs:check` 增加 fenced-block 级过时命令防漂移检查（含警示块跳过） |

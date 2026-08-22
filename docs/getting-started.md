@@ -42,23 +42,45 @@ npx harness config:check   # 配置校验
 
 ## 4. 开始一次编码任务
 
+任务前缀自动判定类型（feature/bugfix/style/docs/audit/research/refactor/security/test）。Gate 生命周期为 preparation → implementation → verification → finished；**每个新 Gate 必须绑定一个 Task**（INV-03），verification 只能由 typed evidence 关闭（不可手工 clear `verify-test`）。
+
 ```bash
-npx harness gate --task "新增：我的功能"
-# ... 清空 preparation checks ...
+# 1. 创建/恢复任务（持久化任务状态）
+npx harness task start --title "新增：我的功能" --allow "src/**"
+# 记录任务 ID：TASK-XXXXXXXXXXXX-xxxxxxxx
+
+# 2. 构建上下文并评估风险
+npx harness brain context --task <TASK-ID>
+npx harness risk check --task <TASK-ID>
+
+# 3. 打开 Gate（绑定任务）
+npx harness gate --task "新增：我的功能" --task-id <TASK-ID>
+# ... 清理 preparation checks ...
 npx harness gate:clear --gate <GATE-ID> --clear <check-id>
 
-# 生成允许/禁止修改范围与适用规范
+# 4. 生成允许/禁止修改范围与适用规范
 npx harness supervise plan --task "新增：我的功能" --allow "src/**" "test/**"
 
-# 实施中和实施后检查 Diff
+# 5. 实施中与实施后检查
 npx harness supervise diff
 npx harness standards coverage
 
-# 客观验证完成后关闭 verification；此时提交门才放行
-npx harness gate:clear --gate <GATE-ID> --clear verify-test --note "tests passed"
+# 6. 客观验证（受信验证器注册表，HTH-005）
+npx harness verify unit --task <TASK-ID>          # 已注册 test 验证器
+npx harness evidence record --task <TASK-ID> --type review --summary "..." --approve
+npx harness evidence record --task <TASK-ID> --type knowledge --summary "..." --approve
+
+# 7. 关闭 verification（只能通过证据，HTH-007）
+npx harness evidence verify --task <TASK-ID> --gate <GATE-ID>
+
+# 8. 完成任务（须在提交/HEAD 移动之前）
+npx harness task finish --task <TASK-ID>
 ```
 
-任务前缀自动判定类型（feature/bugfix/style/docs/audit/research/refactor/security/test）。Gate 生命周期为 preparation → implementation → verification → finished；旧 Gate 可用 `npx harness gate:migrate` 转换。
+> ⚠️ 过时用法（已被移除/禁止）：
+> - 不带 `--task-id` 的 `harness gate`（无活动任务时会被拒绝）
+> - `harness gate:clear --gate <GATE-ID> --clear verify-test`（verification 只能由 `evidence verify` 关闭）
+> - 任意命令冒充测试：`evidence run --type test -- <任意命令>` 现在标记为 `diagnostic`，不满足 Gate；请用 `harness verify <verifier-id>`
 
 ## 5. 接入 lefthook（物理强制）
 
