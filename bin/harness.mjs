@@ -348,6 +348,13 @@ else if (cmd === 'verify') {
 }
 
 // ================================================================
+// do / next — 引导式体验（HTH-013）：一条主路径，无需理解 ID 与步骤
+// ================================================================
+else if (cmd === 'do' || cmd === 'next') {
+  await import('./guide.mjs').then(m => m.runGuide({ rootDir: ROOT, config, args }));
+}
+
+// ================================================================
 // hooks — Agent 原生 Hook 支持矩阵与生效诊断（HTH-009）
 // ================================================================
 else if (cmd === 'hooks') {
@@ -447,7 +454,10 @@ else if (cmd === 'gate') {
     process.exit(EXIT_CODES.USAGE_OR_CONFIG);
   }
   const { checks: pluginChecks } = normalizedPlugins;
-  const baseChecks = getGateChecks(config, taskType);
+  let baseChecks = getGateChecks(config, taskType);
+  // HTH-014: --lite 跳过 PRD 工作流检查（真 Lite，方案 F-07）
+  const PRD_CHECKS = new Set(['read-skill-prd', 'create-prd-doc', 'create-req-doc', 'req-doc-has-skill-table', 'user-confirmed']);
+  if (hasArg(args, '--lite')) baseChecks = baseChecks.filter(check => !PRD_CHECKS.has(check.id));
   const checks = pluginChecks.length
     ? [...baseChecks, ...pluginChecks.map(pc => ({ id: `plugin-${pc.id}`, label: `[plugin] ${pc.label}` }))]
     : baseChecks;
