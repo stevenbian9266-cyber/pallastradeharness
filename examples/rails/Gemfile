@@ -1,0 +1,5 @@
+source 'https://rubygems.org'
+
+gem 'rails', '~> 7.2'
+gem 'pallastrade_core'   # PallasTrade 框架核心（示例）
+gem 'pallastrade_api'
