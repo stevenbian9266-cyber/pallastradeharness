@@ -18,17 +18,18 @@ npm i -D pallastrade-harness@latest
 npm i -D github:stevenbian9266-cyber/pallastradeharness
 ```
 
-## 2. 初始化
+## 2. 初始化（推荐 `setup`）
 
 ```bash
-npx harness init
+npx harness setup --dry-run          # 先看将创建/修改什么（永远可用）
+npx harness setup --preset single --tier lite --name my-app   # 正式接入
 ```
 
-交互式向导生成 `harness.config.mjs` 骨架。也可以直接指定 preset / 档位：
+`setup` 是唯一推荐入口；`init` / `onboard` 保留为兼容别名。交互式向导生成 `harness.config.mjs` 骨架。也可以直接指定 preset / 档位：
 
 ```bash
-npx harness init --preset nextjs --tier standard
-npx harness init --preset rails --tier lite --ai
+npx harness setup --preset nextjs --tier standard
+npx harness setup --preset rails --tier lite
 ```
 
 可用 preset：`single` / `nextjs` / `rails` / `monorepo`
