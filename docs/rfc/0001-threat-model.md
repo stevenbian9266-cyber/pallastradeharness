@@ -85,3 +85,14 @@
 - [ ] P0 对抗性测试清单（方案 §10.2，15 条）覆盖攻击者等级 1-2
 - [ ] 每条不变量有至少一个自动化测试
 - [ ] 对外文档明确"本地非安全边界"表述
+
+## 10. 实施记录追加（2026-08-22，HTH-009 — F-04 修复）
+
+| 工作包 | 状态 | 交付 |
+|---|---|---|
+| HTH-009 | ✅ 已实现 | `bin/hook-agent.mjs`（Node 化 hook 处理器：stdin JSON → 结构化危险规则 → 决策 JSON，不使用 sed/脆弱文本解析）；`bin/hooks.mjs`（`hooks doctor`：支持级别 matrix claude/codex/copilot + 模拟 3 危险 + 2 安全样例）；`harness hooks doctor\|test` 命令 |
+
+边界更新：
+- 支持级别：claude=native-blocking、copilot=native-blocking、codex=advisory
+- "已保护"仅在各 Agent 配置文件真实安装 hook 且入口可达时成立；未安装时显示"本地 Agent 层未保护，Git/CI 层仍可用"
+- 危险规则为结构化 `DEFAULT_SAFETY_RULES`（SR-001~005），支持扩展；后续可接入 `harness/policies/anti-patterns.json`
