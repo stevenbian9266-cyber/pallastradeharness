@@ -250,3 +250,30 @@ test('next returns machine-readable JSON; gate --lite skips PRD checks (HTH-013/
     rmSync(rootDir, { recursive: true, force: true });
   }
 });
+
+test('setup --dry-run lists files; doctor covers protection layers (HTH-012/015)', () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-cli-setup-'));
+  try {
+    const dry = run(rootDir, ['setup', '--dry-run', '--preset', 'single', '--tier', 'lite']);
+    assert.equal(dry.status, 0, dry.stderr);
+    assert.match(dry.stdout, /CREATE harness.config.mjs/);
+    assert.match(dry.stdout, /GitHub/);
+    assert.match(dry.stdout, /撤销/);
+
+    assert.equal(run(rootDir, ['init', '--preset', 'single', '--tier', 'lite', '--name', 'e2e']).status, 0);
+    const doctor = run(rootDir, ['doctor', '--format', 'json']);
+    // doctor 可能因保护覆盖 fail（fresh 项目无 git hook/CI）返回非 0——预期行为（警告不计入通过）
+    const report = JSON.parse(doctor.stdout);
+    const names = report.results.map(r => r.name);
+    assert.ok(names.includes('git-hook-installed'), `doctor must include git-hook-installed, got: ${names.join(',')}`);
+    assert.ok(names.includes('ci-workflow'), 'doctor must include ci-workflow');
+    assert.ok(names.includes('verifiers'), 'doctor must include verifiers');
+    // 全新项目未装 git hook → fail（不把警告计入全部通过）
+    const gitHook = report.results.find(r => r.name === 'git-hook-installed');
+    assert.equal(gitHook.pass, false, 'fresh project has no git hook');
+    const verifiers = report.results.find(r => r.name === 'verifiers');
+    assert.equal(verifiers.pass, true, 'default config ships unit/docs verifiers');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});

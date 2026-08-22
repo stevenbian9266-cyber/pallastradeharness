@@ -114,6 +114,39 @@ if (cmd === 'doctor') {
         return { pass: true, detail: 'All harness directories present' };
       },
     },
+    // ── HTH-015: 保护覆盖检查（不把警告计入全部通过）──
+    {
+      name: 'git-hook-installed',
+      run: () => {
+        const hook = resolve(ROOT, '.git', 'hooks', 'pre-commit');
+        return existsSync(hook)
+          ? { pass: true, detail: 'Git pre-commit hook installed (lefthook)' }
+          : { pass: false, detail: 'Git pre-commit hook NOT installed', fix: 'npm i -D lefthook && npx lefthook install' };
+      },
+    },
+    {
+      name: 'agent-hook',
+      run: () => ({ pass: true, detail: 'Agent hook engine available — run `harness hooks doctor` for detailed coverage' }),
+    },
+    {
+      name: 'ci-workflow',
+      run: () => {
+        const candidates = ['.github/workflows/test.yml', '.github/workflows/ci.yml', '.github/workflows/harness.yml'];
+        const found = candidates.find(f => existsSync(resolve(ROOT, f)));
+        return found
+          ? { pass: true, detail: `CI workflow present: ${found}` }
+          : { pass: false, detail: 'No CI workflow (test.yml/ci.yml)', fix: 'Create .github/workflows/test.yml' };
+      },
+    },
+    {
+      name: 'verifiers',
+      run: () => {
+        const verifiers = Object.keys(config.evidence?.verifiers || {});
+        return verifiers.length > 0
+          ? { pass: true, detail: `${verifiers.length} registered verifier(s): ${verifiers.join(', ')}` }
+          : { pass: false, detail: 'No registered verifiers', fix: 'Add evidence.verifiers to harness.config.mjs' };
+      },
+    },
   ];
 
   const results = [];
@@ -1191,6 +1224,31 @@ else if (cmd === 'scan-secrets') {
 
 // ================================================================
 // init — scaffold a harness.config.mjs (v1: skeleton; wizard in Phase 2)
+// ================================================================
+// ================================================================
+// setup — 统一首次接入入口（HTH-012）。init/onboard 保留兼容别名。
+// ================================================================
+else if (cmd === 'setup') {
+  if (hasArg(args, '--dry-run')) {
+    const preset = getArg(args, '--preset') || 'single';
+    const tier = getArg(args, '--tier') || 'lite';
+    const targets = ['harness.config.mjs', 'AGENTS.md', 'lefthook.yml', '.gitignore', 'harness/policies/anti-patterns.json', 'harness/standards/base-standards.json'];
+    console.log(`[dry-run] harness setup --preset ${preset} --tier ${tier}`);
+    for (const target of targets) {
+      console.log(`  ${existsSync(resolve(ROOT, target)) ? 'MODIFY' : 'CREATE'} ${target}`);
+    }
+    console.log('  GitHub (您需完成): 启用分支保护 / required checks (Settings → Rulesets)');
+    console.log('  撤销: git checkout -- <files>，或删除 setup 生成的配置文件');
+    console.log('  下一条: npx harness doctor');
+    process.exit(0);
+  }
+  // 非 dry-run：委托 init（参数透传，--yes 走安全默认）
+  await import('./init.mjs').then(m => m.run({ args: ['init', ...args.slice(1)], rootDir: ROOT }));
+  process.exit(0);
+}
+
+// ================================================================
+// init — 首次接入（setup 的兼容别名）
 // ================================================================
 else if (cmd === 'init') {
   // init 向导：交互问答 + 档位选择（--preset/--tier/--ai/--team 非交互）
