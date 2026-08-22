@@ -30,3 +30,12 @@ test('1.0 plugin manifests negotiate capabilities and reject future APIs', () =>
   assert.match(validatePluginManifest(null).warnings[0], /legacy/);
   assert.match(validatePluginManifest(null, { strict: true }).errors[0], /required/);
 });
+
+test('plugin contract validation is deterministic and stable (HTH-021)', () => {
+  const manifest = { name: 'sample', apiVersion: '1.0', capabilities: ['checks'] };
+  // 幂等：同一 manifest 重复验证结果一致
+  assert.deepEqual(validatePluginManifest(manifest), validatePluginManifest(manifest));
+  // 稳定：1.0 合同仍被接受（beta 前不破坏）
+  assert.deepEqual(validatePluginManifest(manifest).errors, []);
+  assert.equal(PLUGIN_API_VERSION, '1.0');
+});
