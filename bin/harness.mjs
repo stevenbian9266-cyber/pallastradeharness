@@ -24,6 +24,23 @@ try {
 }
 
 // ================================================================
+// HTH-007: 自动发现当前 worktree 的活动 Task（供 gate 绑定，INV-03）
+// ================================================================
+async function autoDiscoverTask(rootDir, config) {
+  try {
+    const { listTasks, repositoryIdentity } = await import('./state-store.mjs');
+    const tasks = listTasks(rootDir, config);
+    const terminal = new Set(['completed', 'cancelled', 'abandoned']);
+    const currentWorktree = repositoryIdentity(rootDir).worktreeId;
+    const active = tasks.filter(t => !terminal.has(t.status) && (!t.worktreeId || t.worktreeId === currentWorktree));
+    if (active.length === 0) return null;
+    return active.sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0].id;
+  } catch {
+    return null;
+  }
+}
+
+// ================================================================
 // doctor
 // ================================================================
 if (cmd === 'doctor') {
@@ -438,6 +455,26 @@ else if (cmd === 'gate') {
     process.exit(EXIT_CODES.USAGE_OR_CONFIG);
   }
 
+  // HTH-007: 每个新 Gate 必须绑定 Task（INV-03）。默认自动发现当前活动 Task；
+  // 找不到且未显式开启 legacy.allowTasklessGate 时拒绝创建并给出启动命令。
+  const explicitTaskId = getArg(args, '--task-id') || null;
+  let taskId = explicitTaskId;
+  if (!taskId) {
+    taskId = await autoDiscoverTask(ROOT, config);
+    if (taskId) {
+      console.log(`   Auto-bound to active task: ${taskId}`);
+    } else if (config.legacy?.allowTasklessGate === true) {
+      console.warn('\n⚠️  [legacy] No active task found; creating TASKLESS gate (legacy.allowTasklessGate=true). This path is removed in 2.0.0-beta.');
+    } else {
+      console.error('\n❌ No active task found. Every new Gate must be bound to a Task (INV-03). Start one first:');
+      console.error(`     npx harness task start --title "${taskDesc}" --allow "<approved-glob>"`);
+      console.error('   then create the gate with:');
+      console.error(`     npx harness gate --task "${taskDesc}" --task-id <TASK-ID>`);
+      console.error('   Legacy escape hatch: set legacy.allowTasklessGate=true in harness.config.mjs');
+      process.exit(1);
+    }
+  }
+
   const gateState = recomputeGateState({
     schemaVersion: '2.0',
     id: gateId,
@@ -446,7 +483,7 @@ else if (cmd === 'gate') {
     createdAt: now.toISOString(),
     branch,
     head: head.slice(0, 8),
-    taskId: getArg(args, '--task-id') || null,
+    taskId,
     checks: checks.map(c => ({ ...c, phase: c.phase || GATE_PHASES.PREPARATION, status: 'pending', completedAt: null })),
     cleared: false,
   });
@@ -597,9 +634,16 @@ else if (cmd === 'gate:clear') {
     process.exit(1);
   }
 
-  if (checkId === 'verify-test' && gateState.taskId) {
-    console.log(`❌ verify-test for task-bound gate ${gateState.id} is evidence-controlled.`);
-    console.log(`   Run: harness evidence verify --task ${gateState.taskId} --gate ${gateState.id}`);
+  // HTH-007: verify-test 一律证据控制（INV-03）——task-bound 走 evidence verify；
+  // taskless gate 更不能人工清理 verification（推动迁移到 task-bound）。
+  if (checkId === 'verify-test') {
+    if (gateState.taskId) {
+      console.log(`❌ verify-test for task-bound gate ${gateState.id} is evidence-controlled.`);
+      console.log(`   Run: harness evidence verify --task ${gateState.taskId} --gate ${gateState.id}`);
+    } else {
+      console.log(`❌ verify-test for TASKLESS gate ${gateState.id} cannot be cleared manually (INV-03).`);
+      console.log(`   Bind the gate to a task, or abandon it (delete harness/gates/${gateState.id}.json) and create a task-bound gate.`);
+    }
     process.exit(EXIT_CODES.POLICY_FAILURE);
   }
 

@@ -52,9 +52,9 @@ export function migrateConfig({ rootDir, write = false }) {
 
 export function migrateState({ rootDir, config, write = false }) {
   const state = statePaths(rootDir, config).state;
-  if (!existsSync(state)) return { state, scanned: 0, migrated: 0, future: [], files: [] };
+  if (!existsSync(state)) return { state, scanned: 0, migrated: 0, future: [], backups: [], files: [] };
   const files = globSync('**/*.json', { cwd: state, nodir: true, windowsPathsNoEscape: true });
-  const result = { state, scanned: files.length, migrated: 0, future: [], files: [] };
+  const result = { state, scanned: files.length, migrated: 0, future: [], backups: [], files: [] };
   for (const file of files) {
     const path = resolve(state, file);
     const value = readJson(path);
@@ -67,8 +67,12 @@ export function migrateState({ rootDir, config, write = false }) {
     result.migrated++;
     result.files.push(file);
     if (write) {
+      // 幂等：已有备份则不再重复创建
       const backup = `${path}.pre-harness-1.0.bak`;
-      if (!existsSync(backup)) atomicWriteText(backup, readFileSync(path, 'utf-8'));
+      if (!existsSync(backup)) {
+        atomicWriteText(backup, readFileSync(path, 'utf-8'));
+        result.backups.push(relative(rootDir, backup));
+      }
       atomicWriteJson(path, { stateSchemaVersion: '1.0', ...value });
     }
   }
@@ -81,6 +85,6 @@ export function runMigrations({ rootDir, config, args, kind }) {
   const report = kind === 'config' ? migrateConfig({ rootDir, write }) : migrateState({ rootDir, config, write });
   if (json) console.log(JSON.stringify(report, null, 2));
   else if (kind === 'config') console.log(`${report.status === 'unsupported-future' ? '❌' : report.status === 'current' ? '✅' : '○'} Config migration: ${report.status} (${report.from || 'none'} → ${report.to})${report.backup ? `; backup ${relative(rootDir, report.backup)}` : ''}`);
-  else console.log(`${report.future.length ? '❌' : '✅'} State migration: ${report.migrated}/${report.scanned} ${write ? 'migrated' : 'need migration'}, ${report.future.length} future-schema file(s).`);
+  else console.log(`${report.future.length ? '❌' : '✅'} State migration: ${report.migrated}/${report.scanned} ${write ? 'migrated' : 'need migration'}, ${report.future.length} future-schema file(s)${report.backups?.length ? `; backups: ${report.backups.join(', ')}` : ''}.`);
   if (report.status === 'unsupported-future' || report.future?.length > 0) process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
 }

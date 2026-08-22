@@ -1,8 +1,8 @@
 # RFC-0002: ChangeSnapshot — 变更快照数据合同
 
-> 状态：部分实施完成（HTH-002/003/004/005/006 已实现；Taskless 隔离待 HTH-007）  
+> 状态：部分实施完成（HTH-002~008 已实现；Node Hook 待 HTH-009）  
 > 日期：2026-08-22  
-> 关联：RFC-0001（INV-01/02/04）、HTH-002~006、方案 §5.1/§5.2
+> 关联：RFC-0001（INV-01/02/03/04）、HTH-002~008、方案 §5.1~§5.3/§11.1
 
 ## 1. 问题
 
@@ -115,3 +115,14 @@ manifest = lines.sorted(by: relativePath) joined by "\n"
 边界更新：
 - `evidence run --type test --verifier <id>` 运行验证器注册命令（忽略用户传入命令，防伪冒）；任意命令只能记为 diagnostic
 - review/knowledge 等非 test 类型不受 verifier 限制，但手工记录需 `--approve` 才满足 Gate
+
+## 10. 实施记录追加（2026-08-22，HTH-007/008 — F-03 修复）
+
+| 工作包 | 状态 | 交付 |
+|---|---|---|
+| HTH-007 | ✅ 已实现 | `harness gate` 默认要求/自动发现 Task（INV-03）：无 Task 时拒绝创建并输出 `task start` 命令；`legacy.allowTasklessGate=true` 逃生舱 + 弃用警告；`gate:clear` 的 `verify-test` 一律证据控制（taskless 也不能手工 clear） |
+| HTH-008 | ✅ 已实现 | `state:migrate`：dry-run 默认、`.pre-harness-1.0.bak` 备份、原子写入、幂等（重复运行不重复备份），备份路径输出 |
+
+边界更新：
+- Taskless Gate 是弃用路径（2.0.0-beta 移除默认兼容入口）；所有新 Gate 100% 绑定 Task
+- 状态迁移失败保持旧文件不变；Windows 文件占用失败时停止并给出恢复方法（现有原子写保证）

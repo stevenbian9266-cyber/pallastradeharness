@@ -45,3 +45,32 @@ test('future config and state schemas are rejected without downgrade', () => {
     rmSync(rootDir, { recursive: true, force: true });
   }
 });
+
+test('state migration is dry-run by default, backed up, and idempotent (HTH-008)', () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-migrate-state-idem-'));
+  try {
+    const state = join(rootDir, '.harness-state', 'tasks');
+    mkdirSync(state, { recursive: true });
+    writeFileSync(join(state, 'legacy.json'), JSON.stringify({ type: 'Task', id: 'TASK-1', title: 'x' }));
+
+    // dry-run 默认：只报告，不写入、不备份
+    const dry = migrateState({ rootDir, config: DEFAULT_CONFIG });
+    assert.equal(dry.migrated, 1);
+    assert.equal(dry.backups.length, 0);
+    assert.equal(JSON.parse(readFileSync(join(state, 'legacy.json'), 'utf-8')).stateSchemaVersion, undefined);
+
+    // --write：创建备份并写入 stateSchemaVersion 1.0
+    const first = migrateState({ rootDir, config: DEFAULT_CONFIG, write: true });
+    assert.equal(first.migrated, 1);
+    assert.equal(first.backups.length, 1);
+    assert.ok(existsSync(join(state, 'legacy.json.pre-harness-1.0.bak')));
+    assert.equal(JSON.parse(readFileSync(join(state, 'legacy.json'), 'utf-8')).stateSchemaVersion, '1.0');
+
+    // 幂等：再次运行不重复迁移、不重复备份
+    const second = migrateState({ rootDir, config: DEFAULT_CONFIG, write: true });
+    assert.equal(second.migrated, 0);
+    assert.equal(second.backups.length, 0);
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
