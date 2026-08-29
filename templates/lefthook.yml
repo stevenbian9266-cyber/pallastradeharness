@@ -9,6 +9,10 @@ pre-commit:
       glob: "**/*.{rb,ts,tsx,js,jsx,css}"
       exclude: "**/node_modules/**|**/dist/**|**/.next/**|**/build/**|**/vendor/**"
       run: npx harness scan-anti-patterns scan --files {staged_files}
+    harness-ui-anti-patterns:
+      glob: "**/*.{ts,tsx,js,jsx,html,vue,css,scss}"
+      exclude: "**/node_modules/**|**/dist/**|**/.next/**|**/build/**|**/coverage/**|**/design-tokens*"
+      run: npx harness scan-ui-anti-patterns scan --files {staged_files}
     harness-degraded-loop:
       glob: "**/*.{ts,tsx,js,jsx}"
       exclude: "**/node_modules/**|**/dist/**|**/.next/**|**/build/**"

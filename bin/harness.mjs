@@ -317,6 +317,39 @@ else if (cmd === 'coverage') {
 }
 
 // ================================================================
+// visual — 视觉回归（设计文档 §18.4）：baseline / diff / capture
+// ================================================================
+else if (cmd === 'visual' || cmd.startsWith('visual:')) {
+  // 兼容 `harness visual diff` 与 `harness visual:diff` 两种写法
+  const subArgs = cmd === 'visual' ? args.slice(1) : [cmd.slice('visual:'.length), ...args.slice(1)];
+  await import('./visual-regression.mjs').then(m => m.run({ rootDir: ROOT, args: subArgs, config }));
+}
+
+// ================================================================
+// governance — 治理版本与项目画像（设计文档 §15）：init / status / version
+// ================================================================
+else if (cmd === 'governance' || cmd.startsWith('governance:')) {
+  // 兼容 `harness governance status` 与 `harness governance:status` 两种写法
+  const subArgs = cmd === 'governance' ? args.slice(1) : [cmd.slice('governance:'.length), ...args.slice(1)];
+  await import('./governance.mjs').then(m => m.runGovernance({ rootDir: ROOT, args: subArgs, config }));
+}
+
+// ================================================================
+// wizard — 从零项目 10 步向导（设计文档 §17.7）：init/step/status/from/finish/reset
+// ================================================================
+else if (cmd === 'wizard') {
+  await import('./wizard.mjs').then(m => m.runWizard({ rootDir: ROOT, args: args.slice(1), config }));
+}
+
+// ================================================================
+// baseline — 存量项目质量基线 / no_regression（设计文档 §14.5）：create / check / status
+// ================================================================
+else if (cmd === 'baseline' || cmd.startsWith('baseline:')) {
+  const subArgs = cmd === 'baseline' ? args.slice(1) : [cmd.slice('baseline:'.length), ...args.slice(1)];
+  await import('./baseline.mjs').then(m => m.runBaseline({ rootDir: ROOT, args: subArgs, config }));
+}
+
+// ================================================================
 // generated:check
 // ================================================================
 else if (cmd === 'generated:check') {
@@ -1034,7 +1067,7 @@ else if (cmd === 'prd') {
   if (sub === 'verify') {
     const id = getArg(args, '--id') || args[2];
     const allowMissing = hasArg(args, '--allow-missing-tests');
-    if (!id) { console.log('Usage: harness prd verify --id PRD-xxx [--allow-missing-tests]'); process.exit(1); }
+    if (!id) { console.log('Usage: harness prd verify --id PRD-xxx [--semantic] [--allow-missing-tests]'); process.exit(1); }
     const prdDir = resolve(ROOT, config.paths.prd);
     if (!existsSync(prdDir)) { console.log('No docs/prd directory.'); process.exit(1); }
     let prdPath = null;
@@ -1052,7 +1085,9 @@ else if (cmd === 'prd') {
       if (allowMissing) { console.log(`⚠️ PRD ${id} 无 AC 标注（--allow-missing-tests：删除/重构类任务允许）。`); process.exit(0); }
       console.log(`⚠️ PRD ${id} 中未找到 AC（验收标准）标注。`); process.exit(1);
     }
-    console.log(`PRD ${id}: ${acs.length} 个 AC`);
+    const semantic = hasArg(args, '--semantic');
+    const acSemantic = semantic ? await import('./ac-semantic.mjs') : null;
+    console.log(`PRD ${id}: ${acs.length} 个 AC${semantic ? '（语义校验）' : ''}`);
     const missing = [];
     for (const ac of acs) {
       const tag = `AC-${ac}`;
@@ -1062,8 +1097,29 @@ else if (cmd === 'prd') {
         const out = execSync(`git grep -l --untracked "${id}.*${tag}" -- "*.rb" "*.ts" "*.tsx" "*.mjs"`, { cwd: ROOT, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
         files = out.split('\n').filter(Boolean);
       } catch { /* git grep error → no matches */ }
-      if (files.length === 0) missing.push(`AC-${ac}`);
-      else console.log(`  ✅ AC-${ac} → ${files.length} 个测试文件`);
+      if (files.length === 0) {
+        missing.push(`AC-${ac}`);
+        continue;
+      }
+      if (semantic) {
+        const failed = [];
+        const notes = [];
+        for (const f of files) {
+          const assessment = acSemantic.assessAcTest({ source: readFileSync(resolve(ROOT, f), 'utf-8') });
+          const verdict = acSemantic.semanticVerdict(assessment);
+          if (!verdict.pass) failed.push(`${f}（${verdict.reason}）`);
+          if (verdict.advisory) notes.push(`${f}（${verdict.advisory}）`);
+        }
+        if (failed.length > 0) {
+          missing.push(`AC-${ac}（语义校验失败: ${failed.join('; ')}）`);
+          console.log(`  ❌ AC-${ac} → ${files.length} 个测试文件，但语义校验失败`);
+        } else {
+          console.log(`  ✅ AC-${ac} → ${files.length} 个测试文件（语义通过）`);
+          for (const note of notes) console.log(`      ↳ ${note}`);
+        }
+      } else {
+        console.log(`  ✅ AC-${ac} → ${files.length} 个测试文件`);
+      }
     }
     if (missing.length > 0) {
       if (allowMissing) {
@@ -1074,7 +1130,7 @@ else if (cmd === 'prd') {
       missing.forEach(m => console.log(`   - ${m}`));
       process.exit(1);
     }
-    console.log('\n✅ 全部 AC 已有测试覆盖。');
+    console.log(`\n✅ 全部 AC 已有测试覆盖${semantic ? '，语义校验通过' : ''}。`);
     process.exit(0);
   }
 
@@ -1214,6 +1270,9 @@ else if (cmd === 'nav:check') {
 else if (cmd === 'docs:check') {
   await import('./docs-check.mjs').then(module => module.runDocsCheck({ rootDir: ROOT, args }));
 }
+else if (cmd === 'readme:sync') {
+  await import('./readme-sync.mjs').then(module => module.runReadmeSync({ rootDir: ROOT, args }));
+}
 
 // ================================================================
 // scan-* — 扫描器子命令（供 lefthook staged_files / CI 调用）
@@ -1227,6 +1286,9 @@ else if (cmd === 'scan-degraded-loop') {
 }
 else if (cmd === 'scan-secrets') {
   await import('./scan-secrets.mjs').then(m => m.scan({ rootDir: ROOT, files: parseFilesArg(args) }));
+}
+else if (cmd === 'scan-ui-anti-patterns') {
+  await import('./scan-ui-anti-patterns.mjs').then(m => m.scan({ rootDir: ROOT, config, files: parseFilesArg(args) }));
 }
 
 // ================================================================
@@ -1527,6 +1589,7 @@ Quality:
   generated:check                       Check generated files for drift
   doc-impact --base origin/main         Check knowledge docs are synced
   docs:check [--json]                   Validate local Markdown link targets
+  readme:sync [--check|--write]         Sync README version info from package.json + CHANGELOG (anti-drift)
   sync-check [--id PRD-xxx] [--base ref] Knowledge sync gate: assets needing review
   nav:check                             Validate AGENTS.md §0 navigation map
 

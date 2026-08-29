@@ -54,10 +54,32 @@ export const DEFAULT_CONFIG = {
   // ⑤ 扫描器规则文件路径
   scanners: {
     antiPatterns: 'harness/policies/anti-patterns.json',
+    uiAntiPatterns: 'harness/policies/ui-anti-patterns.json',
   },
 
   // ⑥ eval / scenarios
   scenarios: 'harness/scenarios/scenarios.json',
+
+  // ⑧' visualRegression — 视觉回归（设计文档 §18.4）
+  visualRegression: {
+    enabled: false,
+    url: null,
+    viewports: ['1280x800'],
+    baselineDir: 'artifacts/visual-baseline',
+    maxDiffRatio: 0.001,
+  },
+
+  // ⑧'' governance — 治理版本与项目画像（设计文档 §15 总前置条件）
+  governance: {
+    profileFile: 'harness/project.yaml',
+    versionsDir: 'harness/governance/versions',
+  },
+
+  // ⑧''' qualityBaseline — 存量项目质量基线 / no_regression（设计文档 §14.5）
+  qualityBaseline: {
+    enabled: false,
+    testCommand: ['node', '--test', '--test-reporter=tap', '**/*.test.mjs'],
+  },
 
   // ⑦ check profiles
   profiles: {},
@@ -160,6 +182,20 @@ export const DEFAULT_CONFIG = {
         timeoutMs: 120000,
         profiles: ['quick', 'standard', 'critical'],
       },
+      coverage: {
+        type: 'test',
+        command: ['npx', 'harness', 'coverage', '--enforce'],
+        cwd: '.',
+        timeoutMs: 180000,
+        profiles: ['quick', 'standard', 'critical'],
+      },
+      baseline: {
+        type: 'test',
+        command: ['npx', 'harness', 'baseline:check'],
+        cwd: '.',
+        timeoutMs: 600000,
+        profiles: ['quick', 'standard', 'critical'],
+      },
     },
   },
   plugins: {
@@ -235,7 +271,20 @@ export function getGateChecks(config, taskType) {
     ...check,
     phase: check.phase || GATE_PHASES.PREPARATION,
   }));
-  return [...searchChecks, ...withPhase, BASE_VERIFY_CHECK];
+  // §19.3：项目声明覆盖率阈值时追加 coverage-gate（verification），由 coverage 验证器证据自动满足
+  const hasCoverageThresholds = config.coverage?.thresholds && Object.keys(config.coverage.thresholds).length > 0;
+  const coverageChecks = hasCoverageThresholds
+    ? [{ id: 'coverage-gate', label: 'Coverage gate: registered verifier meets thresholds (design §19.3)', phase: GATE_PHASES.VERIFICATION }]
+    : [];
+  // §18.4：项目启用视觉回归时追加 visual-regression（verification），由截图/ui-approval 证据自动满足
+  const visualChecks = config.visualRegression?.enabled === true
+    ? [{ id: 'visual-regression', label: 'Visual regression: golden screenshot baseline & pixel diff (design §18.4)', phase: GATE_PHASES.VERIFICATION }]
+    : [];
+  // §14.5：项目启用质量基线时追加 baseline-gate（verification），由 baseline 验证器证据自动满足
+  const baselineChecks = config.qualityBaseline?.enabled === true
+    ? [{ id: 'baseline-gate', label: 'No-regression baseline gate: no new failures (design §14.5)', phase: GATE_PHASES.VERIFICATION }]
+    : [];
+  return [...searchChecks, ...withPhase, ...coverageChecks, ...visualChecks, ...baselineChecks, BASE_VERIFY_CHECK];
 }
 
 // ────────────────────────────────────────────────────────────────

@@ -43,6 +43,7 @@ export const EVIDENCE_TYPES = Object.freeze([
   'database',
   'review',
   'approval',
+  'ui-approval',
   'knowledge',
 ]);
 
