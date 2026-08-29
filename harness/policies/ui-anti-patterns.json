@@ -1,0 +1,41 @@
+{
+  "rules": [
+    {
+      "id": "UI-001",
+      "severity": "error",
+      "pattern": "style\\s*=\\{\\{",
+      "fileGlob": "**/*.{tsx,jsx,html,vue}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/.next/**|**/build/**",
+      "message": "禁止 inline style（设计文档 §18.1 UI-001）",
+      "fix": "使用 design token 生成的 className / 组件库属性"
+    },
+    {
+      "id": "UI-002",
+      "severity": "error",
+      "pattern": "#[0-9a-fA-F]{3,8}\\b",
+      "fileGlob": "**/*.{ts,tsx,js,jsx,css,scss,html,vue}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/.next/**|**/build/**|**/*design-token*|**/*.tokens.*|**/tokens/**|**/design-tokens/**",
+      "message": "禁止硬编码十六进制颜色（设计文档 §18.1 UI-002）",
+      "fix": "引用 .harness/design-tokens.json 的语义色 token"
+    },
+    {
+      "id": "UI-003",
+      "severity": "error",
+      "pattern": "\\bfetch\\s*\\(",
+      "fileGlob": "**/*.{ts,tsx,js,jsx}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/.next/**|**/build/**|**/*.test.*|**/test/**",
+      "message": "禁止组件内裸网络调用（设计文档 §18.1 UI-003）",
+      "fix": "通过服务层 / SDK 访问数据，禁止组件直接 fetch"
+    },
+    {
+      "id": "UI-005",
+      "severity": "error",
+      "pattern": "<img\\b(?![^>]*\\balt\\s*=)",
+      "fileGlob": "**/*.{tsx,jsx,html,vue}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/.next/**|**/build/**",
+      "message": "<img> 必须带 alt（可访问性，设计文档 §18.1）",
+      "fix": "补充描述性 alt，或装饰性图片加 alt=\"\" / role=\"presentation\""
+    }
+  ],
+  "severity": "error"
+}

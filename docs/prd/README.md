@@ -3,3 +3,4 @@
 | PRD ID | 标题 | 分类 | 状态 | 创建日期 |
 |---|---|---|---|---|
 | [PRD-20260822-other-实施-harness-可信化与易用性升级-p0-可信内核-p1-引导体验-p2-外部验证](./other/PRD-20260822-other-实施-harness-可信化与易用性升级-p0-可信内核-p1-引导体验-p2-外部验证.md) | 实施 Harness 可信化与易用性升级 | other | draft | 2026-08-22 |
+| [PRD-20260823-other-README版本漂移修复与发布后自动同步](./other/PRD-20260823-other-README版本漂移修复与发布后自动同步.md) | README 版本漂移修复与发布后自动同步 | other | approved | 2026-08-23 |
