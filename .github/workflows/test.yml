@@ -9,6 +9,17 @@ permissions:
   contents: read
 
 jobs:
+  readme-sync:
+    name: README version sync check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node bin/readme-sync.mjs --check
+
   contract:
     name: ${{ matrix.os }} / Node ${{ matrix.node }}
     strategy:

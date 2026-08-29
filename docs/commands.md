@@ -19,23 +19,30 @@ title: 命令参考
 | `harness supervise plan --task <text> [--allow ...] [--deny ...]` | 输出 Risk + Change Plan + 必需规范/证据 |
 | `harness supervise diff [--base ref] [--plan path] [--json]` | 执行范围、依赖、架构、循环和新代码质量监督 |
 | `harness supervise review [--base ref] [--json]` | 执行 Database/API/Security/UI/Interaction/A11y/Knowledge 专项监督 |
-| `harness task start/status/checkpoint/resume/handoff/finish/abandon` | 持久任务状态机、检查点和跨 Agent 交接 |
+| `harness task start/status/checkpoint/resume/handoff/finish/abandon` | 持久任务状态机、检查点和跨 Agent 交接；`start --ac <PRD-ID> AC-x` 任务↔AC 绑定（§19.4，完成时校验 AC 覆盖与未认领 AC） |
 | `harness brain index/context/decision/status` | 项目画像、知识索引、最小上下文和决策记录 |
 | `harness risk check` | Quick / Standard / Critical 风险复评；自动判断只允许升级 |
 | `harness evidence run/record/list/verify/bundle/report` | 采集、验证与交付绑定代码状态的类型化证据 |
+| `harness verify <verifier-id>` | 受信验证器注册表（`unit` / `docs` / `coverage`）；`verify coverage` 产出 typed 证据并自动满足 `coverage-gate`（§19.3） |
 | `harness recovery create/status/verify` | Critical 任务的人工恢复预案与检查点 |
 | `harness knowledge assess/status/verify` | 对受影响知识资产作显式闭环评估 |
 | `harness adapter generate` | 为 Codex/Claude/Copilot/Cursor/generic 生成受控策略块（默认 dry-run） |
+| `harness adapter register / registered / unregister` | Agent 能力登记与诚实保护报告（§17.3.2）：`register --id <id> --capabilities a,b,c` 校验并保存；`registered` 输出 enforced/guarded/advisory 大白话描述；`unregister --id <id>` 移除 |
+| `harness governance:init / status / version` | 治理版本与项目画像（§15 总前置条件）：`init --name <n>` 建 `harness/project.yaml`；`status` 大白话报告未就绪项；`version` 仅当 `governance_ready` 时锁定 `governance-0.1.0`（状态机只前进，禁止覆盖） |
+| `harness wizard init / step / status / from / finish / reset` | 从零项目 10 步向导（§17.7）：`init --name <n>` 开始；`step --n <1-9> --answer <v>` 逐步记录（多选逗号分隔）；`status` 进度；`from --file <answers.json>` 批量载入；`finish` 生成项目底座并锁定治理版本；`reset` 清空。答案存 `.harness-state/wizard/answers.json`（可恢复） |
 | `harness mcp` | 启动无任意 shell 能力的 stdio MCP 服务 |
 | `harness tui [--json] [--watch]` | 展示任务、风险、Gate、证据和下一步动作 |
 | `harness config:migrate / state:migrate` | dry-run 优先迁移至 1.0 schema；`--write` 后自动备份 |
 | `harness ci github [--base main] [--write]` | 生成多档位 CI（v1.6.0）：`harness.yml`（PR 快速门禁：anti-patterns/secrets/doc-impact/generated-check/coverage-gate 分工 job + 主矩阵）、`harness-nightly.yml`（cron 定时：check --profile full + coverage --enforce + scenarios/freshness）、`harness-release.yml`（tag 触发：全档 + 发布清单） |
 | `harness skill catalog list\|add` | Auto-Skills：三层领域目录管理（内置基线 / 项目 `harness/catalog/*.json` / 订阅；`add --path <json>` 本地订阅） |
-| `harness prd new/list/verify` | PRD 工作流（骨架创建 + 查重回写 + AC→测试校验） |
+| `harness prd new/list/verify` | PRD 工作流（骨架创建 + 查重回写 + AC→测试校验）；`verify --semantic` 拒绝空断言/全 mock 的"假覆盖"（§19.2） |
 | `harness check --profile quick\|full` | 检查档案（变更感知：本地默认只扫 changed-files） |
 | `harness doc-impact --base origin/main` | 知识同步门 |
 | `harness docs:check [--json]` | 检查 Agent/README/文档站 Markdown 的本地链接目标；断链返回 exit 1 |
-| `harness scan-anti-patterns / scan-secrets / scan-degraded-loop` | 扫描器（供 lefthook staged_files 调用） |
+| `harness readme:sync [--check\|--write]` | README 版本信息防漂移：从 `package.json`（当前版本）+ `CHANGELOG.md`（已发布版本）同步「发布信息/版本记录」；`--check` CI 硬卡（漂移 exit 1）；`--write` 就地修复（更新当前版本行 + 补齐缺失版本表行，自动生成行标注「待润色」） |
+| `harness scan-anti-patterns / scan-secrets / scan-degraded-loop / scan-ui-anti-patterns` | 扫描器（供 lefthook staged_files 调用）；`scan-ui-anti-patterns`：UI-001 inline style / UI-002 硬编码色（排除 design-tokens）/ UI-003 裸 fetch / UI-005 img 缺 alt（§18.1） |
+| `harness visual:baseline / visual:diff` | 视觉回归（§18.4）：golden screenshot 基线 + 像素 diff（pngjs+pixelmatch）；`baseline --from <dir>` 建基线，`diff --from <dir>` 超阈值 exit 1，无基线/无截图 → `validation_unavailable`（exit 2） |
+| `harness baseline:create / check / status` | 存量项目质量基线 / no_regression（§14.5）：`create` 运行测试并记录"当前已知失败"（历史失败不清零）；`check` 三态——新增失败阻断 / 历史失败仅记录 / 已修复（改善）；`status` 查看基线；无基线 → `no_baseline`（exit 0，先 create） |
 | `harness doctor` | 项目体检 |
 | `harness config:check` | 配置校验 + 默认值使用报告 |
 | `harness plugins:list` | 列出已加载插件（check / scanner / preset） |
@@ -64,13 +71,16 @@ title: 命令参考
 
 ```bash
 # 一次可恢复、可审计的任务全流程
-npx harness task start --title "修复：xxx" --allow "src/**"
+npx harness task start --title "修复：xxx" --allow "src/**" \
+  --ac PRD-20260828-xxx AC-001,AC-002      # 可选：任务↔AC 绑定（§19.4）
 npx harness brain context --task <TASK-ID>
 npx harness risk check --task <TASK-ID>
 npx harness gate --task "修复：xxx" --task-id <TASK-ID>
 # 清空 Gate 输出中的 preparation checks 后进入 implementation
 npx harness supervise plan --task "修复：xxx" --allow "src/**"
 npx harness supervise diff
+npx harness verify coverage --task <TASK-ID>   # 覆盖率验证器（§19.3，产出 coverage-gate 证据）
+npx harness prd verify --semantic --id PRD-xxx # AC 语义校验（§19.2）
 npx harness evidence run --task <TASK-ID> --type test -- npm test
 npx harness knowledge assess --task <TASK-ID> --asset README.md \
   --status reviewed-no-change --reason "公共行为未变化"

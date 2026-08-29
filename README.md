@@ -41,7 +41,8 @@ npx harness doctor
 npx harness config:check
 
 # 建立持久任务、最小上下文和任务绑定 Gate
-npx harness task start --title "新增：我的功能" --allow "src/**"
+npx harness task start --title "新增：我的功能" --allow "src/**" \
+  --ac PRD-20260828-xxx AC-001,AC-002   # 可选：任务↔AC 绑定（§19.4）
 npx harness brain context --task <TASK-ID>
 npx harness gate --task "新增：我的功能" --task-id <TASK-ID>
 # ... 清空 preparation checks 后进入 implementation ...
@@ -52,6 +53,8 @@ npx harness supervise plan --task "新增：我的功能" --allow "src/**"
 npx harness supervise diff
 
 # 运行并记录证据；知识评估和证据齐全后自动完成 verify-test
+npx harness verify coverage --task <TASK-ID>      # 覆盖率验证器（§19.3）
+npx harness prd verify --semantic --id PRD-xxx   # AC 语义校验（§19.2）
 npx harness evidence run --task <TASK-ID> --type test -- npm test
 npx harness knowledge assess --task <TASK-ID> --asset README.md \
   --status reviewed-no-change --reason "公共行为未变化"
@@ -69,7 +72,8 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.6.0`；`v1.6.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.7.0`；`v1.7.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 版本信息自动同步：发布后由 `npx harness readme:sync --write` 从 `CHANGELOG.md` 校正（CI 用 `--check` 防漂移）
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
@@ -81,10 +85,12 @@ npx harness docs:check
 
 | 版本 | 亮点 |
 |---|---|
+| **v1.7.0** | **Trust Kernel（可信内核）**：ChangeSnapshot（Task/Gate/Evidence/提交绑定同一可重算变更快照，RFC-0002）；Verifier Registry（`harness verify`，任意命令降级 diagnostic，手工证据 `success:null` + `--approve`）；Task 强绑定（新 Gate 必须绑定 Task，Taskless Gate 隔离，verify-test 一律证据控制）；Node 化安全 Hook（`harness hooks doctor`）；可执行文档（getting-started task-bound 生命周期 + `docs:check` 过时命令防漂移）；独立仓自治理（AGENTS.md/config/lefthook/SECURITY/CHANGELOG + GitHub Ruleset `main-protection` 禁直推/强推/删除）；引导式体验（`harness do`/`next` 零认知路径 + 真 Lite + `harness setup` 统一接入）；`node --test` 197/197 通过 |
 | **v1.6.0** | **自动化触发补全**：`ci github --write` 生成多档位 CI（`harness.yml` PR 快速门禁：anti-patterns/secrets/doc-impact/generated-check/coverage-gate 分工 job + `harness-nightly.yml` cron 定时 full+覆盖率+场景 + `harness-release.yml` tag 触发全档+发布清单）；`onboard --write` 自动生成 `lefthook.yml`（提交物理拦截）+ `ai/hooks/`（AI 行为级安全钩子：PreToolUse 拦截破坏性 DB/force-push、PostToolUse 警告硬编码密钥）+ 配置深度补全（profiles/coverage/risk/brain/syncCheck/generatedCheck/evidence.autoVerify/supervisor，lite 档降级）；`node --test` 138/138 通过 |
 | **v1.5.0** | **Auto-Content 自动内容生成**：领域 Skill 从“空骨架”变为“有实质内容”——新增 `presets/skills/` 11 个元领域内容模板（api/data-model/payment/security/deployment/testing/frontend-style/i18n/events/observability/performance），`skill new` / `skill audit --generate` 渲染模板并注入项目名/检测依据/权威文件 → 安装即得可直接使用的最佳实践基线（不再是占位符）；`harness onboard --write` 安装后自动检测技术栈并批量生成领域 Skill；无模板领域回退旧骨架（向后兼容）；`node --test` 132/132 通过 |
 | **v1.4.0** | **PRD 工作流默认启用**：所有项目 feature 类 gate 内置 PRD 检查（read-skill-prd / create-prd-doc / create-req-doc / req-doc-has-skill-table / user-confirmed），一句话需求 → PRD 文档 → 用户确认 → 才实施；`getGateChecks` 按 id 去重（项目重复配置不重复）；`node --test` 114/114 通过 |
 | **v1.3.0** | Auto-Skills 自动治理：新增 `harness skill audit`（技术栈/架构/领域词指纹 → 内置+项目+订阅三层目录匹配 → 应有 vs 现有对比 → MISSING/STALE/OK + 疑似新领域）；`--generate` 一键自动创建缺失 Skill（含权威文件素材）并注册索引；新领域增量检测（新增 `domain-*`/`modules/*`/`services/*` → 自动沉淀项目级 catalog 条目 → 自动建 Skill）；`skill catalog list/add`；L1-L4 升级检测（结构/权威路径/内容漂移 hash/元数据过期）；`node --test` 112/112 通过 |
+| v1.3.1 | 修复：resolveSmartPath src 重复拼接；scan/freshness 支持 glob 取反、negation 与表格行；`node --test` 通过 |
 | **v1.2.1** | 修复：onboard 生成的 `anti-patterns.json` 规则缺 `fileGlob` 导致扫描器 `globSync(undefined)` 崩溃、pre-commit 必失败；扫描器对缺失 `fileGlob` 防御性兜底（默认 `**/*`）；`node --test` 96/96 通过 |
 | **v1.2.0** | 资产治理：新增 `harness scan`（skills/standards/agent/PRD/scenarios/索引 五维扫描 + MUST/SHOULD/NICE 分级 + `--fix` L0 自愈 + `--check` CI 硬卡）；Java/Maven 信号（pom.xml/build.gradle → Java/Spring Boot，Controller/Mapper/Flyway/*Test.java）；`skill check --freshness` 权威路径 + gate 幽灵引用；`node --test` 93/93 通过 |
 | v1.1.3 | 依赖清理：glob ^11 → ^13（弃用/安全）；`node --test` 79/79 通过，`npm audit` 0 漏洞 |
@@ -212,20 +218,26 @@ export default {
 | `harness gate:status / gate:clear / gate:migrate / gate:required / gate:clean` | 门禁状态与旧 Gate 迁移；只有绑定当前分支和 HEAD 的 finished Gate 能通过提交硬卡，提交后不可复用 |
 | `harness standards list/select/coverage` | 查询、按 Diff 选择规范并报告 Standards Enforcement Coverage |
 | `harness supervise plan/diff` | 生成 Change Plan；审查范围漂移、技术选型、架构和新代码质量 |
-| `harness task start/status/checkpoint/resume/handoff/finish/abandon` | 可恢复的任务状态机与跨 Agent 交接 |
+| `harness task start/status/checkpoint/resume/handoff/finish/abandon` | 可恢复的任务状态机与跨 Agent 交接；`start --ac <PRD> AC-x` 任务↔AC 绑定（§19.4） |
 | `harness brain index/context/decision/status` | 项目画像、知识索引、最小上下文与决策记录 |
 | `harness risk check` | Quick/Standard/Critical 风险复评；默认只能升级 |
 | `harness supervise review` | Database/API/Security/UI/Interaction/A11y/Knowledge 专项审查 |
-| `harness evidence run/record/list/verify/bundle/report` | 采集、验证和汇总与代码状态绑定的 typed evidence |
+| `harness evidence run/record/list/verify/bundle/report` | 采集、验证和汇总与代码状态绑定的 typed evidence（含 `ui-approval` 类型：UI 人工确认，§18.5） |
+| `harness verify <verifier-id>` | 受信验证器注册表（`unit`/`docs`/`coverage`/`baseline`）；coverage 验证器自动满足 `coverage-gate`（§19.3），baseline 验证器自动满足 `baseline-gate`（§14.5） |
 | `harness recovery create/status/verify` | Critical 任务的 manual-only 恢复检查点 |
 | `harness knowledge assess/status/verify` | `updated / reviewed-no-change / not-applicable` 知识闭环 |
-| `harness adapter generate / mcp / tui` | 多 Agent 策略适配、stdio MCP 与本地状态面板 |
+| `harness adapter generate / register / registered / unregister / mcp / tui` | 多 Agent 策略适配（§17.3）：能力登记 + enforced/guarded/advisory 诚实保护报告、stdio MCP 与本地状态面板 |
+| `harness governance:init / status / version` | 治理版本与项目画像（§15）：项目开始前锁定 `governance-0.1.0`，任务自动记录治理版本 |
+| `harness wizard init / step / status / from / finish / reset` | 从零项目 10 步向导（§17.7）：引导式逐步问答 → 生成项目底座 → 锁定治理版本，答案可恢复 |
 | `harness config:migrate / state:migrate / ci github` | 1.0 迁移与可选 GitHub checks 生成 |
-| `harness prd new/list/verify` | PRD 工作流（骨架创建 + 查重回写 + AC→测试校验） |
+| `harness prd new/list/verify` | PRD 工作流（骨架创建 + 查重回写 + AC→测试校验）；`verify --semantic` 拒绝空断言/全 mock（§19.2） |
 | `harness check --profile quick\|full` | 检查档案（变更感知：本地默认只扫 changed-files，`--full`/CI 全量） |
 | `harness doc-impact` | 知识同步门 |
 | `harness docs:check` | 检查 Agent/README/文档站 Markdown 的本地链接目标 |
-| `harness scan-anti-patterns / scan-secrets / scan-degraded-loop` | 扫描器（供 lefthook staged_files 调用，也可用 `harness-scan-*` bin） |
+| `harness readme:sync [--check\|--write]` | README 版本信息防漂移：从 `package.json` + `CHANGELOG.md` 同步「发布信息/版本记录」；发布后自动更新，`--check` 供 CI 硬卡 |
+| `harness scan-anti-patterns / scan-secrets / scan-degraded-loop / scan-ui-anti-patterns` | 扫描器（供 lefthook staged_files 调用，也可用 `harness-scan-*` bin）；UI 扫描器覆盖 inline style / 硬编码色 / 裸 fetch / img 缺 alt（§18） |
+| `harness visual:baseline / visual:diff` | 视觉回归（§18.4）：golden screenshot 基线 + 像素 diff（pngjs+pixelmatch）；无基线/无截图 → `validation_unavailable`（exit 2） |
+| `harness baseline:create / check / status` | 存量项目质量基线 / no_regression（§14.5）：记录"当前已知失败"不清零；`check` 只阻断新增失败（new_failures），历史失败仅记录，已修复改善 |
 | `harness scan [--fix] [--check] [--json] [--category <id>]` | 资产治理：扫描 skills/standards/agent/PRD/scenarios/索引 + 自愈（MUST/SHOULD/NICE 分级；`--fix` 自动补齐 L0 确定性项；`--check` CI 硬卡） |
 | `harness doctor` | 项目体检 |
 | `harness config:check` | 配置校验 + 报告引擎默认值使用情况 |

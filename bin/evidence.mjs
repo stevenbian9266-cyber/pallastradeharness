@@ -314,6 +314,49 @@ export function completeVerificationGate({ rootDir, config, task, verification, 
   check.note = `Automatically satisfied by evidence verification (${verification.evidence.length} fresh record(s))`;
   check.evidence = verification.evidence;
   check.phase = GATE_PHASES.VERIFICATION;
+  // §19.3：有新鲜 coverage 验证器证据时自动满足 coverage-gate（确定性工具证据，非手工放行）
+  const coverageCheck = gate.checks.find(item => item.id === 'coverage-gate');
+  if (coverageCheck && coverageCheck.status !== 'done') {
+    const freshCoverage = listEvidence(rootDir, config, task.id).some(e => {
+      if (e.verifierId !== 'coverage' || e.success === false || e.success === null) return false;
+      return evidenceFreshness({ rootDir, config, evidence: e }).fresh;
+    });
+    if (freshCoverage) {
+      coverageCheck.status = 'done';
+      coverageCheck.completedAt = new Date().toISOString();
+      coverageCheck.note = 'Automatically satisfied by coverage verifier evidence (design §19.3)';
+      coverageCheck.phase = GATE_PHASES.VERIFICATION;
+    }
+  }
+  // §18.4：有新鲜截图/ui-approval 证据时自动满足 visual-regression（真实截图 = 视觉验证存在）
+  const vrCheck = gate.checks.find(item => item.id === 'visual-regression');
+  if (vrCheck && vrCheck.status !== 'done') {
+    const hasVisualEvidence = listEvidence(rootDir, config, task.id).some(e => {
+      if (e.success === false || e.success === null) return false;
+      if (e.evidenceType !== 'screenshot' && e.evidenceType !== 'ui-approval') return false;
+      return evidenceFreshness({ rootDir, config, evidence: e }).fresh;
+    });
+    if (hasVisualEvidence) {
+      vrCheck.status = 'done';
+      vrCheck.completedAt = new Date().toISOString();
+      vrCheck.note = 'Automatically satisfied by fresh screenshot / ui-approval evidence (design §18.4)';
+      vrCheck.phase = GATE_PHASES.VERIFICATION;
+    }
+  }
+  // §14.5：有新鲜 baseline 验证器证据时自动满足 baseline-gate（no_regression）
+  const baselineCheck = gate.checks.find(item => item.id === 'baseline-gate');
+  if (baselineCheck && baselineCheck.status !== 'done') {
+    const freshBaseline = listEvidence(rootDir, config, task.id).some(e => {
+      if (e.verifierId !== 'baseline' || e.success === false || e.success === null) return false;
+      return evidenceFreshness({ rootDir, config, evidence: e }).fresh;
+    });
+    if (freshBaseline) {
+      baselineCheck.status = 'done';
+      baselineCheck.completedAt = new Date().toISOString();
+      baselineCheck.note = 'Automatically satisfied by baseline verifier evidence (design §14.5)';
+      baselineCheck.phase = GATE_PHASES.VERIFICATION;
+    }
+  }
   recomputeGateState(gate);
   atomicWriteJson(path, gate);
   return { completed: true, gateId: gate.id, phase: gate.phase };

@@ -15,6 +15,8 @@ import {
   statePaths,
   workspaceFingerprint,
 } from './state-store.mjs';
+import { findPrdAcs, checkAcCoverage, checkUnclaimedAcs } from './ac-trace.mjs';
+import { readProfile, governanceReady } from './governance.mjs';
 
 const TERMINAL = new Set(['completed', 'cancelled', 'superseded']);
 const TRANSITIONS = Object.freeze({
@@ -50,10 +52,26 @@ export function transitionTask(task, status, note = null) {
   };
 }
 
-export function startTask({ rootDir, config, title, declaredRisk = null, goals = [], nonGoals = [], acceptanceCriteria = [], allow = [], deny = [] }) {
+export function startTask({ rootDir, config, title, declaredRisk = null, goals = [], nonGoals = [], acceptanceCriteria = [], linkedPrd = null, allow = [], deny = [] }) {
   const identity = repositoryIdentity(rootDir);
+  // §19.4：任务↔AC 绑定校验（PRD 存在 + AC 在 PRD 中声明），否则阻止开始
+  if (linkedPrd) {
+    const prdAcs = findPrdAcs({ rootDir, config, prdId: linkedPrd });
+    if (!prdAcs) throw new TypeError(`linked PRD not found: ${linkedPrd}`);
+    const prdSet = new Set(prdAcs);
+    for (const ac of acceptanceCriteria) {
+      const norm = /^AC-\d+$/i.test(ac) ? ac.toUpperCase() : ac;
+      if (!prdSet.has(norm)) throw new TypeError(`AC ${ac} not declared in PRD ${linkedPrd}`);
+    }
+  }
   const risk = assessRisk({ task: title, files: allow, declared: declaredRisk, config });
   const createdAt = new Date().toISOString();
+  // §15.9：项目 governance_ready 时记录治理版本（只读，无 profile 则 null）
+  let governanceVersion = null;
+  try {
+    const profile = readProfile({ rootDir, config });
+    if (profile && governanceReady(profile).ready) governanceVersion = profile.governance_version || null;
+  } catch { /* 可选：profile 解析失败不阻塞任务创建 */ }
   const task = createContract('Task', {
     id: id('TASK', `${identity.repository}:${identity.worktreeId}:${title}:${createdAt}`),
     title,
@@ -66,6 +84,8 @@ export function startTask({ rootDir, config, title, declaredRisk = null, goals =
     baseHead: identity.head,
     goals,
     nonGoals,
+    linkedPrd,
+    governanceVersion,
     acceptanceCriteria,
     risk,
     changePlan: {
@@ -175,15 +195,35 @@ function output(value, json, human) {
 function startCommand({ rootDir, config, args, json }) {
   const title = getArg(args, '--title') || getArg(args, '--task');
   if (!title) {
-    console.error('Usage: harness task start --title <text> [--risk quick|standard|critical]');
+    console.error('Usage: harness task start --title <text> [--ac <PRD-ID> AC-1,AC-2] [--risk quick|standard|critical]');
     process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
     return;
   }
-  const task = startTask({
-    rootDir, config, title, declaredRisk: getArg(args, '--risk'),
-    goals: getArgs(args, '--goal'), nonGoals: getArgs(args, '--non-goal'),
-    acceptanceCriteria: getArgs(args, '--accept'), allow: getArgs(args, '--allow'), deny: getArgs(args, '--deny'),
-  });
+  // §19.4：--ac <PRD-ID> [AC-1,AC-2...] 绑定任务与 PRD 的 AC
+  let linkedPrd = null;
+  const acFromFlag = [];
+  const acArg = getArg(args, '--ac');
+  if (acArg) {
+    linkedPrd = acArg;
+    const idx = args.indexOf('--ac');
+    for (let i = idx + 2; i < args.length && !args[i].startsWith('--'); i++) {
+      acFromFlag.push(...args[i].split(',').map(s => s.trim()).filter(Boolean));
+    }
+  }
+  let task;
+  try {
+    task = startTask({
+      rootDir, config, title, declaredRisk: getArg(args, '--risk'),
+      goals: getArgs(args, '--goal'), nonGoals: getArgs(args, '--non-goal'),
+      acceptanceCriteria: [...getArgs(args, '--accept'), ...acFromFlag],
+      linkedPrd,
+      allow: getArgs(args, '--allow'), deny: getArgs(args, '--deny'),
+    });
+  } catch (error) {
+    console.error(`❌ ${error.message}`);
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
   output(task, json, `✅ Task ${task.id} started (${task.riskLevel}) — next: harness brain context --task ${task.id}`);
 }
 
@@ -230,6 +270,23 @@ function finishCommand({ rootDir, config, task, json, verificationProvider }) {
     output(verification, json, `❌ Task cannot finish: ${verification.reasons.join('; ')}`);
     process.exitCode = EXIT_CODES.POLICY_FAILURE;
     return;
+  }
+  // §19.4：任务↔AC 双向追溯（声明 AC 全有测试 + PRD 无未认领 AC）
+  if (task.linkedPrd) {
+    const coverage = checkAcCoverage({ rootDir, prdId: task.linkedPrd, acs: task.acceptanceCriteria || [] });
+    if (coverage.missing.length > 0) {
+      const reason = `AC 无测试覆盖: ${coverage.missing.join(', ')}（§19.4）`;
+      output({ ok: false, reasons: [reason] }, json, `❌ Task cannot finish: ${reason}`);
+      process.exitCode = EXIT_CODES.POLICY_FAILURE;
+      return;
+    }
+    const unclaimed = checkUnclaimedAcs({ rootDir, config, prdId: task.linkedPrd });
+    if (unclaimed.length > 0) {
+      const reason = `PRD ${task.linkedPrd} 存在未认领 AC: ${unclaimed.join(', ')}（§19.4）`;
+      output({ ok: false, reasons: [reason] }, json, `❌ Task cannot finish: ${reason}`);
+      process.exitCode = EXIT_CODES.POLICY_FAILURE;
+      return;
+    }
   }
   const updated = finishVerifiedTask({ rootDir, config, task, verification });
   output(updated, json, `✅ Task ${task.id} completed with verified evidence.`);

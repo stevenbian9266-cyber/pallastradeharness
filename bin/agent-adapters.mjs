@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { EXIT_CODES, getArg, hasArg } from './cli-utils.mjs';
 import { atomicWriteText } from './state-store.mjs';
 import { loadStandards, standardsCoverage } from './standards.mjs';
+import { registerCapability, listRegisteredCapabilities, removeCapability, resolveRegistrationFile } from './capability-registry.mjs';
 
 export const ADAPTER_TARGETS = Object.freeze({
   codex: 'AGENTS.md',
@@ -89,6 +90,61 @@ function generateAdapters({ rootDir, config, args, json }) {
   else console.log(results.map(result => `${result.written ? '✅ wrote' : '○ would write'} ${result.path}${result.changed ? '' : ' (unchanged)'}`).join('\n'));
 }
 
+function registerCommand({ rootDir, config, args, json }) {
+  const id = getArg(args, '--id');
+  const fromFile = getArg(args, '--from');
+  if (!id && !fromFile) {
+    console.error('adapter register requires --id <id>（或 --from <json 文件>）');
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
+  let registration;
+  if (fromFile) {
+    try { registration = resolveRegistrationFile(rootDir, fromFile); } catch (e) {
+      console.error(`❌ adapter register: ${e.message}`);
+      process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+      return;
+    }
+  } else {
+    registration = {
+      id,
+      kind: getArg(args, '--kind') || 'agent_adapter',
+      protocol_version: Number(getArg(args, '--protocol') || 1),
+      capabilities: (getArg(args, '--capabilities') || '').split(',').map(s => s.trim()).filter(Boolean),
+      needs_permission: (getArg(args, '--needs-permission') || '').split(',').map(s => s.trim()).filter(Boolean),
+      cannot_do: (getArg(args, '--cannot-do') || '').split(',').map(s => s.trim()).filter(Boolean),
+      protection_level: getArg(args, '--protection-level') || undefined,
+    };
+  }
+  try {
+    const record = registerCapability({ rootDir, config, registration });
+    if (json) console.log(JSON.stringify(record, null, 2));
+    else console.log(`✅ Registered ${record.id} (${record.protection_level}) — ${record.message}`);
+  } catch (e) {
+    console.error(`❌ adapter register: ${e.message}`);
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+  }
+}
+
+function registeredCommand({ rootDir, config, json }) {
+  const records = listRegisteredCapabilities({ rootDir, config });
+  if (json) console.log(JSON.stringify(records, null, 2));
+  else if (records.length === 0) console.log('○ No registered capabilities.');
+  else console.log(records.map(r => `✅ ${r.id} [${r.protection_level}] ${r.message}`).join('\n'));
+}
+
+function unregisterCommand({ rootDir, config, args, json }) {
+  const id = getArg(args, '--id');
+  if (!id) {
+    console.error('adapter unregister requires --id <id>');
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
+  const removed = removeCapability({ rootDir, config, id });
+  if (json) console.log(JSON.stringify({ removed, id }, null, 2));
+  else console.log(removed ? `✅ Unregistered ${id}` : `○ Not registered: ${id}`);
+}
+
 export function runAdapters({ rootDir, config, args }) {
   const subcommand = args[1] || 'list';
   const json = hasArg(args, '--json') || getArg(args, '--format') === 'json';
@@ -100,6 +156,20 @@ export function runAdapters({ rootDir, config, args }) {
     generateAdapters({ rootDir, config, args, json });
     return;
   }
-  console.error('Usage: harness adapter list|generate [--target codex|claude|copilot|cursor|generic|all] [--write]');
+  if (subcommand === 'register') {
+    registerCommand({ rootDir, config, args, json });
+    return;
+  }
+  if (subcommand === 'registered') {
+    registeredCommand({ rootDir, config, json });
+    return;
+  }
+  if (subcommand === 'unregister') {
+    unregisterCommand({ rootDir, config, args, json });
+    return;
+  }
+  console.error('Usage: harness adapter list|generate|register|registered|unregister');
+  console.error('  register --id <id> [--kind agent_adapter|ai_service] --capabilities a,b,c [--needs-permission x] [--cannot-do y] [--protection-level enforced|guarded|advisory]');
+  console.error('  register --from <plugin.json>');
   process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
 }

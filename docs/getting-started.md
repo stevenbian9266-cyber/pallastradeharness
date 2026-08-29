@@ -41,7 +41,29 @@ npx harness doctor     # 项目缺什么
 npx harness config:check   # 配置校验
 ```
 
-## 4. 零认知路径（推荐新手，HTH-013）
+## 4. 总前置条件：先治理，再开始（设计文档 §15 / §17.7）
+
+**推荐从零向导**（一步一步问，可随时退出恢复）：
+
+```bash
+npx harness wizard init --name my-app              # 开始 10 步向导
+npx harness wizard step --n 1 --answer "给团队做内部工具"
+# … 逐步回答（status 查看进度）…
+npx harness wizard status                          # 进度
+npx harness wizard finish                          # 生成项目底座并锁定 governance-0.1.0
+```
+
+或直接建画像再补字段：
+
+```bash
+npx harness governance:init --name my-app        # 建项目画像 harness/project.yaml
+npx harness governance:status                    # 大白话报告还缺什么
+npx harness governance:version                   # 仅当 governance_ready 时锁定
+```
+
+> 项目开始前必须先确定"如何工作"（§15）：未达 `governance_ready` 前 AI 不能修改业务代码；锁定版本后任务自动记录 `governanceVersion`（§15.9），配置变更须走治理提案，当前任务不能静默修改。
+
+## 5. 零认知路径（推荐新手，HTH-013）
 
 不需要理解 Task ID / Gate ID / check ID——只需要两个命令：
 
@@ -90,13 +112,14 @@ npx harness brain eval --file my-queries.json   # 自定义评测集（[{query, 
 npx harness brain eval --top 5 --json           # 机器可读报告
 ```
 
-## 5. 标准编码任务（完整生命周期）
+## 6. 标准编码任务（完整生命周期）
 
 任务前缀自动判定类型（feature/bugfix/style/docs/audit/research/refactor/security/test）。Gate 生命周期为 preparation → implementation → verification → finished；**每个新 Gate 必须绑定一个 Task**（INV-03），verification 只能由 typed evidence 关闭（不可手工 clear `verify-test`）。
 
 ```bash
 # 1. 创建/恢复任务（持久化任务状态）
-npx harness task start --title "新增：我的功能" --allow "src/**"
+npx harness task start --title "新增：我的功能" --allow "src/**" \
+  --ac PRD-20260828-xxx AC-001,AC-002   # 可选：任务↔AC 绑定（§19.4），完成时校验 AC 覆盖
 # 记录任务 ID：TASK-XXXXXXXXXXXX-xxxxxxxx
 
 # 2. 构建上下文并评估风险
@@ -117,6 +140,12 @@ npx harness standards coverage
 
 # 6. 客观验证（受信验证器注册表，HTH-005）
 npx harness verify unit --task <TASK-ID>          # 已注册 test 验证器
+npx harness verify coverage --task <TASK-ID>      # 覆盖率验证器（§19.3，项目声明阈值时自动满足 coverage-gate）
+npx harness prd verify --semantic --id PRD-xxx   # AC 语义校验（§19.2，拒绝空断言/全 mock）
+npx harness visual:baseline --from <截图目录>    # 视觉回归：建立 golden 基线（§18.4）
+npx harness visual:diff --from <截图目录>         # 视觉回归：像素 diff，超阈值 exit 1
+npx harness baseline:create                       # 存量质量基线：记录当前已知测试失败（§14.5）
+npx harness baseline:check                        # no_regression：只阻断"新增失败"，历史失败仅记录
 npx harness evidence record --task <TASK-ID> --type review --summary "..." --approve
 npx harness evidence record --task <TASK-ID> --type knowledge --summary "..." --approve
 
@@ -132,7 +161,7 @@ npx harness task finish --task <TASK-ID>
 > - `harness gate:clear --gate <GATE-ID> --clear verify-test`（verification 只能由 `evidence verify` 关闭）
 > - 任意命令冒充测试：`evidence run --type test -- <任意命令>` 现在标记为 `diagnostic`，不满足 Gate；请用 `harness verify <verifier-id>`
 
-## 6. 接入 lefthook（物理强制）
+## 7. 接入 lefthook（物理强制）
 
 ```yaml
 pre-commit:
@@ -143,6 +172,10 @@ pre-commit:
       glob: "**/*.{rb,ts,tsx,js,jsx,css}"
       exclude: "**/node_modules/**|**/dist/**|**/.next/**"
       run: npx harness-scan-anti-patterns scan --files {staged_files}
+    harness-ui-anti-patterns:
+      glob: "**/*.{ts,tsx,js,jsx,html,vue,css,scss}"
+      exclude: "**/node_modules/**|**/dist/**|**/.next/**|**/design-tokens*"
+      run: npx harness-scan-ui-anti-patterns scan --files {staged_files}
     harness-secrets:
       glob: "**/*.{rb,ts,tsx,js,jsx,yml,yaml,env,sh}"
       exclude: "**/node_modules/**|**/dist/**|**/.next/**"
@@ -153,7 +186,7 @@ pre-push:
       run: npx harness doc-impact --base origin/main
 ```
 
-## 7. 渐进式档位
+## 8. 渐进式档位
 
 | 档位 | 适用 | 特点 |
 |---|---|---|
