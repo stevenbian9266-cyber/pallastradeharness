@@ -19,7 +19,7 @@ title: 路线图
 | 1.3.0 | Auto-Skills 自动治理：`harness skill audit`（能力指纹/三层目录/应有现有对比/L1-L4 升级检测/疑似新领域）、`--generate` 自动创建缺失 Skill+注册索引、新领域检测→项目级 catalog 沉淀、`skill catalog list/add` | ✅ 当前源码 |
 | 1.4.0 | **PRD 工作流默认启用**：feature gate 内置 PRD 检查（read-skill-prd/create-prd-doc/create-req-doc/req-doc-has-skill-table/user-confirmed），所有项目安装即触发；getGateChecks 按 id 去重 | ✅ 当前源码 |
 | 1.5.0 | **Auto-Content 自动内容生成**：新增 `presets/skills/` 11 个元领域内容模板，`skill new`/`skill audit --generate` 渲染有实质内容的 SKILL.md（注入项目名/检测依据/权威文件）；`onboard --write` 安装后自动批量生成领域 Skill；无模板回退旧骨架 | ✅ 当前源码 |
-| 1.6.0 | **自动化触发补全**：`ci github` 多档位 CI（PR 门禁/nightly cron/release tag）；`onboard` 自动生成 `lefthook.yml` + `ai/hooks/` AI 安全钩子 + 配置深度补全（profiles/coverage/risk/brain/syncCheck/generatedCheck） | ✅ 当前源码 |
+| 1.6.0 | **自动化触发补全**：`ci github` 多档位 CI（PR 门禁/nightly cron/release tag）；`onboard` 自动生成 `lefthook.yml` + `ai/hooks/` AI 安全钩子 + 配置深度补全（profiles/coverage/risk/brain/syncCheck/generatedCheck） | ✅ 已发布（2026-08-20） |
 | 1.7.0 | **Trust Kernel（可信内核）**：ChangeSnapshot（Task/Gate/Evidence/提交绑定同一快照）、Verifier Registry（`harness verify`，任意命令降级 diagnostic）、Task 强绑定（Taskless Gate 隔离）、手工证据收紧（success:null + `--approve`）、Node 化安全 Hook（`harness hooks doctor`）、独立仓自治理 + GitHub Ruleset `main-protection`；P1 引导体验（do/next 零认知路径 + setup 统一接入） | ✅ 已发布（2026-08-22） |
 | 1.8.0 | **Guided UX + External Validation**：交互式 TUI（HTH-016）、Brain 检索 adapter 与评测框架（HTH-017，recall@10 基线 69% 可复现）、本地指标（HTH-019）、插件合同测试（HTH-021）、Tier A fixtures（HTH-018）、小白试点包（HTH-020）、双语核心文档 + Go/No-Go 报告（HTH-022） | 🔨 实施中（2026-08-22） |
 ## 详细版本记录
