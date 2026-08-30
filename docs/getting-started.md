@@ -139,6 +139,7 @@ npx harness design:scan --scope all            # 现状识别：业务/数据/�
 # 在 docs/designs/<TASK-ID>/ 产出 4 个设计文档（模板 templates/designs/）：
 #   ui.md（页面/组件树/数据流）· interaction.md（流程/状态机/反馈/边界/a11y）
 #   visual.md（设计令牌/组件视觉/响应式——禁止硬编码）· tech-design.md（Part A 现状 + Part B 复用决策矩阵 + Part C 落点）
+npx harness design:check --task <TASK-ID>      # 机器校验：4 文档存在 + Part A 四节 + Part B 矩阵（gate:clear 设计检查项会强制该校验）
 npx harness reuse-adherence                     # 复用决策落地校验（调用已有/扩展/新封装/新建局部）
 # 用户确认设计（gate:clear --clear design-confirmed）后才允许编程
 

@@ -4,9 +4,9 @@ All notable changes to **pallastrade-harness** are documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: [SemVer](https://semver.org/)
 
-## [Unreleased]
+## [1.8.0] — 2026-08-30
 
-### 发布前开发与测试强化（设计文档 §19）+ UI 监督便宜项（设计文档 §18）
+### 设计阶段治理与发布前强化（P0–P5，设计文档 §15/§17/§18/§19/§19A）
 
 - `prd verify --semantic`：AC 语义校验，拒绝空断言 / 过度 mock 的"假覆盖"（新增 `bin/ac-semantic.mjs`）
 - `task start --ac <PRD> AC-x`：任务↔AC 双向绑定；PRD 不存在或 AC 未声明即阻止开始；`task finish` 校验声明的 AC 全有测试 + PRD 无未认领 AC（新增 `bin/ac-trace.mjs`）
@@ -19,9 +19,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: 
 - `wizard init / step / status / from / finish / reset`：从零项目 10 步向导（§17.7 旗舰功能）——新增 `bin/wizard.mjs`（10 步定义 + 答案落盘可恢复 + 答案→画像映射 + `derivePrdCategory` + finish 复用 governance 锁定）；引导式问答产出 `harness/project.yaml` 并锁定治理版本
 - `baseline:create / check / status`：存量项目质量基线 / no_regression（§14.5）——新增 `bin/baseline.mjs`（TAP 解析 + 基线落盘 `.harness-state/baseline/` + 三态：新增失败阻断 / 历史失败仅记录 / 已修复改善）；`config.qualityBaseline`（enabled/testCommand），enabled 时 gate 自动追加 `baseline-gate`，由 baseline 验证器证据自动满足；修复测试命令子进程继承 `NODE_TEST_CONTEXT=child-v8` 导致 stdout 被抑制的坑
 - 设计阶段治理（PRD 确认后 → 设计产物 → design-confirmed → 编程）：`templates/designs/` 4 模板（ui/interaction/visual/tech-design，tech-design 内置 Part A 现状识别 + Part B 复用决策矩阵 + Part C 落点）；feature gate 在 `user-confirmed` 后追加 7 个设计检查项（`create-ui-doc`/`create-interaction-spec`/`create-visual-spec`/`create-tech-design`/`tech-design-has-baseline`/`tech-design-has-reuse-matrix`/`design-confirmed`）；`design:scan`（现状识别：业务/数据模型+字段/公共符号，`bin/design-scan.mjs`）；`reuse-adherence` 验证器（复用决策落地静态校验：调用已有/扩展已有/新封装公用/新建局部，fail>0 exit 1，不可判定 → warning 不阻断，`bin/reuse-adherence.mjs`）；`config.designStage`（enabled/designsDir），feature 且启用时 gate 自动追加 `reuse-adherence-gate`，由 reuse-adherence 验证器证据自动满足
-- 单测：`bin/ac-semantic.test.mjs`、`bin/ac-trace.test.mjs`、`bin/scan-ui-anti-patterns.test.mjs`、`bin/visual-regression.test.mjs`、`bin/capability-registry.test.mjs`、`bin/governance.test.mjs`、`bin/wizard.test.mjs`、`bin/baseline.test.mjs`、`bin/design-scan.test.mjs`、`bin/reuse-adherence.test.mjs`（全量 268/268 通过）
+- 设计检查机器校验（§19A.4 落地）：`design:check`（`bin/design-check.mjs`）校验 4 设计文档存在 + tech-design Part A 四节 + Part B 复用矩阵；`gate:clear` 对 6 个设计检查项强制机器校验（未通过拒绝 clear，design-confirmed 保持人工 WAIT）；无 taskId 时扫描全部任务
+- 单测：`bin/ac-semantic.test.mjs`、`bin/ac-trace.test.mjs`、`bin/scan-ui-anti-patterns.test.mjs`、`bin/visual-regression.test.mjs`、`bin/capability-registry.test.mjs`、`bin/governance.test.mjs`、`bin/wizard.test.mjs`、`bin/baseline.test.mjs`、`bin/design-scan.test.mjs`、`bin/reuse-adherence.test.mjs`、`bin/design-check.test.mjs`（全量 274/274 通过）
 
-### Guided UX + External Validation (1.8.0) — 实施中（2026-08-22）
+### Guided UX + External Validation
 
 - 交互式 TUI 当前任务视图（HTH-016）：键盘导航 / 任务详情 / nextAction 动作执行，全部动作有 CLI/JSON 等价物
 - Brain 检索 adapter 与评测框架（HTH-017）：`brain query` 确定性 top-K 检索 + `brain eval` 离线评测（Recall@K + 必需资产遗漏率）+ 50 查询评测集；修复 F-09 召回虚高

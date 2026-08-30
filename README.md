@@ -72,7 +72,7 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.7.0`；`v1.7.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.8.0`；`v1.8.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 版本信息自动同步：发布后由 `npx harness readme:sync --write` 从 `CHANGELOG.md` 校正（CI 用 `--check` 防漂移）
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
@@ -85,6 +85,7 @@ npx harness docs:check
 
 | 版本 | 亮点 |
 |---|---|
+| **v1.8.0** | ⚠️ 【自动生成·待润色】 `prd verify --semantic`：AC 语义校验，拒绝空断言 / 过度 mock 的"假覆盖"（新增 `bin/ac-semantic.mjs`） |
 | **v1.7.0** | **Trust Kernel（可信内核）**：ChangeSnapshot（Task/Gate/Evidence/提交绑定同一可重算变更快照，RFC-0002）；Verifier Registry（`harness verify`，任意命令降级 diagnostic，手工证据 `success:null` + `--approve`）；Task 强绑定（新 Gate 必须绑定 Task，Taskless Gate 隔离，verify-test 一律证据控制）；Node 化安全 Hook（`harness hooks doctor`）；可执行文档（getting-started task-bound 生命周期 + `docs:check` 过时命令防漂移）；独立仓自治理（AGENTS.md/config/lefthook/SECURITY/CHANGELOG + GitHub Ruleset `main-protection` 禁直推/强推/删除）；引导式体验（`harness do`/`next` 零认知路径 + 真 Lite + `harness setup` 统一接入）；`node --test` 197/197 通过 |
 | **v1.6.0** | **自动化触发补全**：`ci github --write` 生成多档位 CI（`harness.yml` PR 快速门禁：anti-patterns/secrets/doc-impact/generated-check/coverage-gate 分工 job + `harness-nightly.yml` cron 定时 full+覆盖率+场景 + `harness-release.yml` tag 触发全档+发布清单）；`onboard --write` 自动生成 `lefthook.yml`（提交物理拦截）+ `ai/hooks/`（AI 行为级安全钩子：PreToolUse 拦截破坏性 DB/force-push、PostToolUse 警告硬编码密钥）+ 配置深度补全（profiles/coverage/risk/brain/syncCheck/generatedCheck/evidence.autoVerify/supervisor，lite 档降级）；`node --test` 138/138 通过 |
 | **v1.5.0** | **Auto-Content 自动内容生成**：领域 Skill 从“空骨架”变为“有实质内容”——新增 `presets/skills/` 11 个元领域内容模板（api/data-model/payment/security/deployment/testing/frontend-style/i18n/events/observability/performance），`skill new` / `skill audit --generate` 渲染模板并注入项目名/检测依据/权威文件 → 安装即得可直接使用的最佳实践基线（不再是占位符）；`harness onboard --write` 安装后自动检测技术栈并批量生成领域 Skill；无模板领域回退旧骨架（向后兼容）；`node --test` 132/132 通过 |
@@ -239,6 +240,7 @@ export default {
 | `harness visual:baseline / visual:diff` | 视觉回归（§18.4）：golden screenshot 基线 + 像素 diff（pngjs+pixelmatch）；无基线/无截图 → `validation_unavailable`（exit 2） |
 | `harness baseline:create / check / status` | 存量项目质量基线 / no_regression（§14.5）：记录"当前已知失败"不清零；`check` 只阻断新增失败（new_failures），历史失败仅记录，已修复改善 |
 | `harness design:scan [--scope ...]` | 设计阶段现状识别：业务/数据/代码事实来源（tech-design Part A），防臆造现状 |
+| `harness design:check [--task <id>]` | 设计产物机器校验（§19A.4）：4 文档存在 + Part A 四节 + Part B 矩阵；gate:clear 6 个设计检查项必须先过此校验 |
 | `harness reuse-adherence` | 技术方案复用决策落地校验（设计阶段）：调用已有/扩展已有/新封装公用/新建局部 四类静态可判；fail>0 exit 1 |
 | `harness scan [--fix] [--check] [--json] [--category <id>]` | 资产治理：扫描 skills/standards/agent/PRD/scenarios/索引 + 自愈（MUST/SHOULD/NICE 分级；`--fix` 自动补齐 L0 确定性项；`--check` CI 硬卡） |
 | `harness doctor` | 项目体检 |

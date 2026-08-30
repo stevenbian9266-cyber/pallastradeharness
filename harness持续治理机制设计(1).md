@@ -3546,6 +3546,139 @@ completion_protocol:
 - 发布与上线后监督（灰度 / feature flag / AB 实验 / SLO 与事故闭环 / 制品溯源）→ 第二十章；
 - 需求变更治理（P0/P1/P2 变更分级 / 变更频控 / 影响链重算）→ 第二十一章。
 
+## 十九·补、编程环节设计产物治理（设计阶段）
+
+> 本章是 §19 发布前强化的**前置延伸**：§19 管的是"开发 + 测试"，本章补的是"开发之前"——PRD/需求确认后、写代码前，必须先产出设计产物并确认，才能进入编程。编号用"十九·补"避免占用已预留的第二十（发布后）、第二十一章（需求变更）。
+
+### 19A.1 先说结论：编程前补一道"设计关"
+
+**现状问题**：feature gate 走到 `user-confirmed`（PRD/需求确认）后直接进入编程，缺少"设计阶段"，导致三类质量失控：
+
+| 失控点 | 后果 |
+|---|---|
+| 无 UI/交互/视觉设计 | 前端自由发挥、风格漂移、交互不一致 |
+| 无技术方案 | 重复造轮子、忽略已有方法/组件/数据模型 |
+| 无现状识别 | 新增字段/表/方法与已有冲突，改错归属模块 |
+
+**本次机制**（全部机器可执行/可验证 + 确定性门禁）：
+
+| 机制 | 一句话 | 落地 |
+|---|---|---|
+| ① 设计产物四件套 | PRD 确认后先产出 4 个设计文档 | UI 文件 / 交互规范 / 视觉规范 / 技术方案 |
+| ② 技术方案强制三段式 | 方案必须先识现状、再定复用 | Part A 现状识别 → Part B 复用决策矩阵 → Part C 落点 |
+| ③ 现状识别自动化 | 防 AI 臆造现状 | `design:scan` 成为 Part A 事实来源 |
+| ④ 复用落地校验 | 声明了复用就检验是否真复用 | `reuse-adherence` 验证器静态可判 |
+
+### 19A.2 设计产物定义（docs/designs/<task-id>/，模板在 templates/designs/）
+
+| 产物 | 文件 | 内容 |
+|---|---|---|
+| UI 文件 | `ui.md` | 页面/路由清单、组件树（复用/改造/新增 + 已有组件路径）、页面状态与数据流、导航入口、一致性声明 |
+| 交互规范 | `interaction.md` | 核心用户流程、状态机（loading/empty/error/success/禁用态）、反馈机制（toast/确认框/乐观更新/失败回滚/防重复提交）、边界与异常、无障碍（键盘/焦点/aria） |
+| 视觉规范 | `visual.md` | 设计令牌引用（**禁止硬编码色/字号/间距**，呼应 §18 UI-002）、组件视觉标准、响应式断点、主题/暗色、一致性声明 |
+| 技术方案 | `tech-design.md` | 强制三段式（见 19A.3） |
+
+模板可插拔：项目可在 `docs/designs/_TEMPLATE*` 覆盖内置模板（对齐 PRD 模板机制）。
+
+### 19A.3 技术方案强制三段式（核心）
+
+```markdown
+## Part A — 现状识别（强制，缺此段方案无效）
+### A1 业务系统盘点  现有业务模块/服务边界，新功能归属（事实来源：design:scan --scope business）
+### A2 数据模型识别  现有表/集合/模型及关联，新增 or 扩展（事实来源：design:scan --scope data）
+### A3 字段盘点      现有字段类型/约束，避免重复定义与冲突
+### A4 代码结构      公共方法/组件/工具清单（含位置+签名）（事实来源：design:scan --scope code）
+
+## Part B — 复用决策矩阵（每个能力需求必须二选一，不许"写代码时再说"）
+| 能力需求 | 决策 | 目标 | 依据（已有位置/签名） |
+|---|---|---|---|
+| 日期格式化 | 调用已有 | formatDate | src/lib/date.ts:12 |
+
+决策列限四值：调用已有 / 扩展已有 / 新封装公用 / 新建局部
+
+## Part C — 实施落点
+新增/修改文件清单（精确到路径）· 分层改动（UI/业务/数据）· 依赖与实施顺序 · 风险与回滚
+```
+
+> ⚠️ **红线**：Part A 必须以 `design:scan` 输出为事实来源，**不允许 AI 凭记忆编造现状**（呼应最终原则 10"关键业务决定不能由 AI 猜出来"）。
+
+### 19A.4 设计产物的 Gate 约束
+
+feature gate 在 `user-confirmed` 之后追加 7 个检查项（preparation 阶段，`config.designStage.enabled` 时）：
+
+| 检查项 | 含义 |
+|---|---|
+| `create-ui-doc` / `create-interaction-spec` / `create-visual-spec` / `create-tech-design` | 4 个设计文档存在 |
+| `tech-design-has-baseline` | Part A 现状识别四节齐全 |
+| `tech-design-has-reuse-matrix` | Part B 复用决策矩阵存在 |
+| `design-confirmed` | 用户确认设计（WAIT，同 `user-confirmed` 机制） |
+
+### 19A.5 现状识别自动化：design:scan
+
+```bash
+npx harness design:scan --scope business|data|code|all [--json]
+```
+
+| scope | 扫描内容 |
+|---|---|
+| `business` | `src/services`、`src/modules`、`app/controllers` 等业务模块/服务盘点 |
+| `data` | migrations / prisma schema / SQL CREATE TABLE / entity / model 文件的模型与字段 |
+| `code` | `src/lib`、`src/utils`、`src/components`、`lib`、`utils`、`bin` 的导出符号（函数/常量/类 + 文件位置） |
+
+无匹配时输出空清单（不报错）。输出成为 tech-design Part A 的引用依据。
+
+### 19A.6 复用决策落地校验：reuse-adherence
+
+```bash
+npx harness reuse-adherence [--json]    # fail>0 exit 1
+```
+
+解析 Part B 矩阵每行做**静态可判**校验（与 19.2 AC 语义校验同思路——确定性逻辑，不是人审）：
+
+| 决策 | 判定 |
+|---|---|
+| 调用已有 | 目标在**非定义文件**中被引用（定义文件自身不算，防误判"声明复用却自己新写"） |
+| 扩展已有 | 依据位置文件仍存在，或目标在源码中存在（防改错归属） |
+| 新封装公用 | 目标被导出 且 被 ≥1 处引用（防"封装了没人用"） |
+| 新建局部 | 目标仅出现在 ≤1 个文件（防"局部却跨模块被引用"） |
+
+判定不可得 → warning（不阻断，与 §14.5"历史失败不阻断"同思路）。注册为受信验证器，feature 任务启用时 gate 自动追加 `reuse-adherence-gate`（verification），由验证器证据自动满足（复用 §14.5 baseline-gate 范式）。
+
+### 19A.7 完整生命周期衔接
+
+```
+PRD 确认(user-confirmed)
+  → task start（绑定 AC，§19.4）
+  → 现状识别：design:scan --scope all
+  → 设计阶段：产出 4 设计文档 → 7 个设计 gate 检查通过
+  → 用户确认设计(design-confirmed)
+  → 编程实施（受 UI/交互/视觉/技术方案约束）
+  → verification：verify-test + coverage-gate + reuse-adherence-gate + visual-regression + baseline-gate
+```
+
+### 19A.8 与既有机制的接入
+
+- **Gate check 新增**：7 个设计检查（preparation）+ `reuse-adherence-gate`（verification）；
+- **配置**：`config.designStage`（enabled=true / designsDir=docs/designs）；关闭时不进 gate；
+- **验证器**：`reuse-adherence` 注册进 verifier registry（`npx harness reuse-adherence`）；
+- **衔接**：visual.md 引用设计令牌呼应 §18 UI-002 与视觉回归；tech-design Part A 复用 analyze/design:scan；reuse-adherence-gate 复用 §14.5"验证器证据自动满足"范式；
+- **完成定义扩展**（在 §19.5 基础上）：新增 `design_artifacts: present`（4 设计文档）、`reuse_adherence: passed`。
+
+### 19A.9 验收标准（本方案的完成定义）
+
+1. feature gate 在 `user-confirmed` 后含 7 个设计检查项，`design-confirmed` 为 WAIT；
+2. `design:scan --scope code|data|business` 输出结构化现状 JSON；
+3. `reuse-adherence` 对四类决策做静态判定，fail>0 exit 1，不可判定 warning 不阻断；
+4. 启用时 gate 含 `reuse-adherence-gate`（verification），由验证器证据自动满足；
+5. `config.designStage.enabled=false` 时设计检查与 gate 均不出现；
+6. 与 §18（UI 监督/令牌）、§19.2（语义校验思路）、§14.5（验证器自动满足范式）无缝衔接。
+
+### 19A.10 明确不纳入本章范围
+
+- 设计评审的多轮协商/修订工作流（当前为"用户确认"单点）；
+- 自动生成设计文档（当前只提供模板 + 现状扫描辅助，不自动生成方案）；
+- 发布后（第二十章）与需求变更（第二十一章）治理。
+
 ## 最终原则
 
 这套机制可以概括为三个闭环：

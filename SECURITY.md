@@ -31,7 +31,7 @@ open a public issue.
 
 | Version | Supported |
 |---|---|
-| latest stable (≥ 1.7.0) | ✅ |
+| latest stable (≥ 1.8.0) | ✅ |
 | older minors | ⚠️ best-effort, see changelog |
 
 ## Scope / Non-Goals
