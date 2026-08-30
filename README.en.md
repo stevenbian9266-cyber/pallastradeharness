@@ -64,6 +64,7 @@ Interactive task view: `npx harness tui` (↑/↓ navigate, Enter for detail, ru
 
 | Version | Highlight |
 |---|---|
+| **v1.8.0** | ⚠️ [auto-generated, please polish] `prd verify --semantic`：AC 语义校验，拒绝空断言 / 过度 mock 的"假覆盖"（新增 `bin/ac-semantic.mjs`） |
 | **v1.7.0** | **Trust Kernel**: ChangeSnapshot (Task/Gate/Evidence/commit bound to one snapshot), Verifier Registry (`harness verify`), Task-bound Gates (Taskless isolation), Node-based safety Hook (`harness hooks doctor`), self-governed standalone repo (Ruleset `main-protection` + required checks) |
 | **v1.6.0** | Automated trigger completion: `ci github` multi-tier CI, `onboard` auto-generates lefthook + AI hooks + deep config |
 | **v1.5.0** | Auto-Content: 11 meta-domain skill templates with real content |

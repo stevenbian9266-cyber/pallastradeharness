@@ -131,6 +131,16 @@ export default {
   evidence: {
     autoVerify: true,
     maxOutputBytes: 262144,
+    // 验证器命令覆盖：本仓 npx harness 会 EISDIR → 用 node bin/harness.mjs 直跑
+    verifiers: {
+      'reuse-adherence': {
+        type: 'test',
+        command: ['node', 'bin/harness.mjs', 'reuse-adherence'],
+        cwd: '.',
+        timeoutMs: 120000,
+        profiles: ['quick', 'standard', 'critical'],
+      },
+    },
   },
   plugins: {
     apiVersion: '1.0',
