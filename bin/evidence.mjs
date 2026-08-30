@@ -357,6 +357,20 @@ export function completeVerificationGate({ rootDir, config, task, verification, 
       baselineCheck.phase = GATE_PHASES.VERIFICATION;
     }
   }
+  // 设计阶段：有新鲜 reuse-adherence 验证器证据时自动满足 reuse-adherence-gate（复用决策落地校验）
+  const reuseCheck = gate.checks.find(item => item.id === 'reuse-adherence-gate');
+  if (reuseCheck && reuseCheck.status !== 'done') {
+    const freshReuse = listEvidence(rootDir, config, task.id).some(e => {
+      if (e.verifierId !== 'reuse-adherence' || e.success === false || e.success === null) return false;
+      return evidenceFreshness({ rootDir, config, evidence: e }).fresh;
+    });
+    if (freshReuse) {
+      reuseCheck.status = 'done';
+      reuseCheck.completedAt = new Date().toISOString();
+      reuseCheck.note = 'Automatically satisfied by reuse-adherence verifier evidence (design stage)';
+      reuseCheck.phase = GATE_PHASES.VERIFICATION;
+    }
+  }
   recomputeGateState(gate);
   atomicWriteJson(path, gate);
   return { completed: true, gateId: gate.id, phase: gate.phase };

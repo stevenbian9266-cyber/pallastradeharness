@@ -81,6 +81,12 @@ export const DEFAULT_CONFIG = {
     testCommand: ['node', '--test', '--test-reporter=tap', '**/*.test.mjs'],
   },
 
+  // ⑧'''' designStage — 设计阶段治理（PRD 确认后 → UI/交互/视觉/技术方案 → design-confirmed）
+  designStage: {
+    enabled: true,
+    designsDir: 'docs/designs',
+  },
+
   // ⑦ check profiles
   profiles: {},
 
@@ -196,6 +202,13 @@ export const DEFAULT_CONFIG = {
         timeoutMs: 600000,
         profiles: ['quick', 'standard', 'critical'],
       },
+      'reuse-adherence': {
+        type: 'test',
+        command: ['npx', 'harness', 'reuse-adherence'],
+        cwd: '.',
+        timeoutMs: 120000,
+        profiles: ['quick', 'standard', 'critical'],
+      },
     },
   },
   plugins: {
@@ -251,6 +264,18 @@ const BASE_CHECK_DEFS = {
   test: [],
 };
 
+// 设计阶段检查项（设计阶段治理：PRD 确认后 → 4 设计产物 → design-confirmed）
+// 仅 feature 类且 designStage.enabled 时插入（插在 user-confirmed 之后）
+const DESIGN_STAGE_CHECKS = [
+  { id: 'create-ui-doc', label: 'Create UI doc: docs/designs/<task>/ui.md' },
+  { id: 'create-interaction-spec', label: 'Create interaction spec: docs/designs/<task>/interaction.md' },
+  { id: 'create-visual-spec', label: 'Create visual spec: docs/designs/<task>/visual.md' },
+  { id: 'create-tech-design', label: 'Create tech design: docs/designs/<task>/tech-design.md' },
+  { id: 'tech-design-has-baseline', label: 'Tech design includes baseline scan (business/data/fields/code)' },
+  { id: 'tech-design-has-reuse-matrix', label: 'Tech design includes reuse decision matrix' },
+  { id: 'design-confirmed', label: 'User confirmed design docs (WAIT — do not proceed)' },
+];
+
 /**
  * 生成某任务类型的完整 gate check 列表
  * = layers 搜索 check + 内置基础 check + 配置追加 check + verify-test
@@ -271,6 +296,13 @@ export function getGateChecks(config, taskType) {
     ...check,
     phase: check.phase || GATE_PHASES.PREPARATION,
   }));
+  // 设计阶段检查项：feature 类且 designStage.enabled 时插入 user-confirmed 之后
+  if (taskType === 'feature' && config.designStage?.enabled !== false) {
+    const designChecks = DESIGN_STAGE_CHECKS.map(c => ({ ...c, phase: GATE_PHASES.PREPARATION }));
+    const idx = withPhase.findIndex(c => c.id === 'user-confirmed');
+    if (idx >= 0) withPhase.splice(idx + 1, 0, ...designChecks);
+    else withPhase.push(...designChecks);
+  }
   // §19.3：项目声明覆盖率阈值时追加 coverage-gate（verification），由 coverage 验证器证据自动满足
   const hasCoverageThresholds = config.coverage?.thresholds && Object.keys(config.coverage.thresholds).length > 0;
   const coverageChecks = hasCoverageThresholds
@@ -284,7 +316,12 @@ export function getGateChecks(config, taskType) {
   const baselineChecks = config.qualityBaseline?.enabled === true
     ? [{ id: 'baseline-gate', label: 'No-regression baseline gate: no new failures (design §14.5)', phase: GATE_PHASES.VERIFICATION }]
     : [];
-  return [...searchChecks, ...withPhase, ...coverageChecks, ...visualChecks, ...baselineChecks, BASE_VERIFY_CHECK];
+  // 设计阶段治理：feature 类且 designStage.enabled 时追加 reuse-adherence-gate（verification），
+  // 由 reuse-adherence 验证器证据自动满足（技术方案复用决策落地校验）
+  const reuseChecks = taskType === 'feature' && config.designStage?.enabled !== false
+    ? [{ id: 'reuse-adherence-gate', label: 'Reuse adherence: tech-design reuse matrix verified (design stage)', phase: GATE_PHASES.VERIFICATION }]
+    : [];
+  return [...searchChecks, ...withPhase, ...coverageChecks, ...visualChecks, ...baselineChecks, ...reuseChecks, BASE_VERIFY_CHECK];
 }
 
 // ────────────────────────────────────────────────────────────────
