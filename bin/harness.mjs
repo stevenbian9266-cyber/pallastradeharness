@@ -350,11 +350,16 @@ else if (cmd === 'baseline' || cmd.startsWith('baseline:')) {
 }
 
 // ================================================================
-// design — 设计阶段现状识别（设计阶段治理）：scan
+// design — 设计阶段治理：scan（现状识别）/ check（设计产物机器校验）
 // ================================================================
 else if (cmd === 'design' || cmd.startsWith('design:')) {
   const subArgs = cmd === 'design' ? args.slice(1) : [cmd.slice('design:'.length), ...args.slice(1)];
-  await import('./design-scan.mjs').then(m => m.runDesignScan({ rootDir: ROOT, args: subArgs, config }));
+  const sub = subArgs[0] || 'scan';
+  if (sub === 'check') {
+    await import('./design-check.mjs').then(m => m.runDesignCheck({ rootDir: ROOT, args: subArgs, config }));
+  } else {
+    await import('./design-scan.mjs').then(m => m.runDesignScan({ rootDir: ROOT, args: subArgs, config }));
+  }
 }
 
 // ================================================================
@@ -750,6 +755,21 @@ else if (cmd === 'gate:clear') {
       console.log(`   Bind the gate to a task, or abandon it (delete harness/gates/${gateState.id}.json) and create a task-bound gate.`);
     }
     process.exit(EXIT_CODES.POLICY_FAILURE);
+  }
+
+  // §十九·补 19A.4：6 个设计检查项必须通过机器校验（design:check）才能 clear；
+  // design-confirmed 保持人工 WAIT（不拦截）。
+  const { MACHINE_DESIGN_CHECKS, checkDesignArtifacts } = await import('./design-check.mjs');
+  if (MACHINE_DESIGN_CHECKS.includes(checkId)) {
+    const designsDir = config.designStage?.designsDir || 'docs/designs';
+    const result = checkDesignArtifacts({ rootDir: ROOT, designsDir, taskId: gateState.taskId || null, only: checkId });
+    const r = result[checkId];
+    if (!r || !r.pass) {
+      console.log(`❌ ${checkId} — machine check failed: ${r?.reason || 'unknown'}`);
+      console.log(`   Run: harness design:check --task ${gateState.taskId || '<task-id>'}`);
+      process.exit(EXIT_CODES.POLICY_FAILURE);
+    }
+    check.note = `machine-verified: ${r.reason}`;
   }
 
   check.status = 'done';
