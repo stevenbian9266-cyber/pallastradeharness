@@ -134,13 +134,22 @@ npx harness gate:clear --gate <GATE-ID> --clear <check-id>
 # 4. 生成允许/禁止修改范围与适用规范
 npx harness supervise plan --task "新增：我的功能" --allow "src/**" "test/**"
 
-# 5. 实施中与实施后检查
+# 5. 设计阶段（feature 任务：PRD/需求确认后、编程前，产出 4 个设计文档）
+npx harness design:scan --scope all            # 现状识别：业务/数据/代码事实来源（tech-design Part A）
+# 在 docs/designs/<TASK-ID>/ 产出 4 个设计文档（模板 templates/designs/）：
+#   ui.md（页面/组件树/数据流）· interaction.md（流程/状态机/反馈/边界/a11y）
+#   visual.md（设计令牌/组件视觉/响应式——禁止硬编码）· tech-design.md（Part A 现状 + Part B 复用决策矩阵 + Part C 落点）
+npx harness reuse-adherence                     # 复用决策落地校验（调用已有/扩展/新封装/新建局部）
+# 用户确认设计（gate:clear --clear design-confirmed）后才允许编程
+
+# 6. 实施中与实施后检查
 npx harness supervise diff
 npx harness standards coverage
 
-# 6. 客观验证（受信验证器注册表，HTH-005）
+# 7. 客观验证（受信验证器注册表，HTH-005）
 npx harness verify unit --task <TASK-ID>          # 已注册 test 验证器
 npx harness verify coverage --task <TASK-ID>      # 覆盖率验证器（§19.3，项目声明阈值时自动满足 coverage-gate）
+npx harness verify reuse-adherence --task <TASK-ID>  # 复用决策落地校验（feature 任务，自动满足 reuse-adherence-gate）
 npx harness prd verify --semantic --id PRD-xxx   # AC 语义校验（§19.2，拒绝空断言/全 mock）
 npx harness visual:baseline --from <截图目录>    # 视觉回归：建立 golden 基线（§18.4）
 npx harness visual:diff --from <截图目录>         # 视觉回归：像素 diff，超阈值 exit 1
@@ -149,10 +158,10 @@ npx harness baseline:check                        # no_regression：只阻断"�
 npx harness evidence record --task <TASK-ID> --type review --summary "..." --approve
 npx harness evidence record --task <TASK-ID> --type knowledge --summary "..." --approve
 
-# 7. 关闭 verification（只能通过证据，HTH-007）
+# 8. 关闭 verification（只能通过证据，HTH-007）
 npx harness evidence verify --task <TASK-ID> --gate <GATE-ID>
 
-# 8. 完成任务（须在提交/HEAD 移动之前）
+# 9. 完成任务（须在提交/HEAD 移动之前）
 npx harness task finish --task <TASK-ID>
 ```
 

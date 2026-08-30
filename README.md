@@ -223,7 +223,7 @@ export default {
 | `harness risk check` | Quick/Standard/Critical 风险复评；默认只能升级 |
 | `harness supervise review` | Database/API/Security/UI/Interaction/A11y/Knowledge 专项审查 |
 | `harness evidence run/record/list/verify/bundle/report` | 采集、验证和汇总与代码状态绑定的 typed evidence（含 `ui-approval` 类型：UI 人工确认，§18.5） |
-| `harness verify <verifier-id>` | 受信验证器注册表（`unit`/`docs`/`coverage`/`baseline`）；coverage 验证器自动满足 `coverage-gate`（§19.3），baseline 验证器自动满足 `baseline-gate`（§14.5） |
+| `harness verify <verifier-id>` | 受信验证器注册表（`unit`/`docs`/`coverage`/`baseline`/`reuse-adherence`）；coverage 验证器自动满足 `coverage-gate`（§19.3），baseline 验证器自动满足 `baseline-gate`（§14.5），reuse-adherence 自动满足 `reuse-adherence-gate`（设计阶段） |
 | `harness recovery create/status/verify` | Critical 任务的 manual-only 恢复检查点 |
 | `harness knowledge assess/status/verify` | `updated / reviewed-no-change / not-applicable` 知识闭环 |
 | `harness adapter generate / register / registered / unregister / mcp / tui` | 多 Agent 策略适配（§17.3）：能力登记 + enforced/guarded/advisory 诚实保护报告、stdio MCP 与本地状态面板 |
@@ -238,6 +238,8 @@ export default {
 | `harness scan-anti-patterns / scan-secrets / scan-degraded-loop / scan-ui-anti-patterns` | 扫描器（供 lefthook staged_files 调用，也可用 `harness-scan-*` bin）；UI 扫描器覆盖 inline style / 硬编码色 / 裸 fetch / img 缺 alt（§18） |
 | `harness visual:baseline / visual:diff` | 视觉回归（§18.4）：golden screenshot 基线 + 像素 diff（pngjs+pixelmatch）；无基线/无截图 → `validation_unavailable`（exit 2） |
 | `harness baseline:create / check / status` | 存量项目质量基线 / no_regression（§14.5）：记录"当前已知失败"不清零；`check` 只阻断新增失败（new_failures），历史失败仅记录，已修复改善 |
+| `harness design:scan [--scope ...]` | 设计阶段现状识别：业务/数据/代码事实来源（tech-design Part A），防臆造现状 |
+| `harness reuse-adherence` | 技术方案复用决策落地校验（设计阶段）：调用已有/扩展已有/新封装公用/新建局部 四类静态可判；fail>0 exit 1 |
 | `harness scan [--fix] [--check] [--json] [--category <id>]` | 资产治理：扫描 skills/standards/agent/PRD/scenarios/索引 + 自愈（MUST/SHOULD/NICE 分级；`--fix` 自动补齐 L0 确定性项；`--check` CI 硬卡） |
 | `harness doctor` | 项目体检 |
 | `harness config:check` | 配置校验 + 报告引擎默认值使用情况 |

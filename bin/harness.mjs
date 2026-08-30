@@ -350,6 +350,21 @@ else if (cmd === 'baseline' || cmd.startsWith('baseline:')) {
 }
 
 // ================================================================
+// design — 设计阶段现状识别（设计阶段治理）：scan
+// ================================================================
+else if (cmd === 'design' || cmd.startsWith('design:')) {
+  const subArgs = cmd === 'design' ? args.slice(1) : [cmd.slice('design:'.length), ...args.slice(1)];
+  await import('./design-scan.mjs').then(m => m.runDesignScan({ rootDir: ROOT, args: subArgs, config }));
+}
+
+// ================================================================
+// reuse-adherence — 技术方案复用决策落地校验（设计阶段治理）
+// ================================================================
+else if (cmd === 'reuse-adherence') {
+  await import('./reuse-adherence.mjs').then(m => m.runReuseAdherence({ rootDir: ROOT, args, config }));
+}
+
+// ================================================================
 // generated:check
 // ================================================================
 else if (cmd === 'generated:check') {

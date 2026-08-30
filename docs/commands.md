@@ -43,6 +43,8 @@ title: 命令参考
 | `harness scan-anti-patterns / scan-secrets / scan-degraded-loop / scan-ui-anti-patterns` | 扫描器（供 lefthook staged_files 调用）；`scan-ui-anti-patterns`：UI-001 inline style / UI-002 硬编码色（排除 design-tokens）/ UI-003 裸 fetch / UI-005 img 缺 alt（§18.1） |
 | `harness visual:baseline / visual:diff` | 视觉回归（§18.4）：golden screenshot 基线 + 像素 diff（pngjs+pixelmatch）；`baseline --from <dir>` 建基线，`diff --from <dir>` 超阈值 exit 1，无基线/无截图 → `validation_unavailable`（exit 2） |
 | `harness baseline:create / check / status` | 存量项目质量基线 / no_regression（§14.5）：`create` 运行测试并记录"当前已知失败"（历史失败不清零）；`check` 三态——新增失败阻断 / 历史失败仅记录 / 已修复（改善）；`status` 查看基线；无基线 → `no_baseline`（exit 0，先 create） |
+| `harness design:scan [--scope business\|data\|code\|all] [--json]` | 设计阶段现状识别（设计阶段治理）：PRD 确认后技术方案 Part A 的事实来源——业务模块/服务盘点、数据模型与字段（migrations/prisma/sql/entity/model）、公共符号清单（导出函数/常量/类 + 文件位置） |
+| `harness reuse-adherence [--json]` | 技术方案复用决策落地校验（设计阶段治理）：解析 `docs/designs/<task>/tech-design.md` 复用矩阵——调用已有（非定义文件被引用）/ 扩展已有（依据文件存在）/ 新封装公用（导出且被用）/ 新建局部（仅单文件）；fail>0 exit 1，无法判定 → warning 不阻断 |
 | `harness doctor` | 项目体检 |
 | `harness config:check` | 配置校验 + 默认值使用报告 |
 | `harness plugins:list` | 列出已加载插件（check / scanner / preset） |
