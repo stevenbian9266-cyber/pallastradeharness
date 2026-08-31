@@ -19,7 +19,7 @@ const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TEMPLATES_DIR = resolve(PACKAGE_ROOT, 'templates', 'prd');
 const DEFAULT_TEMPLATE = resolve(TEMPLATES_DIR, '_TEMPLATE.md');
 
-// 通用 PRD 模板（引擎内置；项目可用 docs/prd/_TEMPLATE.md 覆盖）
+// 通用 PRD 模板（引擎内置；项目可用 docs/prd/_TEMPLATE.md 覆盖；token 优化 6.5：精简说明块、保留骨架）
 const BUILTIN_PRD_TEMPLATE = `# PRD-{YYYYMMDD}-{category}-{slug}
 
 | 元数据 | 值 |
@@ -30,18 +30,13 @@ const BUILTIN_PRD_TEMPLATE = `# PRD-{YYYYMMDD}-{category}-{slug}
 | 分类 | （自动判定） |
 | 需求类型 | 新功能 / 优化迭代 / Bug 修复 / 接口变更 / 样式 / 文档 |
 
-> 🔁 查重回写：\`harness prd new\` 自动查重（相似度 > 0.3 阻止新建）。
-> 命中相似 PRD 用 \`harness prd update\` 回写原 PRD，不得新建重复文档。
+> 查重回写：\`harness prd new\` 自动查重；命中相似 PRD 用 \`harness prd update\` 回写原档，不得新建重复 PRD。
 
 ## 1. 背景与目标
-- **一句话需求原文**：<用户输入原文>
-- **背景**：为什么做、解决什么问题
-- **目标**：期望达成的结果
-- **成功指标**：可量化指标
+- 一句话需求原文 / 背景 / 目标 / 成功指标
 
 ## 2. 用户故事 / 场景
-- 作为 <角色>，我希望 <能力>，以便 <价值>
-- 场景列表（正常流 + 边界 + 异常）
+- 作为 <角色>，我希望 <能力>，以便 <价值>（正常流 + 边界 + 异常）
 
 ## 3. 功能需求（FR）
 - FR-001：<可验收的功能描述>
@@ -56,9 +51,7 @@ const BUILTIN_PRD_TEMPLATE = `# PRD-{YYYYMMDD}-{category}-{slug}
 - 涉及组件 / 文件 / 依赖 / 数据库 / 接口
 
 ## 7. 测试计划
-- 新增测试文件（路径清单）
-- 更新测试文件（路径 + 变更点）
-- 覆盖的 AC 映射（AC-xxx → 测试文件）
+- 新增/更新测试文件（路径）+ 覆盖的 AC 映射
 
 ## 8. 文档同步清单
 - 需同步的知识文档 / API 文档 / README

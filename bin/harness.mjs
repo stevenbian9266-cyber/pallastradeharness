@@ -547,10 +547,14 @@ else if (cmd === 'gate') {
     process.exit(EXIT_CODES.USAGE_OR_CONFIG);
   }
   const { checks: pluginChecks } = normalizedPlugins;
-  let baseChecks = getGateChecks(config, taskType);
+  let baseChecks = getGateChecks(config, taskType, taskDesc);
   // HTH-014: --lite 跳过 PRD 工作流检查（真 Lite，方案 F-07）
   const PRD_CHECKS = new Set(['read-skill-prd', 'create-prd-doc', 'create-req-doc', 'req-doc-has-skill-table', 'user-confirmed']);
   if (hasArg(args, '--lite')) baseChecks = baseChecks.filter(check => !PRD_CHECKS.has(check.id));
+  // token 优化（6.7）：output.requireSkillRead=false 时移除 read-skill-*（默认 true 保约束）
+  if (config.output?.requireSkillRead === false) {
+    baseChecks = baseChecks.filter(check => !check.id.startsWith('read-skill-'));
+  }
   const checks = pluginChecks.length
     ? [...baseChecks, ...pluginChecks.map(pc => ({ id: `plugin-${pc.id}`, label: `[plugin] ${pc.label}` }))]
     : baseChecks;
@@ -605,9 +609,18 @@ else if (cmd === 'gate') {
   console.log(`   Type: ${taskType}`);
   console.log(`   Branch: ${branch} @ ${head.slice(0, 8)}`);
   console.log(`\n   Clear preparation checks before writing code; verification remains open until evidence is recorded.\n`);
-  for (const c of checks) {
-    console.log(`   [ ] ${c.id} (${c.phase || GATE_PHASES.PREPARATION})`);
-    console.log(`       ${c.label}`);
+  // token 优化（6.1）：--quiet 或 output.gateListVerbose=false 时只输出计数+提示
+  const listVerbose = !(hasArg(args, '--quiet') || config.output?.gateListVerbose === false);
+  if (listVerbose) {
+    for (const c of checks) {
+      console.log(`   [ ] ${c.id} (${c.phase || GATE_PHASES.PREPARATION})`);
+      console.log(`       ${c.label}`);
+    }
+  } else {
+    const preparationCount = checks.filter(c => (c.phase || GATE_PHASES.PREPARATION) === GATE_PHASES.PREPARATION).length;
+    console.log(`   ${checks.length} checks (${preparationCount} preparation, ${checks.length - preparationCount} verification)`);
+    console.log(`   Full check list: ${gateFile}`);
+    console.log(`   Status: harness gate:status [--short]`);
   }
   console.log(`\n   To mark a check as done:`);
   console.log(`   harness gate:clear --gate ${gateId} --clear <check-id>`);
@@ -680,6 +693,17 @@ else if (cmd === 'gate:status') {
 
   // Differentiated expiry: from project config gates.expiryHours
   const maxAge = config.gates?.expiryHours?.[gateState.taskType] || 24;
+
+  // token 优化（6.1）：--short 单行输出状态（退出码语义与多行版一致）
+  if (hasArg(args, '--short')) {
+    const shortPhase = gateState.cleared ? 'FINISHED' : gateState.implementationReady ? 'IMPLEMENTATION' : 'PREPARATION';
+    const remaining = gateState.cleared
+      ? 0
+      : pendingChecks(gateState, gateState.implementationReady ? GATE_PHASES.VERIFICATION : GATE_PHASES.PREPARATION).length;
+    const shortOk = gateState.cleared ? hoursAgo <= maxAge : gateState.implementationReady;
+    console.log(`${gateState.id} | ${shortPhase} | remaining=${remaining} | ${shortOk ? 'ok' : shortPhase === 'PREPARATION' ? 'blocked' : 'expired'}`);
+    process.exit(shortOk ? EXIT_CODES.OK : EXIT_CODES.POLICY_FAILURE);
+  }
 
   console.log(`\n📋 Active Gate: ${gateState.id}`);
   console.log(`   Task: ${gateState.taskDescription}`);
@@ -780,8 +804,9 @@ else if (cmd === 'gate:clear') {
   recomputeGateState(gateState);
   writeFileSync(gateFile, JSON.stringify(gateState, null, 2));
 
-  console.log(`✅ ${checkId}: ${check.label}`);
-  console.log(`   ${gateState.checks.filter(c => c.status === 'done').length}/${gateState.checks.length} checks cleared`);
+  // token 优化（6.1）：回显精简——不重复输出 check 描述（label）
+  const doneCount = gateState.checks.filter(c => c.status === 'done').length;
+  console.log(`✅ ${checkId} — ${doneCount}/${gateState.checks.length} checks cleared`);
 
   if (gateState.cleared) {
     console.log(`\n✅ GATE FINISHED — preparation and verification are complete.`);

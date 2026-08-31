@@ -6,7 +6,7 @@
  *  - `harness metrics`         显示聚合
  *  - `harness metrics export`  导出 JSON 供人工审阅
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { atomicWriteText, listTasks, statePaths } from './state-store.mjs';
 
@@ -17,6 +17,39 @@ function median(values) {
   return sorted.length % 2
     ? sorted[mid]
     : Math.round(((sorted[mid - 1] + sorted[mid]) / 2) * 10) / 10;
+}
+
+/** 粗略 token 估算：混合中英文文档约 4 字节/ token（可回归对比用，非精确值） */
+function estTokens(bytes) {
+  return Math.round(bytes / 4);
+}
+
+/** 递归统计目录下 .md 文档数量与字节（token 优化可度量，6.6） */
+function countDocs(dir) {
+  if (!existsSync(dir)) return { count: 0, bytes: 0 };
+  let count = 0;
+  let bytes = 0;
+  const walk = (current) => {
+    let entries;
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.name.endsWith('.md')) {
+        count += 1;
+        try {
+          bytes += statSync(full).size;
+        } catch { /* 跳过无法读取的文件 */ }
+      }
+    }
+  };
+  walk(dir);
+  return { count, bytes };
 }
 
 /** 聚合本地匿名指标（只含计数与时间戳，绝不包含文件内容/路径/命令） */
@@ -79,6 +112,27 @@ export function collectMetrics({ rootDir, config }) {
     metrics.recoveryPlans = readdirSync(recoveryDir).filter(f => f.endsWith('.json')).length;
   }
 
+  // token 优化（6.6）：产物文档统计（PRD/REQ/designs）+ 每任务 designs 明细，供量化回归
+  const prdDir = resolve(rootDir, config.paths?.prd || 'docs/prd');
+  const reqDir = resolve(rootDir, config.paths?.requirements || 'harness/requirements');
+  const designsRoot = resolve(rootDir, config.designStage?.designsDir || 'docs/designs');
+  const prdStats = countDocs(prdDir);
+  const reqStats = countDocs(reqDir);
+  const designsStats = countDocs(designsRoot);
+  metrics.artifactCounts = {
+    prd: { count: prdStats.count, bytes: prdStats.bytes, estTokens: estTokens(prdStats.bytes) },
+    req: { count: reqStats.count, bytes: reqStats.bytes, estTokens: estTokens(reqStats.bytes) },
+    designs: { count: designsStats.count, bytes: designsStats.bytes, estTokens: estTokens(designsStats.bytes) },
+  };
+  metrics.perTaskDesigns = tasks
+    .map(task => {
+      const stats = countDocs(join(designsRoot, task.id));
+      return stats.count > 0
+        ? { taskId: task.id, count: stats.count, bytes: stats.bytes, estTokens: estTokens(stats.bytes) }
+        : null;
+    })
+    .filter(Boolean);
+
   metrics.timeToFirstEvidenceMinutes = median(ttfe);
   return metrics;
 }
@@ -103,6 +157,24 @@ export function runMetrics({ rootDir, config, args }) {
     console.log('Local metrics (anonymous, privacy-first):');
     for (const [key, value] of Object.entries(metrics)) {
       if (key === 'generatedAt') continue;
+      if (key === 'artifactCounts') {
+        console.log('  artifactCounts (token 估算 ≈ bytes/4):');
+        for (const [kind, stats] of Object.entries(value)) {
+          console.log(`    ${kind.padEnd(8)} ${stats.count} docs, ${stats.bytes} bytes, ~${stats.estTokens} tokens`);
+        }
+        continue;
+      }
+      if (key === 'perTaskDesigns') {
+        console.log(`  perTaskDesigns (${value.length} task(s) with design docs):`);
+        for (const item of value) {
+          console.log(`    ${item.taskId}  ${item.count} docs, ${item.bytes} bytes, ~${item.estTokens} tokens`);
+        }
+        continue;
+      }
+      if (typeof value === 'object' && value !== null) {
+        console.log(`  ${key.padEnd(28)} ${JSON.stringify(value)}`);
+        continue;
+      }
       console.log(`  ${key.padEnd(28)} ${value}`);
     }
     console.log('  (默认不上传；可审阅导出: harness metrics export)');

@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
-  DEFAULT_CONFIG, getLayerSearchChecks, getGateChecks, BASE_VERIFY_CHECK,
+  DEFAULT_CONFIG, getLayerSearchChecks, getGateChecks, BASE_VERIFY_CHECK, designStageActive,
   findConfigPath, validateConfig, loadConfig,
 } from './config-loader.mjs';
 
@@ -157,6 +157,63 @@ test('validateConfig rejects empty layers', () => {
 
 test('validateConfig accepts a valid config', () => {
   assert.equal(validateConfig(DEFAULT_CONFIG).length, 0);
+});
+
+// ── token 优化（AC-005/AC-007/AC-006）──
+test('AC-005: gates.disableChecks 移除内置 check 且 verify-test 不可禁用', () => {
+  const config = {
+    ...structuredClone(DEFAULT_CONFIG),
+    gates: { disableChecks: { feature: ['read-skill-prd', 'create-prd-doc'] } },
+  };
+  const checks = getGateChecks(config, 'feature');
+  const ids = checks.map(c => c.id);
+  assert.ok(!ids.includes('read-skill-prd'), 'read-skill-prd 应被禁用');
+  assert.ok(!ids.includes('create-prd-doc'), 'create-prd-doc 应被禁用');
+  assert.ok(ids.includes('verify-test'), 'verify-test 证据门不可禁用');
+  // 未配置的任务类型不受影响
+  const bugfix = getGateChecks(config, 'bugfix');
+  assert.ok(bugfix.some(c => c.id === 'read-skill-domain'));
+  // 默认 disableChecks 为空 → 约束零变化
+  const defaults = getGateChecks(DEFAULT_CONFIG, 'feature');
+  assert.ok(defaults.some(c => c.id === 'read-skill-prd'));
+  // 设计检查项同样可禁用
+  const designOff = getGateChecks({
+    ...structuredClone(DEFAULT_CONFIG),
+    gates: { disableChecks: { feature: ['create-tech-design'] } },
+  }, 'feature');
+  assert.ok(!designOff.some(c => c.id === 'create-tech-design'));
+});
+
+test('AC-007: output 配置段默认值 = 现状（gateListVerbose true / limit 20 / requireSkillRead true）', () => {
+  assert.equal(DEFAULT_CONFIG.output.gateListVerbose, true);
+  assert.equal(DEFAULT_CONFIG.output.taskListDefaultLimit, 20);
+  assert.equal(DEFAULT_CONFIG.output.requireSkillRead, true);
+  assert.deepEqual(Object.keys(DEFAULT_CONFIG.gates.disableChecks), []);
+});
+
+test('AC-006: designStage auto 模式按 uiKeywords 决定是否插入设计检查', () => {
+  // enabled='auto' + 命中 UI 关键词 → 含设计检查
+  const uiConfig = { ...structuredClone(DEFAULT_CONFIG), designStage: { enabled: 'auto', uiKeywords: ['ui', '页面', '组件'] } };
+  const uiChecks = getGateChecks(uiConfig, 'feature', '新增：用户登录页面');
+  assert.ok(uiChecks.some(c => c.id === 'create-ui-doc'), '命中「页面」应含设计检查');
+  assert.ok(uiChecks.some(c => c.id === 'reuse-adherence-gate'), '命中时应含 reuse-adherence-gate');
+  // enabled='auto' + 未命中（后端任务）→ 不含设计检查
+  const backendChecks = getGateChecks(uiConfig, 'feature', '优化：引擎 token 输出精简');
+  assert.ok(!backendChecks.some(c => c.id === 'create-ui-doc'), '未命中 UI 关键词不应含设计检查');
+  assert.ok(!backendChecks.some(c => c.id === 'reuse-adherence-gate'));
+  // enabled='true' 始终插入（默认，约束不变）
+  const always = getGateChecks(DEFAULT_CONFIG, 'feature', '优化：纯后端任务');
+  assert.ok(always.some(c => c.id === 'create-ui-doc'));
+  // 无 taskDesc 时 auto 视同不命中（保守）
+  assert.ok(!getGateChecks(uiConfig, 'feature').some(c => c.id === 'create-ui-doc'));
+});
+
+test('designStageActive 布尔/auto/false 语义', () => {
+  assert.equal(designStageActive(DEFAULT_CONFIG, '任意'), true);
+  assert.equal(designStageActive({ designStage: { enabled: false } }, '任意'), false);
+  assert.equal(designStageActive({ designStage: { enabled: 'auto', uiKeywords: ['ui'] } }, '构建 UI 组件'), true);
+  assert.equal(designStageActive({ designStage: { enabled: 'auto', uiKeywords: ['ui'] } }, 'build'), false); // 'ui' 词边界不命中 build
+  assert.equal(designStageActive({ designStage: { enabled: 'auto', uiKeywords: ['storefront'] } }, '优化 storefront 页面'), true);
 });
 
 test('loadConfig memoizes within same process (per rootDir)', async () => {

@@ -128,8 +128,10 @@ npx harness risk check --task <TASK-ID>
 
 # 3. 打开 Gate（绑定任务）
 npx harness gate --task "新增：我的功能" --task-id <TASK-ID>
+# 可加 --quiet 只输出计数（token 优化）；或配置 output.gateListVerbose=false
 # ... 清理 preparation checks ...
 npx harness gate:clear --gate <GATE-ID> --clear <check-id>
+npx harness gate:status --short               # 单行状态（token 优化）
 
 # 4. 生成允许/禁止修改范围与适用规范
 npx harness supervise plan --task "新增：我的功能" --allow "src/**" "test/**"

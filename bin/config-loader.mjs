@@ -37,6 +37,17 @@ export const DEFAULT_CONFIG = {
     },
     // 项目追加的 check（合并进内置基础 check 集）
     checkDefs: {},
+    // 允许项目按任务类型禁用内置 check（token 优化；默认空 = 约束零变化）
+    // 例：{ feature: ['read-skill-prd', 'create-prd-doc'] }
+    // 保护：verify-test（证据门）与 search-*（跨层搜索强制）不可禁用。
+    disableChecks: {},
+  },
+
+  // ②' 输出级可调项（token 优化；默认值=现状，仅需要的项目降档）
+  output: {
+    gateListVerbose: true,     // gate 创建是否输出全部 check 列表（false → 只输出计数+提示）
+    taskListDefaultLimit: 20,  // task list 默认条数（0 = 全量）
+    requireSkillRead: true,    // gate 是否强制读 skill 检查项（false → 移除 read-skill-*，默认 true 保约束）
   },
 
   // ③ 知识同步规则（doc-impact）— 默认空数组不炸
@@ -82,9 +93,11 @@ export const DEFAULT_CONFIG = {
   },
 
   // ⑧'''' designStage — 设计阶段治理（PRD 确认后 → UI/交互/视觉/技术方案 → design-confirmed）
+  // enabled: true | false | 'auto'（token 优化：auto 仅任务描述命中 uiKeywords 时强制）
   designStage: {
     enabled: true,
     designsDir: 'docs/designs',
+    uiKeywords: ['ui', '页面', '组件', '交互', '视觉', '样式', 'storefront', 'dashboard'],
   },
 
   // ⑦ check profiles
@@ -277,14 +290,42 @@ const DESIGN_STAGE_CHECKS = [
 ];
 
 /**
+ * designStage 是否对当前任务生效（token 优化，6.2）
+ *  - enabled === false        → 永不生效
+ *  - enabled === 'auto'       → 任务描述命中 uiKeywords 才生效
+ *  - enabled === true|undefined → 始终生效（默认，约束不变）
+ */
+export function designStageActive(config, taskDesc) {
+  const stage = config?.designStage || {};
+  if (stage.enabled === false) return false;
+  if (stage.enabled === 'auto') {
+    const keywords = stage.uiKeywords?.length ? stage.uiKeywords : DEFAULT_CONFIG.designStage.uiKeywords;
+    const text = String(taskDesc || '').toLowerCase();
+    return keywords.some(keyword => {
+      const kw = String(keyword).toLowerCase();
+      // 纯 ASCII 短词用词边界匹配（避免 'ui' 命中 'build' 等子串）
+      return /^[a-z0-9-]+$/.test(kw)
+        ? new RegExp(`\\b${kw}\\b`).test(text)
+        : text.includes(kw);
+    });
+  }
+  return true;
+}
+
+/**
  * 生成某任务类型的完整 gate check 列表
  * = layers 搜索 check + 内置基础 check + 配置追加 check + verify-test
+ * @param {object} config 项目配置
+ * @param {string} taskType 任务类型（feature/bugfix/...）
+ * @param {string} [taskDesc] 任务描述（designStage 'auto' 模式判定用，可选）
  */
-export function getGateChecks(config, taskType) {
+export function getGateChecks(config, taskType, taskDesc) {
   const layers = config.layers || DEFAULT_CONFIG.layers;
   const searchChecks = getLayerSearchChecks(layers);
   const base = BASE_CHECK_DEFS[taskType] || BASE_CHECK_DEFS.feature;
   const extra = config.gates?.checkDefs?.[taskType] || [];
+  // token 优化（6.3）：允许项目按任务类型禁用内置 check；verify-test 证据门不可禁用
+  const disabled = new Set((config.gates?.disableChecks?.[taskType] || []).filter(id => id !== 'verify-test'));
   // 按 id 去重（内置 base 优先；项目 config 若重复配置同 id 不重复出现）
   const seen = new Set();
   const merged = [...base, ...extra].filter(c => {
@@ -292,13 +333,18 @@ export function getGateChecks(config, taskType) {
     seen.add(c.id);
     return true;
   });
-  const withPhase = merged.map(check => ({
-    ...check,
-    phase: check.phase || GATE_PHASES.PREPARATION,
-  }));
-  // 设计阶段检查项：feature 类且 designStage.enabled 时插入 user-confirmed 之后
-  if (taskType === 'feature' && config.designStage?.enabled !== false) {
-    const designChecks = DESIGN_STAGE_CHECKS.map(c => ({ ...c, phase: GATE_PHASES.PREPARATION }));
+  const withPhase = merged
+    .filter(c => !disabled.has(c.id))
+    .map(check => ({
+      ...check,
+      phase: check.phase || GATE_PHASES.PREPARATION,
+    }));
+  // 设计阶段检查项：feature 类且 designStage 生效时插入 user-confirmed 之后
+  // （designStage.enabled='auto' 时仅任务描述命中 uiKeywords 才插入）
+  if (taskType === 'feature' && designStageActive(config, taskDesc)) {
+    const designChecks = DESIGN_STAGE_CHECKS
+      .filter(c => !disabled.has(c.id))
+      .map(c => ({ ...c, phase: GATE_PHASES.PREPARATION }));
     const idx = withPhase.findIndex(c => c.id === 'user-confirmed');
     if (idx >= 0) withPhase.splice(idx + 1, 0, ...designChecks);
     else withPhase.push(...designChecks);
@@ -316,9 +362,9 @@ export function getGateChecks(config, taskType) {
   const baselineChecks = config.qualityBaseline?.enabled === true
     ? [{ id: 'baseline-gate', label: 'No-regression baseline gate: no new failures (design §14.5)', phase: GATE_PHASES.VERIFICATION }]
     : [];
-  // 设计阶段治理：feature 类且 designStage.enabled 时追加 reuse-adherence-gate（verification），
+  // 设计阶段治理：feature 类且 designStage 生效时追加 reuse-adherence-gate（verification），
   // 由 reuse-adherence 验证器证据自动满足（技术方案复用决策落地校验）
-  const reuseChecks = taskType === 'feature' && config.designStage?.enabled !== false
+  const reuseChecks = taskType === 'feature' && designStageActive(config, taskDesc)
     ? [{ id: 'reuse-adherence-gate', label: 'Reuse adherence: tech-design reuse matrix verified (design stage)', phase: GATE_PHASES.VERIFICATION }]
     : [];
   return [...searchChecks, ...withPhase, ...coverageChecks, ...visualChecks, ...baselineChecks, ...reuseChecks, BASE_VERIFY_CHECK];
