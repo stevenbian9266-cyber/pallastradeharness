@@ -4,7 +4,7 @@ All notable changes to **pallastrade-harness** are documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: [SemVer](https://semver.org/)
 
-## [Unreleased]
+## [1.9.0] — 2026-08-31
 
 ### Token 优化（RESEARCH-20260831-harness-token-optimization.md §6，约束零变化）
 
@@ -18,6 +18,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: 
 - `harness metrics`：新增产物文档统计（PRD/REQ/designs 计数 + 字节 + token 估算 ≈ bytes/4）与每任务 designs 明细（`perTaskDesigns`），供优化效果量化回归
 - 内置 PRD 模板随包精简（`templates/prd/_TEMPLATE.md` + `docs-gen.mjs` BUILTIN）：删除 ⚠️ 示例/说明块，保留结构骨架
 - 单测：新增 token 优化用例（config-loader 4 / design-scan 1 / metrics 1 / task-orchestrator 1 / cli-e2e 2），全量 283/283 通过
+
+### 其他
+
+- 移除仓库内两个设计文档（`harness持续治理机制设计(1).md` / `从零开始项目完整路径演示.md`）：改为本地编辑、不入库（`.gitignore` 防再提交）——chore，不影响引擎功能
 
 ## [1.8.0] — 2026-08-30
 

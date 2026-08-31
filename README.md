@@ -72,7 +72,7 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.8.0`；`v1.8.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.9.0`；`v1.9.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 版本信息自动同步：发布后由 `npx harness readme:sync --write` 从 `CHANGELOG.md` 校正（CI 用 `--check` 防漂移）
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
@@ -85,6 +85,7 @@ npx harness docs:check
 
 | 版本 | 亮点 |
 |---|---|
+| **v1.9.0** | ⚠️ 【自动生成·待润色】 `gate --quiet`：只输出 check 计数 + 必读提示（默认全量保留）；`config.output.gateListVerbose=false` 等价降档 |
 | **v1.8.0** | ⚠️ 【自动生成·待润色】 `prd verify --semantic`：AC 语义校验，拒绝空断言 / 过度 mock 的"假覆盖"（新增 `bin/ac-semantic.mjs`） |
 | **v1.7.0** | **Trust Kernel（可信内核）**：ChangeSnapshot（Task/Gate/Evidence/提交绑定同一可重算变更快照，RFC-0002）；Verifier Registry（`harness verify`，任意命令降级 diagnostic，手工证据 `success:null` + `--approve`）；Task 强绑定（新 Gate 必须绑定 Task，Taskless Gate 隔离，verify-test 一律证据控制）；Node 化安全 Hook（`harness hooks doctor`）；可执行文档（getting-started task-bound 生命周期 + `docs:check` 过时命令防漂移）；独立仓自治理（AGENTS.md/config/lefthook/SECURITY/CHANGELOG + GitHub Ruleset `main-protection` 禁直推/强推/删除）；引导式体验（`harness do`/`next` 零认知路径 + 真 Lite + `harness setup` 统一接入）；`node --test` 197/197 通过 |
 | **v1.6.0** | **自动化触发补全**：`ci github --write` 生成多档位 CI（`harness.yml` PR 快速门禁：anti-patterns/secrets/doc-impact/generated-check/coverage-gate 分工 job + `harness-nightly.yml` cron 定时 full+覆盖率+场景 + `harness-release.yml` tag 触发全档+发布清单）；`onboard --write` 自动生成 `lefthook.yml`（提交物理拦截）+ `ai/hooks/`（AI 行为级安全钩子：PreToolUse 拦截破坏性 DB/force-push、PostToolUse 警告硬编码密钥）+ 配置深度补全（profiles/coverage/risk/brain/syncCheck/generatedCheck/evidence.autoVerify/supervisor，lite 档降级）；`node --test` 138/138 通过 |
