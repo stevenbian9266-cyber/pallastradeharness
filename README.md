@@ -215,11 +215,11 @@ export default {
 | 命令 | 说明 |
 |---|---|
 | `harness init` | 生成 `harness.config.mjs` 骨架（向导版规划中） |
-| `harness gate --task "..."` | 创建分阶段门禁（preparation → implementation → verification → finished） |
-| `harness gate:status / gate:clear / gate:migrate / gate:required / gate:clean` | 门禁状态与旧 Gate 迁移；只有绑定当前分支和 HEAD 的 finished Gate 能通过提交硬卡，提交后不可复用 |
+| `harness gate --task "..."` | 创建分阶段门禁（preparation → implementation → verification → finished）；`--quiet` 只输出计数+提示（默认全量） |
+| `harness gate:status [--short] / gate:clear / gate:migrate / gate:required / gate:clean` | 门禁状态（`--short` 单行）与旧 Gate 迁移；只有绑定当前分支和 HEAD 的 finished Gate 能通过提交硬卡，提交后不可复用；`gate:clear` 回显精简（计数+剩余 id） |
 | `harness standards list/select/coverage` | 查询、按 Diff 选择规范并报告 Standards Enforcement Coverage |
 | `harness supervise plan/diff` | 生成 Change Plan；审查范围漂移、技术选型、架构和新代码质量 |
-| `harness task start/status/checkpoint/resume/handoff/finish/abandon` | 可恢复的任务状态机与跨 Agent 交接；`start --ac <PRD> AC-x` 任务↔AC 绑定（§19.4） |
+| `harness task start/status/checkpoint/resume/handoff/finish/abandon` | 可恢复的任务状态机与跨 Agent 交接；`start --ac <PRD> AC-x` 任务↔AC 绑定（§19.4）；`list` 默认最近 N 条（`output.taskListDefaultLimit` 默认 20，`--all` 全量，`--status` 过滤） |
 | `harness brain index/context/decision/status` | 项目画像、知识索引、最小上下文与决策记录 |
 | `harness risk check` | Quick/Standard/Critical 风险复评；默认只能升级 |
 | `harness supervise review` | Database/API/Security/UI/Interaction/A11y/Knowledge 专项审查 |
@@ -249,6 +249,7 @@ export default {
 | `harness suggest` | 自学习：分析 gate/扫描历史，建议沉淀规则或升级档位 |
 | `harness review new/propose/apply/status` | 复盘驱动的规则自升级：复盘文档 → 规则提案 → 写回通用规则库 |
 | `harness report` | 工程机制报告（gate 通过率 / 扫描趋势 / 文档资产，`--format json`） |
+| `harness metrics / export` | 本地匿名指标 + 产物文档统计（PRD/REQ/designs 计数/字节/token 估算，token 优化） |
 | `harness eval-ai / eval-scenarios / eval-llm` | AI 行为评估（GS 场景库） |
 | `harness sync-check` | 知识同步评估门 |
 | `harness generated:check` | 生成文件漂移检查 |
@@ -268,6 +269,14 @@ export default {
 | `重构：` / `refactor:` | refactor | 跨层搜索 + 验证 |
 | `安全：` / `security:` | security | 跨层搜索 + 安全 skill + 验证 |
 | ... | ... | ... |
+
+### Token 优化（v1.9.0，约束零变化）
+
+在不削弱 gate / 跨层搜索 / 证据 / 知识同步约束的前提下降低接入后的 token 消耗。全部新能力**默认关闭或默认值=现状**，仅需要的项目按需开启（详见 `docs/commands.md` → Token 优化配置）：
+
+- **命令输出精简**：`gate --quiet`、`gate:status --short`、`gate:clear` 回显精简、`task list` 默认最近 20 条（`--all` / `--status`）。
+- **能力分级**：`config.output.*`（gateListVerbose / taskListDefaultLimit / requireSkillRead）、`config.gates.disableChecks`（按任务类型禁用内置 check，`verify-test` 证据门与 `search-*` 跨层搜索不可禁用）、`config.designStage.enabled='auto'`（仅任务描述命中 UI 关键词才强制 4 设计文档）。
+- **可度量**：`harness metrics` 输出每任务 PRD/REQ/designs 产物计数、字节与 token 估算（≈ bytes/4），供优化效果回归。
 
 ## 插件开发（§2.3 插件协议）
 

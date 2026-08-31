@@ -128,3 +128,18 @@ test('AC-002: getGateChecks feature 含设计检查项且顺序正确；关闭/�
   const reuse = checks.find(c => c.id === 'reuse-adherence-gate');
   assert.ok(reuse && reuse.phase === 'verification');
 });
+
+// token 优化（AC-006）：designStage.enabled='auto' 按任务描述命中 uiKeywords 决定设计检查
+test('AC-006: designStage auto 模式命中 UI 关键词才插入设计检查', () => {
+  const config = { ...structuredClone(DEFAULT_CONFIG), designStage: { enabled: 'auto', uiKeywords: ['ui', '页面', '组件', '交互', '视觉', '样式', 'storefront', 'dashboard'] } };
+  // 命中 → 含设计检查
+  const ui = getGateChecks(config, 'feature', '新增：storefront 商品页面');
+  assert.ok(ui.some(c => c.id === 'create-ui-doc'), '命中 storefront 应含设计检查');
+  // 未命中（后端引擎任务）→ 不含
+  const backend = getGateChecks(config, 'feature', '优化：引擎 token 输出精简');
+  assert.ok(!backend.some(c => c.id === 'create-ui-doc'), '未命中不应含设计检查');
+  assert.ok(!backend.some(c => c.id === 'reuse-adherence-gate'));
+  // 默认 enabled=true 始终插入（约束不变）
+  const always = getGateChecks({ ...DEFAULT_CONFIG }, 'feature', '优化：纯后端任务');
+  assert.ok(always.some(c => c.id === 'create-ui-doc'));
+});

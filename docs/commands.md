@@ -7,9 +7,9 @@ title: 命令参考
 | 命令 | 说明 |
 |---|---|
 | `harness init` | 生成 `harness.config.mjs` 骨架（`--preset` / `--tier` / `--ai` / `--team`） |
-| `harness gate --task "..."` | 创建分阶段门禁（前缀自动判定类型） |
-| `harness gate:status` | 当前 preparation / implementation / finished 状态（有效/过期） |
-| `harness gate:clear --gate <ID> --clear <check-id>` | 清除单个 check |
+| `harness gate --task "..."` | 创建分阶段门禁（前缀自动判定类型）；`--quiet` 只输出 check 计数 + 必读提示（默认全量；token 优化） |
+| `harness gate:status [--short]` | 当前 preparation / implementation / finished 状态（有效/过期）；`--short` 单行输出（token 优化） |
+| `harness gate:clear --gate <ID> --clear <check-id>` | 清除单个 check（回显精简：变更项 + 计数 + 剩余 id，不重复 check 描述） |
 | `harness gate:migrate [--dry-run]` | 将旧 Gate 迁移为分阶段生命周期 |
 | `harness gate:required` | 供 lefthook/CI 硬卡（未完成 verification → exit 1） |
 | `harness gate:clean` | 清理过期 gate 文件 |
@@ -19,7 +19,7 @@ title: 命令参考
 | `harness supervise plan --task <text> [--allow ...] [--deny ...]` | 输出 Risk + Change Plan + 必需规范/证据 |
 | `harness supervise diff [--base ref] [--plan path] [--json]` | 执行范围、依赖、架构、循环和新代码质量监督 |
 | `harness supervise review [--base ref] [--json]` | 执行 Database/API/Security/UI/Interaction/A11y/Knowledge 专项监督 |
-| `harness task start/status/checkpoint/resume/handoff/finish/abandon` | 持久任务状态机、检查点和跨 Agent 交接；`start --ac <PRD-ID> AC-x` 任务↔AC 绑定（§19.4，完成时校验 AC 覆盖与未认领 AC） |
+| `harness task start/status/checkpoint/resume/handoff/finish/abandon` | 持久任务状态机、检查点和跨 Agent 交接；`start --ac <PRD-ID> AC-x` 任务↔AC 绑定（§19.4，完成时校验 AC 覆盖与未认领 AC）；`list` 默认只显示最近 N 条（`config.output.taskListDefaultLimit`，默认 20；`--all` 全量；`--status <status>` 过滤；token 优化） |
 | `harness brain index/context/decision/status` | 项目画像、知识索引、最小上下文和决策记录 |
 | `harness risk check` | Quick / Standard / Critical 风险复评；自动判断只允许升级 |
 | `harness evidence run/record/list/verify/bundle/report` | 采集、验证与交付绑定代码状态的类型化证据 |
@@ -51,6 +51,7 @@ title: 命令参考
 | `harness plugins:list` | 列出已加载插件（check / scanner / preset） |
 | `harness suggest` | 自学习建议（`--format json` / `--since-days N`） |
 | `harness report` | 工程机制报告（gate 通过率 / 扫描趋势 / 文档资产） |
+| `harness metrics [--json] / export` | 本地匿名指标（HTH-019）；`metrics` 显示聚合 + 产物文档统计（PRD/REQ/designs 计数/字节/token 估算 ≈ bytes/4，token 优化 §6.6）；`metrics export [--out <file>]` 导出 JSON 供审阅 |
 | `harness eval-ai / eval-scenarios / eval-llm` | AI 行为评估（GS 场景库） |
 | `harness sync-check [--id ID] [--base ref]` | 知识同步评估门；`--base` 可将评估限定到当前任务基线 |
 | `harness generated:check` | 生成文件漂移检查 |
@@ -109,3 +110,31 @@ npx harness gate:status
 - `harness-scan-anti-patterns` — 反模式扫描
 - `harness-scan-degraded-loop` — AP-009 退化循环检测
 - `harness-scan-secrets` — 密钥扫描
+
+## Token 优化配置（v1.9.0 起，默认值 = 现状，约束零变化）
+
+在 `harness.config.mjs` 中按需降档，不削弱 gate / 跨层搜索 / 证据 / 知识同步约束：
+
+```js
+export default {
+  // 输出级可调项（默认保守保兼容）
+  output: {
+    gateListVerbose: true,     // false → gate 创建只输出计数+提示（等价 --quiet）
+    taskListDefaultLimit: 20,  // task list 默认条数（0 = 全量）
+    requireSkillRead: true,    // false → 移除 read-skill-* 检查项（默认 true 保约束）
+  },
+  // 允许按任务类型禁用内置 check（默认空；verify-test 证据门与 search-* 跨层搜索不可禁用）
+  gates: {
+    disableChecks: {
+      feature: ['read-skill-prd', 'create-prd-doc'], // 示例：轻档项目跳过 PRD 工作流
+    },
+  },
+  // designStage 分级：true（默认，全 feature 强制）| false | 'auto'
+  // 'auto'：仅任务描述命中 uiKeywords（ui/页面/组件/交互/视觉/样式/storefront/dashboard）才强制 4 设计文档
+  designStage: {
+    enabled: 'auto',
+    designsDir: 'docs/designs',
+    uiKeywords: ['ui', '页面', '组件', '交互', '视觉', '样式', 'storefront', 'dashboard'],
+  },
+};
+```

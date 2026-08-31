@@ -4,6 +4,21 @@ All notable changes to **pallastrade-harness** are documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: [SemVer](https://semver.org/)
 
+## [Unreleased]
+
+### Token 优化（RESEARCH-20260831-harness-token-optimization.md §6，约束零变化）
+
+- `gate --quiet`：只输出 check 计数 + 必读提示（默认全量保留）；`config.output.gateListVerbose=false` 等价降档
+- `gate:status --short`：单行输出状态（退出码语义不变）
+- `gate:clear` 回显精简：变更项 + 计数 + 剩余 id，不重复输出 check 描述
+- `task list`：默认只显示最近 20 条（`config.output.taskListDefaultLimit`，0=全量），`--all` 全量，`--status <status>` 过滤；`--json` 输出不受裁剪影响
+- `config.gates.disableChecks.<taskType>`：按任务类型禁用内置 check（默认空 = 约束零变化；`verify-test` 证据门与 `search-*` 跨层搜索不可禁用）
+- `config.designStage.enabled='auto'`：仅任务描述命中 `uiKeywords`（ui/页面/组件/交互/视觉/样式/storefront/dashboard，可配置）才插入 4 设计文档检查与 `reuse-adherence-gate`；`true`（默认）行为不变
+- `config.output.requireSkillRead`：false 时移除 `read-skill-*` 检查项（默认 true 保约束）
+- `harness metrics`：新增产物文档统计（PRD/REQ/designs 计数 + 字节 + token 估算 ≈ bytes/4）与每任务 designs 明细（`perTaskDesigns`），供优化效果量化回归
+- 内置 PRD 模板随包精简（`templates/prd/_TEMPLATE.md` + `docs-gen.mjs` BUILTIN）：删除 ⚠️ 示例/说明块，保留结构骨架
+- 单测：新增 token 优化用例（config-loader 4 / design-scan 1 / metrics 1 / task-orchestrator 1 / cli-e2e 2），全量 283/283 通过
+
 ## [1.8.0] — 2026-08-30
 
 ### 设计阶段治理与发布前强化（P0–P5，设计文档 §15/§17/§18/§19/§19A）

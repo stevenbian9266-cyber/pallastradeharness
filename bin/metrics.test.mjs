@@ -69,8 +69,41 @@ test('metrics export contains only counts and timestamps (privacy-first)', () =>
     assert.ok(!json.includes('README'), 'no file contents');
     for (const [key, value] of Object.entries(m)) {
       if (key === 'generatedAt') { assert.ok(typeof value === 'string'); continue; }
+      if (key === 'artifactCounts' || key === 'perTaskDesigns') {
+        assert.ok(typeof value === 'object' && value !== null, `${key} is an object`);
+        continue;
+      }
       assert.ok(typeof value === 'number' || value === null, `${key} is numeric or null`);
     }
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+// ── token 优化（AC-008）：产物文档统计 ──
+test('metrics counts PRD/REQ/designs artifacts with token estimate', () => {
+  const { rootDir, config } = project();
+  try {
+    const task = startTask({ rootDir, config, title: 'T' });
+    // 造 PRD / REQ / designs 产物
+    mkdirSync(join(rootDir, 'docs', 'prd'), { recursive: true });
+    mkdirSync(join(rootDir, 'harness', 'requirements'), { recursive: true });
+    mkdirSync(join(rootDir, 'docs', 'designs', task.id), { recursive: true });
+    writeFileSync(join(rootDir, 'docs', 'prd', 'PRD-1.md'), '# PRD body '.repeat(40)); // 400 bytes
+    writeFileSync(join(rootDir, 'harness', 'requirements', 'REQ-1.md'), '# REQ body '.repeat(20)); // 180 bytes
+    writeFileSync(join(rootDir, 'docs', 'designs', task.id, 'ui.md'), '# ui '.repeat(10)); // 40 bytes
+    writeFileSync(join(rootDir, 'docs', 'designs', task.id, 'tech-design.md'), '# tech '.repeat(10)); // 48 bytes
+
+    const m = collectMetrics({ rootDir, config });
+    assert.equal(m.artifactCounts.prd.count, 1);
+    assert.ok(m.artifactCounts.prd.bytes >= 400, 'PRD bytes counted');
+    assert.ok(m.artifactCounts.prd.estTokens > 0, 'PRD token estimate');
+    assert.equal(m.artifactCounts.req.count, 1);
+    assert.equal(m.artifactCounts.designs.count, 2);
+    const perTask = m.perTaskDesigns.find(item => item.taskId === task.id);
+    assert.ok(perTask, 'perTaskDesigns includes task with design docs');
+    assert.equal(perTask.count, 2);
+    assert.ok(perTask.estTokens > 0);
   } finally {
     rmSync(rootDir, { recursive: true, force: true });
   }

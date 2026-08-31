@@ -277,3 +277,69 @@ test('setup --dry-run lists files; doctor covers protection layers (HTH-012/015)
     rmSync(rootDir, { recursive: true, force: true });
   }
 });
+
+// ── token 优化（AC-001/AC-002/AC-003）：gate --quiet / gate:status --short / gate:clear 精简 ──
+test('gate --quiet omits check list but writes gate file; gate:status --short single line', () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-cli-quiet-'));
+  try {
+    assert.equal(run(rootDir, ['init', '--preset', 'single', '--tier', 'lite', '--name', 'e2e']).status, 0);
+    git(rootDir, ['init', '-b', 'main']);
+    git(rootDir, ['config', 'user.email', 'harness@example.test']);
+    git(rootDir, ['config', 'user.name', 'Harness Test']);
+    git(rootDir, ['add', '.']);
+    git(rootDir, ['commit', '-m', 'init']);
+
+    const started = run(rootDir, ['task', 'start', '--title', '文档：Quiet gate', '--allow', 'README.md', '--json']);
+    assert.equal(started.status, 0, started.stderr);
+    const taskId = JSON.parse(started.stdout).id;
+
+    const opened = run(rootDir, ['gate', '--task', '文档：Quiet gate', '--task-id', taskId, '--quiet']);
+    assert.equal(opened.status, 1);
+    assert.ok(!opened.stdout.includes('[ ]'), '--quiet 不输出逐条 check 列表');
+    assert.match(opened.stdout, /checks \(/);
+
+    // gate 文件仍写入且包含完整 check 列表（约束不减）
+    const gateFile = readdirSync(join(rootDir, 'harness', 'gates')).find(file => file.endsWith('.json'));
+    assert.ok(gateFile, 'gate file written');
+    const gate = JSON.parse(readFileSync(join(rootDir, 'harness', 'gates', gateFile), 'utf-8'));
+    assert.ok(gate.checks.length > 0, 'gate checks persisted');
+
+    // gate:status --short：单行 + 退出码语义不变（PREPARATION 未清 → exit 1）
+    const short = run(rootDir, ['gate:status', '--short']);
+    assert.equal(short.status, 1);
+    const lines = short.stdout.trim().split('\n');
+    assert.equal(lines.length, 1, `--short 应单行输出，实际:\n${short.stdout}`);
+    assert.match(short.stdout, /\| PREPARATION \| remaining=\d+/);
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+// ── token 优化（AC-003）：gate:clear 回显精简（不重复 check 描述）──
+test('gate:clear 回显精简：无 label 重复，含计数与剩余 id', () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-cli-clear-'));
+  try {
+    assert.equal(run(rootDir, ['init', '--preset', 'single', '--tier', 'lite', '--name', 'e2e']).status, 0);
+    git(rootDir, ['init', '-b', 'main']);
+    git(rootDir, ['config', 'user.email', 'harness@example.test']);
+    git(rootDir, ['config', 'user.name', 'Harness Test']);
+    git(rootDir, ['add', '.']);
+    git(rootDir, ['commit', '-m', 'init']);
+
+    const started = run(rootDir, ['task', 'start', '--title', '文档：Clear echo', '--allow', 'README.md', '--json']);
+    assert.equal(started.status, 0, started.stderr);
+    const taskId = JSON.parse(started.stdout).id;
+    run(rootDir, ['gate', '--task', '文档：Clear echo', '--task-id', taskId, '--quiet']);
+    const gateFile = readdirSync(join(rootDir, 'harness', 'gates')).find(file => file.endsWith('.json'));
+    const gate = JSON.parse(readFileSync(join(rootDir, 'harness', 'gates', gateFile), 'utf-8'));
+
+    const first = gate.checks.find(c => c.id === 'search-app' || c.id === 'search-bin') || gate.checks[0];
+    const cleared = run(rootDir, ['gate:clear', '--gate', gate.id, '--clear', first.id]);
+    // 单项清除后 gate 未全清 → exit 1（正常语义）；回显仍应精简
+    assert.match(cleared.stdout, /✅ .* — \d+\/\d+ checks cleared/);
+    // 不重复输出 check label（描述）
+    assert.ok(!cleared.stdout.includes(first.label), '回显不应重复 check 描述 label');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});

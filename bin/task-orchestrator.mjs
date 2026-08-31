@@ -227,9 +227,27 @@ function startCommand({ rootDir, config, args, json }) {
   output(task, json, `✅ Task ${task.id} started (${task.riskLevel}) — next: harness brain context --task ${task.id}`);
 }
 
-function listCommand({ rootDir, config, json }) {
-  const tasks = listTasks(rootDir, config);
-  output(tasks, json, tasks.length > 0 ? tasks.map(task => `${task.id}  ${task.status.padEnd(12)} ${task.riskLevel.padEnd(8)} ${task.title}`).join('\n') : 'No tasks.');
+function listCommand({ rootDir, config, args = [], json }) {
+  let tasks = listTasks(rootDir, config);
+  // token 优化（6.4）：--status 过滤
+  const statusFilter = getArg(args, '--status');
+  if (statusFilter) tasks = tasks.filter(task => task.status === statusFilter);
+  if (json) {
+    output(tasks, json, '');
+    return;
+  }
+  if (tasks.length === 0) {
+    console.log('No tasks.');
+    return;
+  }
+  // token 优化（6.4）：默认只显示最近 N 条（config.output.taskListDefaultLimit，默认 20；--all 全量）
+  const limit = hasArg(args, '--all') ? 0 : Number(config.output?.taskListDefaultLimit ?? 20);
+  const shown = limit > 0 ? tasks.slice(0, limit) : tasks;
+  const lines = shown.map(task => `${task.id}  ${task.status.padEnd(12)} ${task.riskLevel.padEnd(8)} ${task.title}`);
+  if (limit > 0 && tasks.length > limit) {
+    lines.push(`（显示最近 ${limit} 条，共 ${tasks.length} 条；--all 查看全部）`);
+  }
+  console.log(lines.join('\n'));
 }
 
 function statusCommand({ task, json }) {
@@ -305,7 +323,7 @@ export function runTask({ rootDir, config, args, verificationProvider = null }) 
   const subcommand = args[1] || 'status';
   const json = hasArg(args, '--json') || getArg(args, '--format') === 'json';
   if (subcommand === 'start') return startCommand({ rootDir, config, args, json });
-  if (subcommand === 'list') return listCommand({ rootDir, config, json });
+  if (subcommand === 'list') return listCommand({ rootDir, config, args, json });
   const task = resolveTask(rootDir, config, getArg(args, '--task'), { allowTerminal: subcommand === 'status' || subcommand === 'handoff' });
   const handler = TASK_COMMANDS[subcommand];
   if (handler) return handler({ rootDir, config, args, task, json, verificationProvider });
