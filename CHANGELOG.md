@@ -4,6 +4,31 @@ All notable changes to **pallastrade-harness** are documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: [SemVer](https://semver.org/)
 
+## [1.10.0] — 2026-09-18
+
+### MCP 全量机制接入（RFC-0004）— Phase 0（内核）
+
+- 新增 `bin/command-registry.mjs`：命令注册表单一事实源（30 条生命周期核心命令 + 四档写/暴露政策 + 契约校验器 + 36 个冻结 MCP 工具名清单）
+- 新增 `bin/gate-commands.mjs`：`gate` / `gate:status` / `gate:clear` 内联逻辑提炼为数据函数（CLI/MCP 共用；输出与退出码零变化）
+- 修复既有循环依赖：提取 `bin/skill-index.mjs`（`skill.mjs` ⇄ `skill-audit.mjs`）
+- 单测：command-registry（8）+ gate-commands（5）
+
+### MCP 全量机制接入（RFC-0004）— Phase 1（零安装接入）
+
+- 新增独立入口 `harness-mcp`（`bin/mcp-server.mjs`）：`npx -y -p pallastrade-harness harness-mcp [--root <dir>]` 即启，无需安装
+- root 定位链：`--root` > `HARNESS_ROOT` > MCP `roots/list` 协商 > cwd 向上查找；非法 root 报错退出（exit 2）
+- L1 工具面 13 → 20：新增 `gate_create` / `gate_status` / `gate_clear` / `run_verifier` / `get_next_action` / `get_task` / `list_tasks`
+- 业务失败统一错误信封（`isError:true` + `{code,message,hint?,nextAction?}`，RFC-0004 §6.1）；human-WAIT 检查项（`user-confirmed`/`design-confirmed`）MCP 禁裸清（决策 D5）
+- `run_verifier` 仅执行注册表验证器（白名单，无任意命令面）；复用 `bin/verifier.mjs` 既有 `runVerifier`
+- 工具面 ↔ 注册表冻结清单一致性契约测试；真 stdio 端到端测试（`--root` 优先 / roots 协商 / 任务+门禁闭环）
+- 单测：mcp（+3）+ mcp-server（3）；全量 303/303 通过
+
+### MCP 全量机制接入（RFC-0004）— Phase 1 收尾（接入配置与文档）
+
+- `harness mcp:config --target <vscode|cursor|claude-code|claude-desktop|codex|all> [--write] [--json] [--spec]`：5 客户端接入配置生成（默认 pin `@1.10`；项目内 JSON 文件可写盘且幂等，用户级目标打印片段）
+- 接入文档批次：新增 `docs/mcp.md`（接入/工具面/安全模型/排查）；`docs/commands.md`、`docs/index.md`、`docs/getting-started.md`、README 同步
+- 单测：mcp-config（6）；全量 309/309 通过
+
 ## [1.9.0] — 2026-08-31
 
 ### Token 优化（RESEARCH-20260831-harness-token-optimization.md §6，约束零变化）

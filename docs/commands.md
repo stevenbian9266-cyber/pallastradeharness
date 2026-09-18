@@ -30,7 +30,8 @@ title: 命令参考
 | `harness adapter register / registered / unregister` | Agent 能力登记与诚实保护报告（§17.3.2）：`register --id <id> --capabilities a,b,c` 校验并保存；`registered` 输出 enforced/guarded/advisory 大白话描述；`unregister --id <id>` 移除 |
 | `harness governance:init / status / version` | 治理版本与项目画像（§15 总前置条件）：`init --name <n>` 建 `harness/project.yaml`；`status` 大白话报告未就绪项；`version` 仅当 `governance_ready` 时锁定 `governance-0.1.0`（状态机只前进，禁止覆盖） |
 | `harness wizard init / step / status / from / finish / reset` | 从零项目 10 步向导（§17.7）：`init --name <n>` 开始；`step --n <1-9> --answer <v>` 逐步记录（多选逗号分隔）；`status` 进度；`from --file <answers.json>` 批量载入；`finish` 生成项目底座并锁定治理版本；`reset` 清空。答案存 `.harness-state/wizard/answers.json`（可恢复） |
-| `harness mcp` | 启动无任意 shell 能力的 stdio MCP 服务 |
+| `harness mcp [--root <dir>]` | 启动无任意 shell 能力的 stdio MCP 服务（root 优先级：`--root` > `HARNESS_ROOT` > roots 协商 > cwd） |
+| `harness mcp:config --target <vscode\|cursor\|claude-code\|claude-desktop\|codex\|all>` | 生成 5 客户端 MCP 接入配置（默认 pin `@1.10`；`--write` 写项目内文件，用户级目标打印片段；`--json` 结构化） |
 | `harness tui [--json] [--watch]` | 展示任务、风险、Gate、证据和下一步动作 |
 | `harness config:migrate / state:migrate` | dry-run 优先迁移至 1.0 schema；`--write` 后自动备份 |
 | `harness ci github [--base main] [--write]` | 生成多档位 CI（v1.6.0）：`harness.yml`（PR 快速门禁：anti-patterns/secrets/doc-impact/generated-check/coverage-gate 分工 job + 主矩阵）、`harness-nightly.yml`（cron 定时：check --profile full + coverage --enforce + scenarios/freshness）、`harness-release.yml`（tag 触发：全档 + 发布清单） |

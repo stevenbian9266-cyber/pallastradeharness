@@ -1,10 +1,11 @@
 {
   "name": "pallastrade-harness",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Local-first AI-native SDLC governance, development supervision, evidence, recovery, and project knowledge orchestration.",
   "type": "module",
   "bin": {
     "harness": "./bin/harness.mjs",
+    "harness-mcp": "./bin/mcp-server.mjs",
     "harness-scan-anti-patterns": "./bin/scan-anti-patterns.mjs",
     "harness-scan-ui-anti-patterns": "./bin/scan-ui-anti-patterns.mjs",
     "harness-scan-degraded-loop": "./bin/check-degraded-loop.mjs",

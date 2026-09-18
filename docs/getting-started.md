@@ -173,6 +173,22 @@ npx harness task finish --task <TASK-ID>
 > - `harness gate:clear --gate <GATE-ID> --clear verify-test`（verification 只能由 `evidence verify` 关闭）
 > - 任意命令冒充测试：`evidence run --type test -- <任意命令>` 现在标记为 `diagnostic`，不满足 Gate；请用 `harness verify <verifier-id>`
 
+---
+
+## MCP 接入（零安装，v1.10+）
+
+不需要在项目里安装任何依赖：一条命令生成客户端配置，Agent 即可通过 MCP 驱动完整治理闭环。
+
+```bash
+npx harness mcp:config --target vscode --write   # 写 .vscode/mcp.json
+npx harness mcp:config --target cursor --write   # 写 .cursor/mcp.json
+npx harness mcp:config --target all --json       # 查看全部 5 客户端产物
+```
+
+- 服务入口：`npx -y -p pallastrade-harness@1.10 harness-mcp`（root 优先级：`--root` > `HARNESS_ROOT` > cwd）
+- 工具面：20 个 L1 工具（任务/门禁/证据/上下文/下一步）；human-WAIT 检查项 MCP 禁裸清
+- 完整指南：[docs/mcp.md](mcp.md)；接入规格：[RFC-0004](rfc/0004-mcp-mechanism.md)
+
 ## 7. 接入 lefthook（物理强制）
 
 ```yaml

@@ -5,7 +5,7 @@ import { execFileSync, execSync } from 'node:child_process';
 import { DEFAULT_CONFIG, loadConfig, resolveProjectRoot, getGateChecks } from './config-loader.mjs';
 import { loadPlugins, normalizePlugins } from './plugins.mjs';
 import { EXIT_CODES, getArg, hasArg, parseFilesArg } from './cli-utils.mjs';
-import { GATE_PHASES, migrateGateState, pendingChecks, recomputeGateState } from './gate-lifecycle.mjs';
+import { GATE_PHASES, migrateGateState } from './gate-lifecycle.mjs';
 
 // 项目根：从 cwd 向上查找 harness.config.*（找不到则回退脚本位置）
 const ROOT = resolveProjectRoot();
@@ -21,23 +21,6 @@ try {
 } catch (error) {
   console.error(`❌ ${error.message}`);
   process.exit(error.exitCode || EXIT_CODES.INTERNAL_ERROR);
-}
-
-// ================================================================
-// HTH-007: 自动发现当前 worktree 的活动 Task（供 gate 绑定，INV-03）
-// ================================================================
-async function autoDiscoverTask(rootDir, config) {
-  try {
-    const { listTasks, repositoryIdentity } = await import('./state-store.mjs');
-    const tasks = listTasks(rootDir, config);
-    const terminal = new Set(['completed', 'cancelled', 'abandoned']);
-    const currentWorktree = repositoryIdentity(rootDir).worktreeId;
-    const active = tasks.filter(t => !terminal.has(t.status) && (!t.worktreeId || t.worktreeId === currentWorktree));
-    if (active.length === 0) return null;
-    return active.sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0].id;
-  } catch {
-    return null;
-  }
 }
 
 // ================================================================
@@ -459,55 +442,8 @@ else if (cmd === 'hooks') {
 // ================================================================
 else if (cmd === 'gate') {
   const taskDesc = getArg(args, '--task') || args[1] || 'unspecified';
-  let taskType = getArg(args, '--type');
-
-  // Prefix → task type auto-detection
-  const PREFIX_MAP = {
-    '修复：': 'bugfix',   'fix:': 'bugfix',
-    '优化：': 'feature',  '改进：': 'feature',
-    '新增：': 'feature',  '添加：': 'feature',
-    '样式：': 'style',    'style:': 'style',
-    '需求：': 'feature',
-    '审计：': 'audit',    'audit:': 'audit',
-    '研究：': 'research', '调研：': 'research', 'research:': 'research',
-    '文档：': 'docs',     'docs:': 'docs',
-    '重构：': 'refactor', 'refactor:': 'refactor',
-    '安全：': 'security', 'security:': 'security',
-    '测试：': 'test',     'test:': 'test',
-  };
-
-  // Detect prefix if --type not explicitly set
-  if (!taskType) {
-    for (const [prefix, type] of Object.entries(PREFIX_MAP)) {
-      if (taskDesc.startsWith(prefix)) {
-        taskType = type;
-        break;
-      }
-    }
-  }
-
-  // If no prefix match, try content-based keyword detection
-  if (!taskType) {
-    const CONTENT_KEYWORDS = {
-      bugfix: ['修复', 'bug', 'fix', '错误', '报错', 'crash', '崩溃', '失败', '不行', '不能用', '缺失', '丢了'],
-      feature: ['新增', '添加', '优化', '改进', '实现', '开发', '创建', 'add', 'new', 'create', 'feature', '增加', '支持'],
-      style:  ['样式', 'UI', '颜色', '字体', '布局', '调整', '美化', 'style', 'color', 'font', 'layout', '对齐'],
-      audit: ['审计', '审查', '盘点', 'audit', 'review', '体检'],
-      research: ['研究', '调研', '评估', '分析', 'research', '探索', '方案'],
-      docs: ['文档', '说明', 'docs', 'documentation', 'doc', '手册'],
-      refactor: ['重构', '清理', '整理', 'refactor', 'rename', '删除'],
-      security: ['安全', '漏洞', '注入', 'security', 'vuln', '密钥'],
-      test: ['测试', 'test', 'spec', '用例', 'coverage'],
-    };
-
-    const lower = taskDesc.toLowerCase();
-    for (const [type, keywords] of Object.entries(CONTENT_KEYWORDS)) {
-      if (keywords.some(kw => lower.includes(kw))) {
-        taskType = type;
-        break;
-      }
-    }
-  }
+  const { detectTaskType, createGate } = await import('./gate-commands.mjs');
+  const { taskType, detectedVia } = detectTaskType({ taskDesc, explicitType: getArg(args, '--type') });
 
   // Still no type? Reject with guidance
   if (!taskType) {
@@ -527,59 +463,25 @@ else if (cmd === 'gate') {
     process.exit(1);
   }
 
-  const detectedVia = getArg(args, '--type') ? '--type flag' :
-    PREFIX_MAP[Object.keys(PREFIX_MAP).find(p => taskDesc.startsWith(p))] ? '前缀' : '内容关键词';
   console.log(`\n   ↳ 识别方式: ${detectedVia} → 任务类型: ${taskType}`);
-  const gateDir = resolve(ROOT, config.paths.gates);
-  mkdirSync(gateDir, { recursive: true });
-
-  const now = new Date();
-  const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const gateId = `GATE-${ts}`;
-  const gateFile = join(gateDir, `${gateId}.json`);
-
-  // Gate check 集由配置驱动：layers 搜索 + 内置基础 + 配置追加 + 插件 check
-  const loadedPlugins = await loadPlugins(ROOT, config);
-  const normalizedPlugins = normalizePlugins({ checks: loadedPlugins.checks });
-  const pluginErrors = [...loadedPlugins.errors, ...normalizedPlugins.errors];
-  if (pluginErrors.length > 0) {
-    for (const error of pluginErrors) console.error(`❌ [plugin] ${error}`);
-    process.exit(EXIT_CODES.USAGE_OR_CONFIG);
-  }
-  const { checks: pluginChecks } = normalizedPlugins;
-  let baseChecks = getGateChecks(config, taskType, taskDesc);
-  // HTH-014: --lite 跳过 PRD 工作流检查（真 Lite，方案 F-07）
-  const PRD_CHECKS = new Set(['read-skill-prd', 'create-prd-doc', 'create-req-doc', 'req-doc-has-skill-table', 'user-confirmed']);
-  if (hasArg(args, '--lite')) baseChecks = baseChecks.filter(check => !PRD_CHECKS.has(check.id));
-  // token 优化（6.7）：output.requireSkillRead=false 时移除 read-skill-*（默认 true 保约束）
-  if (config.output?.requireSkillRead === false) {
-    baseChecks = baseChecks.filter(check => !check.id.startsWith('read-skill-'));
-  }
-  const checks = pluginChecks.length
-    ? [...baseChecks, ...pluginChecks.map(pc => ({ id: `plugin-${pc.id}`, label: `[plugin] ${pc.label}` }))]
-    : baseChecks;
-
-  let branch = 'unknown';
-  let head = 'unknown';
-  try {
-    branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: ROOT, encoding: 'utf-8' }).trim();
-    head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf-8' }).trim();
-  } catch (error) {
-    console.error(`❌ gate requires a Git repository: ${String(error.message).split('\n')[0]}`);
-    process.exit(EXIT_CODES.USAGE_OR_CONFIG);
-  }
-
-  // HTH-007: 每个新 Gate 必须绑定 Task（INV-03）。默认自动发现当前活动 Task；
-  // 找不到且未显式开启 legacy.allowTasklessGate 时拒绝创建并给出启动命令。
-  const explicitTaskId = getArg(args, '--task-id') || null;
-  let taskId = explicitTaskId;
-  if (!taskId) {
-    taskId = await autoDiscoverTask(ROOT, config);
-    if (taskId) {
-      console.log(`   Auto-bound to active task: ${taskId}`);
-    } else if (config.legacy?.allowTasklessGate === true) {
-      console.warn('\n⚠️  [legacy] No active task found; creating TASKLESS gate (legacy.allowTasklessGate=true). This path is removed in 2.0.0-beta.');
-    } else {
+  const result = await createGate({
+    rootDir: ROOT,
+    config,
+    taskDesc,
+    taskType,
+    taskId: getArg(args, '--task-id') || null,
+    lite: hasArg(args, '--lite'),
+  });
+  if (!result.ok) {
+    if (result.code === 'PLUGIN_ERRORS') {
+      for (const error of result.errors) console.error(`❌ [plugin] ${error}`);
+      process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+    }
+    if (result.code === 'NOT_GIT') {
+      console.error(`❌ gate requires a Git repository: ${result.message}`);
+      process.exit(EXIT_CODES.USAGE_OR_CONFIG);
+    }
+    if (result.code === 'NO_ACTIVE_TASK') {
       console.error('\n❌ No active task found. Every new Gate must be bound to a Task (INV-03). Start one first:');
       console.error(`     npx harness task start --title "${taskDesc}" --allow "<approved-glob>"`);
       console.error('   then create the gate with:');
@@ -587,22 +489,12 @@ else if (cmd === 'gate') {
       console.error('   Legacy escape hatch: set legacy.allowTasklessGate=true in harness.config.mjs');
       process.exit(1);
     }
+    console.error(`❌ gate: unexpected failure (${result.code})`);
+    process.exit(EXIT_CODES.INTERNAL_ERROR);
   }
-
-  const gateState = recomputeGateState({
-    schemaVersion: '2.0',
-    id: gateId,
-    taskType,
-    taskDescription: taskDesc,
-    createdAt: now.toISOString(),
-    branch,
-    head: head.slice(0, 8),
-    taskId,
-    checks: checks.map(c => ({ ...c, phase: c.phase || GATE_PHASES.PREPARATION, status: 'pending', completedAt: null })),
-    cleared: false,
-  });
-
-  writeFileSync(gateFile, JSON.stringify(gateState, null, 2));
+  if (result.autoBound) console.log(`   Auto-bound to active task: ${result.taskId}`);
+  if (result.taskless) console.warn('\n⚠️  [legacy] No active task found; creating TASKLESS gate (legacy.allowTasklessGate=true). This path is removed in 2.0.0-beta.');
+  const { gateId, checks, branch, head, gateFile } = result;
 
   console.log(`\n🔒 PRE-CODING GATE — ${gateId}`);
   console.log(`   Task: ${taskDesc}`);
@@ -669,40 +561,21 @@ else if (cmd === 'gate:migrate') {
 // gate:status — check active gate state (for continuation turns)
 // ================================================================
 else if (cmd === 'gate:status') {
-  const { readdirSync } = await import('node:fs');
-  const gateDir = resolve(ROOT, config.paths.gates);
-  if (!existsSync(gateDir)) {
-    console.log('No gates directory. Run `harness gate` to create one.');
+  const { gateStatusSnapshot } = await import('./gate-commands.mjs');
+  const snapshot = gateStatusSnapshot({ rootDir: ROOT, config });
+  if (!snapshot.ok) {
+    if (snapshot.code === 'NO_GATES_DIR') console.log('No gates directory. Run `harness gate` to create one.');
+    else console.log('No active gates. Run `harness gate` to create one.');
     process.exit(1);
   }
 
-  const files = readdirSync(gateDir)
-    .filter(f => f.endsWith('.json'))
-    .sort()
-    .reverse();
-
-  if (files.length === 0) {
-    console.log('No active gates. Run `harness gate` to create one.');
-    process.exit(1);
-  }
-
-  const latestFile = join(gateDir, files[0]);
-  const gateState = migrateGateState(JSON.parse(readFileSync(latestFile, 'utf-8')));
-  const elapsed = Date.now() - new Date(gateState.createdAt).getTime();
-  const hoursAgo = Math.round(elapsed / 3600000);
-
-  // Differentiated expiry: from project config gates.expiryHours
-  const maxAge = config.gates?.expiryHours?.[gateState.taskType] || 24;
+  const { gateState, hoursAgo, maxAge, phase, remainingCount, valid } = snapshot;
 
   // token 优化（6.1）：--short 单行输出状态（退出码语义与多行版一致）
   if (hasArg(args, '--short')) {
-    const shortPhase = gateState.cleared ? 'FINISHED' : gateState.implementationReady ? 'IMPLEMENTATION' : 'PREPARATION';
-    const remaining = gateState.cleared
-      ? 0
-      : pendingChecks(gateState, gateState.implementationReady ? GATE_PHASES.VERIFICATION : GATE_PHASES.PREPARATION).length;
-    const shortOk = gateState.cleared ? hoursAgo <= maxAge : gateState.implementationReady;
-    console.log(`${gateState.id} | ${shortPhase} | remaining=${remaining} | ${shortOk ? 'ok' : shortPhase === 'PREPARATION' ? 'blocked' : 'expired'}`);
-    process.exit(shortOk ? EXIT_CODES.OK : EXIT_CODES.POLICY_FAILURE);
+    const shortPhase = phase === 'finished' ? 'FINISHED' : phase === 'implementation' ? 'IMPLEMENTATION' : 'PREPARATION';
+    console.log(`${gateState.id} | ${shortPhase} | remaining=${remainingCount} | ${valid ? 'ok' : shortPhase === 'PREPARATION' ? 'blocked' : 'expired'}`);
+    process.exit(valid ? EXIT_CODES.OK : EXIT_CODES.POLICY_FAILURE);
   }
 
   console.log(`\n📋 Active Gate: ${gateState.id}`);
@@ -730,15 +603,15 @@ else if (cmd === 'gate:status') {
     console.log(`\n   ✅ Gate valid. Continue implementation.`);
     process.exit(0);
   } else if (gateState.implementationReady) {
-    const remaining = pendingChecks(gateState, GATE_PHASES.VERIFICATION);
+    const remaining = snapshot.remainingVerification;
     console.log(`   Status: 🛠 IMPLEMENTATION (${remaining.length} verification check(s) remaining)`);
-    console.log(`   Remaining before finish: ${remaining.map(c => c.id).join(', ')}`);
+    console.log(`   Remaining before finish: ${remaining.join(', ')}`);
     console.log('\n   ✅ Preparation complete. Implementation may continue.');
     process.exit(EXIT_CODES.OK);
   } else {
-    const remaining = pendingChecks(gateState, GATE_PHASES.PREPARATION);
+    const remaining = snapshot.remainingPreparation;
     console.log(`   Status: ❌ PREPARATION (${remaining.length} checks remaining)`);
-    console.log(`   Remaining before implementation: ${remaining.map(c => c.id).join(', ')}`);
+    console.log(`   Remaining before implementation: ${remaining.join(', ')}`);
     process.exit(EXIT_CODES.POLICY_FAILURE);
   }
 }
@@ -754,72 +627,51 @@ else if (cmd === 'gate:clear') {
     process.exit(1);
   }
 
-  const gateFile = resolve(ROOT, config.paths.gates, `${gateId}.json`);
-  if (!existsSync(gateFile)) {
-    console.log(`Gate file not found: harness/gates/${gateId}.json`);
-    process.exit(1);
-  }
+  const { clearGateCheck } = await import('./gate-commands.mjs');
+  const result = clearGateCheck({ rootDir: ROOT, config, gateId, checkId, note: getArg(args, '--note') });
 
-  const gateState = migrateGateState(JSON.parse(readFileSync(gateFile, 'utf-8')));
-  const check = gateState.checks.find(c => c.id === checkId);
-  if (!check) {
-    console.log(`Unknown check: ${checkId}`);
-    console.log(`Available: ${gateState.checks.map(c => c.id).join(', ')}`);
-    process.exit(1);
-  }
-
-  // HTH-007: verify-test 一律证据控制（INV-03）——task-bound 走 evidence verify；
-  // taskless gate 更不能人工清理 verification（推动迁移到 task-bound）。
-  if (checkId === 'verify-test') {
-    if (gateState.taskId) {
-      console.log(`❌ verify-test for task-bound gate ${gateState.id} is evidence-controlled.`);
-      console.log(`   Run: harness evidence verify --task ${gateState.taskId} --gate ${gateState.id}`);
-    } else {
-      console.log(`❌ verify-test for TASKLESS gate ${gateState.id} cannot be cleared manually (INV-03).`);
-      console.log(`   Bind the gate to a task, or abandon it (delete harness/gates/${gateState.id}.json) and create a task-bound gate.`);
+  if (!result.ok) {
+    if (result.code === 'GATE_NOT_FOUND') {
+      console.log(`Gate file not found: harness/gates/${gateId}.json`);
+      process.exit(1);
     }
-    process.exit(EXIT_CODES.POLICY_FAILURE);
-  }
-
-  // §十九·补 19A.4：6 个设计检查项必须通过机器校验（design:check）才能 clear；
-  // design-confirmed 保持人工 WAIT（不拦截）。
-  const { MACHINE_DESIGN_CHECKS, checkDesignArtifacts } = await import('./design-check.mjs');
-  if (MACHINE_DESIGN_CHECKS.includes(checkId)) {
-    const designsDir = config.designStage?.designsDir || 'docs/designs';
-    const result = checkDesignArtifacts({ rootDir: ROOT, designsDir, taskId: gateState.taskId || null, only: checkId });
-    const r = result[checkId];
-    if (!r || !r.pass) {
-      console.log(`❌ ${checkId} — machine check failed: ${r?.reason || 'unknown'}`);
-      console.log(`   Run: harness design:check --task ${gateState.taskId || '<task-id>'}`);
+    if (result.code === 'UNKNOWN_CHECK') {
+      console.log(`Unknown check: ${checkId}`);
+      console.log(`Available: ${result.available.join(', ')}`);
+      process.exit(1);
+    }
+    if (result.code === 'EVIDENCE_CONTROLLED') {
+      console.log(`❌ verify-test for task-bound gate ${result.gateId} is evidence-controlled.`);
+      console.log(`   Run: harness evidence verify --task ${result.taskId} --gate ${result.gateId}`);
       process.exit(EXIT_CODES.POLICY_FAILURE);
     }
-    check.note = `machine-verified: ${r.reason}`;
+    if (result.code === 'TASKLESS_EVIDENCE_GUARD') {
+      console.log(`❌ verify-test for TASKLESS gate ${result.gateId} cannot be cleared manually (INV-03).`);
+      console.log(`   Bind the gate to a task, or abandon it (delete harness/gates/${result.gateId}.json) and create a task-bound gate.`);
+      process.exit(EXIT_CODES.POLICY_FAILURE);
+    }
+    if (result.code === 'MACHINE_CHECK_FAILED') {
+      console.log(`❌ ${result.checkId} — machine check failed: ${result.reason}`);
+      console.log(`   Run: harness design:check --task ${result.taskId || '<task-id>'}`);
+      process.exit(EXIT_CODES.POLICY_FAILURE);
+    }
+    console.error(`❌ gate:clear: unexpected failure (${result.code})`);
+    process.exit(EXIT_CODES.INTERNAL_ERROR);
   }
 
-  check.status = 'done';
-  check.completedAt = new Date().toISOString();
-  const note = getArg(args, '--note');
-  if (note) check.note = note;
-
-  recomputeGateState(gateState);
-  writeFileSync(gateFile, JSON.stringify(gateState, null, 2));
-
   // token 优化（6.1）：回显精简——不重复输出 check 描述（label）
-  const doneCount = gateState.checks.filter(c => c.status === 'done').length;
-  console.log(`✅ ${checkId} — ${doneCount}/${gateState.checks.length} checks cleared`);
+  console.log(`✅ ${checkId} — ${result.doneCount}/${result.totalCount} checks cleared`);
 
-  if (gateState.cleared) {
+  if (result.state === 'finished') {
     console.log(`\n✅ GATE FINISHED — preparation and verification are complete.`);
     process.exit(EXIT_CODES.OK);
-  } else if (gateState.implementationReady) {
-    const verification = pendingChecks(gateState, GATE_PHASES.VERIFICATION);
+  } else if (result.state === 'implementation') {
     console.log(`\n✅ PREPARATION CLEARED — AI may proceed with implementation.`);
-    console.log(`   Gate remains open for verification: ${verification.map(c => c.id).join(', ')}`);
+    console.log(`   Gate remains open for verification: ${result.remainingIds.join(', ')}`);
     process.exit(EXIT_CODES.OK);
   } else {
-    const preparation = pendingChecks(gateState, GATE_PHASES.PREPARATION);
-    console.log(`\n❌ ${preparation.length} preparation checks remaining. AI MUST NOT write or edit implementation files.`);
-    console.log(`   Remaining: ${preparation.map(c => c.id).join(', ')}`);
+    console.log(`\n❌ ${result.remainingIds.length} preparation checks remaining. AI MUST NOT write or edit implementation files.`);
+    console.log(`   Remaining: ${result.remainingIds.join(', ')}`);
     process.exit(EXIT_CODES.POLICY_FAILURE);
   }
 
@@ -1500,7 +1352,12 @@ else if (cmd === 'adapter') {
   await import('./agent-adapters.mjs').then(module => module.runAdapters({ rootDir: ROOT, args, config }));
 }
 else if (cmd === 'mcp') {
-  await import('./mcp.mjs').then(module => module.runMcpStdio({ rootDir: ROOT, config }));
+  const { resolveServerContext } = await import('./mcp-server.mjs');
+  const context = await resolveServerContext({ args: args.slice(1), fallback: { rootDir: ROOT, config } });
+  await import('./mcp.mjs').then(module => module.runMcpStdio(context));
+}
+else if (cmd === 'mcp:config') {
+  await import('./mcp-config.mjs').then(module => module.runMcpConfig({ rootDir: ROOT, args }));
 }
 else if (cmd === 'tui') {
   await import('./tui.mjs').then(module => module.runTui({ rootDir: ROOT, args, config }));
@@ -1631,7 +1488,9 @@ Analysis:
   recovery create|status|verify         Create manual-only recovery checkpoints
   knowledge assess|status|verify        Record the three-state knowledge loop
   adapter list|generate                 Generate managed Agent policy blocks
-  mcp                                   Start the local stdio MCP server
+  mcp [--root <dir>]                   Start the local stdio MCP server
+  mcp:config --target <vscode|cursor|claude-code|claude-desktop|codex|all>
+                                      Generate MCP client configs (--write to save project files)
   tui [--json|--watch]                  Show tasks, risks, evidence, next actions
   ci github [--write]                   Generate optional GitHub checks workflow
   standards list|select|coverage        Index, select, and measure standards

@@ -23,6 +23,7 @@ title: 路线图
 | 1.7.0 | **Trust Kernel（可信内核）**：ChangeSnapshot（Task/Gate/Evidence/提交绑定同一快照）、Verifier Registry（`harness verify`，任意命令降级 diagnostic）、Task 强绑定（Taskless Gate 隔离）、手工证据收紧（success:null + `--approve`）、Node 化安全 Hook（`harness hooks doctor`）、独立仓自治理 + GitHub Ruleset `main-protection`；P1 引导体验（do/next 零认知路径 + setup 统一接入） | ✅ 已发布（2026-08-22） |
 | 1.8.0 | **Guided UX + External Validation**：交互式 TUI（HTH-016）、Brain 检索 adapter 与评测框架（HTH-017，recall@10 基线 69% 可复现）、本地指标（HTH-019）、插件合同测试（HTH-021）、Tier A fixtures（HTH-018）、小白试点包（HTH-020）、双语核心文档 + Go/No-Go 报告（HTH-022） | 🔨 实施中（2026-08-22） |
 | 1.9.0 | **Token 优化（约束零变化）**：`gate --quiet` / `gate:status --short` / `gate:clear` 回显精简、`task list` 默认裁剪（--all/--status）、PRD 模板随包精简；能力分级：`gates.disableChecks`、`designStage.enabled='auto'`（uiKeywords）、`output` 段（gateListVerbose/taskListDefaultLimit/requireSkillRead）；`metrics` 产物文档 token 统计 | 🔨 实施中（2026-08-31） |
+| 1.10.0 | **MCP 全量机制接入（`docs/rfc/0004-mcp-mechanism.md`）Phase 0**：命令注册表内核（`bin/command-registry.mjs`，CLI/MCP 单一事实源）+ gate 核心数据函数提炼（`bin/gate-commands.mjs`）+ 循环依赖修复；CLI 行为零变化 | 🔨 实施中（2026-09-18） |
 ## 详细版本记录
 
 版本演进与决策记录见 `docs/standards/harness-standalone-roadmap.md`（PallasTrade 仓库），或本仓库 git 历史提交信息。
