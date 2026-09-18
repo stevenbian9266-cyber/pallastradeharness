@@ -87,3 +87,4 @@ Evidence: backend logic → test run log / exit-0 record; docs-only → `docs:ch
 - Roadmap: `docs/roadmap.md`
 - Threat model & invariants: `docs/rfc/0001-threat-model.md`
 - ChangeSnapshot contract: `docs/rfc/0002-change-snapshot.md`
+- MCP mechanism integration spec: `docs/rfc/0004-mcp-mechanism.md`

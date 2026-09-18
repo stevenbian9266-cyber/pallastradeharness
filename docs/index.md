@@ -31,6 +31,8 @@ title: pallastrade-harness
 - [规范与开发监督](standards-supervisor.md) — Standard Schema、覆盖率、Change Plan 和 Diff Review
 - [完整任务生命周期](lifecycle.md) — Task/Brain/Risk/Evidence/Recovery/Knowledge/MCP
 - [迁移到 1.0](migration-1.0.md) — 配置、状态、插件与兼容性
+- [MCP 接入规格（RFC-0004）](rfc/0004-mcp-mechanism.md) — 机制全量 MCP 化：能力矩阵、安全政策与分阶段实施
+- [MCP 接入指南](mcp.md) — 零安装接入 5 客户端、20 个 L1 工具与安全模型（v1.10）
 - [贡献指南](contributing.md) — 规则/插件/文档贡献
 - [路线图](roadmap.md) — 0.4→1.0 治理路线
 

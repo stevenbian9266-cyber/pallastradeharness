@@ -27,7 +27,7 @@ import { createHash } from 'node:crypto';
 import { globSync } from 'glob';
 import { EXIT_CODES, getArg, hasArg } from './cli-utils.mjs';
 import { skillRefsExist } from './scan.mjs';
-import { registerInIndexes } from './skill.mjs';
+import { registerInIndexes } from './skill-index.mjs';
 import { resolveSkillBody } from './skill-template.mjs';
 
 // ── 常量 ─────────────────────────────────────────────────────

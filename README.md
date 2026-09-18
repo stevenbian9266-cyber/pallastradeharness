@@ -72,7 +72,7 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.9.0`；`v1.9.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
+- 当前源码版本：`1.10.0`；`v1.10.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
 - 版本信息自动同步：发布后由 `npx harness readme:sync --write` 从 `CHANGELOG.md` 校正（CI 用 `--check` 防漂移）
 - 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
 - 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
@@ -85,6 +85,7 @@ npx harness docs:check
 
 | 版本 | 亮点 |
 |---|---|
+| **v1.10.0** | **MCP 全量机制接入（[RFC-0004](docs/rfc/0004-mcp-mechanism.md)）Phase 0 + Phase 1**：命令注册表内核（`bin/command-registry.mjs`，CLI/MCP 单一事实源）与 gate 数据函数提炼（`bin/gate-commands.mjs`）；零安装入口 `harness-mcp`（root 定位链：`--root` > `HARNESS_ROOT` > roots 协商 > cwd；L1 工具面 20 个；`isError` 错误信封；human-WAIT 禁裸清）；`harness mcp:config` 生成 5 客户端接入配置（默认 pin `@1.10`）；新增 `docs/mcp.md` 接入指南；`node --test` 309/309 通过 |
 | **v1.9.0** | ⚠️ 【自动生成·待润色】 `gate --quiet`：只输出 check 计数 + 必读提示（默认全量保留）；`config.output.gateListVerbose=false` 等价降档 |
 | **v1.8.0** | ⚠️ 【自动生成·待润色】 `prd verify --semantic`：AC 语义校验，拒绝空断言 / 过度 mock 的"假覆盖"（新增 `bin/ac-semantic.mjs`） |
 | **v1.7.0** | **Trust Kernel（可信内核）**：ChangeSnapshot（Task/Gate/Evidence/提交绑定同一可重算变更快照，RFC-0002）；Verifier Registry（`harness verify`，任意命令降级 diagnostic，手工证据 `success:null` + `--approve`）；Task 强绑定（新 Gate 必须绑定 Task，Taskless Gate 隔离，verify-test 一律证据控制）；Node 化安全 Hook（`harness hooks doctor`）；可执行文档（getting-started task-bound 生命周期 + `docs:check` 过时命令防漂移）；独立仓自治理（AGENTS.md/config/lefthook/SECURITY/CHANGELOG + GitHub Ruleset `main-protection` 禁直推/强推/删除）；引导式体验（`harness do`/`next` 零认知路径 + 真 Lite + `harness setup` 统一接入）；`node --test` 197/197 通过 |
@@ -386,6 +387,7 @@ cp node_modules/pallastrade-harness/rules/base-standards.json \
 
 - **https://stevenbian9266-cyber.github.io/pallastradeharness/**
 - 源文件在仓库 `docs/` 目录（改 `docs/**` 自动部署）
+- 零安装 MCP 接入：[docs/mcp.md](docs/mcp.md)（`npx harness mcp:config --target vscode --write`）
 
 ---
 
@@ -400,6 +402,7 @@ cp node_modules/pallastrade-harness/rules/base-standards.json \
 | 0.7 | Typed Evidence + Recovery + 自动交付报告 | ✅ 1.0 源码已包含 |
 | 0.8 | Agent adapters + MCP/TUI + 技术栈 preset | ✅ 1.0 源码已包含 |
 | 1.0 | 插件稳定协议、配置/状态迁移、monorepo/worktree、长期兼容 | ✅ 当前源码 |
+| 1.10 | MCP 全量机制接入（[RFC-0004](docs/rfc/0004-mcp-mechanism.md)）：Phase 0 内核 ✅（命令注册表 + gate 数据函数）· Phase 1 `harness-mcp` 零安装入口 + L1 工具面（20 个）🔨 | 🔨 实施中 |
 
 详见 [docs/standards/harness-standalone-roadmap.md](https://github.com/stevenbian9266-cyber/pallastrade/blob/dev/docs/standards/harness-standalone-roadmap.md)（PallasTrade 仓库）。
 

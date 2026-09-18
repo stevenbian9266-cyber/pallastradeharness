@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { EXIT_CODES, getArg, hasArg } from './cli-utils.mjs';
 import { detectStack, detectLayers, detectGaps } from './analyze.mjs';
 import { atomicWriteText } from './state-store.mjs';
-import { registerInIndexes } from './skill.mjs';
+import { registerInIndexes } from './skill-index.mjs';
 import { loadCatalog, detectFingerprint, buildExpected, createMissingSkills } from './skill-audit.mjs';
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
