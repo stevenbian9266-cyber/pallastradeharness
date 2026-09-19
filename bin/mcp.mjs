@@ -16,6 +16,7 @@ import { listVerifiers, runVerifier } from './verifier.mjs';
 import { buildGapReport } from './standards-gen.mjs';
 import { createSkill } from './skill.mjs';
 import { createDocsDraft } from './docs-gen.mjs';
+import { getHarnessName, getHarnessVersion } from './version.mjs';
 
 export const MCP_PROTOCOL_VERSION = '2025-03-26';
 
@@ -45,12 +46,13 @@ export const MCP_TOOLS = Object.freeze([
 /** 人工确认检查项：MCP 侧禁止裸清（RFC-0004 D5） */
 export const HUMAN_WAIT_CHECKS = Object.freeze(new Set(['user-confirmed', 'design-confirmed']));
 
-function content(value) {
+/** 工具结果信封（Local stdio 与 Cloud HTTP 共用，RFC-0004 §6） */
+export function content(value) {
   return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }], structuredContent: value };
 }
 
 /** 业务失败的统一错误信封（RFC-0004 §6.1）：isError:true，便于模型自愈 */
-function toolError(code, message, extra = {}) {
+export function toolError(code, message, extra = {}) {
   const payload = { code, message, retryable: false, ...extra };
   return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], structuredContent: payload, isError: true };
 }
@@ -245,7 +247,7 @@ export function createMcpHandler({ rootDir, config }) {
 
   return async request => {
     if (!request || request.jsonrpc !== '2.0' || typeof request.method !== 'string') throw new TypeError('Invalid JSON-RPC request');
-    if (request.method === 'initialize') return { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'pallastrade-harness', version: '1.0.0' } };
+    if (request.method === 'initialize') return { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: { tools: { listChanged: false } }, serverInfo: { name: getHarnessName(), version: getHarnessVersion() } };
     if (request.method === 'ping') return {};
     if (request.method === 'notifications/initialized') return null;
     if (request.method === 'tools/list') return { tools: MCP_TOOLS };

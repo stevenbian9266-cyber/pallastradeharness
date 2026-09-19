@@ -65,7 +65,7 @@
 | 验证器执行入口（CLI/MCP 共用） | 调用已有 | runVerifier | bin/verifier.mjs 既有导出 |
 | MCP 工具面扩充（7 工具） | 扩展已有 | bin/mcp.mjs | bin/mcp.mjs |
 | root 定位链（flag/env/roots） | 新封装公用 | resolveServerContext | bin/mcp-server.mjs 新导出，harness.mjs 引用 |
-| 工具错误信封 helper | 新建局部 | toolError | 仅 bin/mcp.mjs 内部使用 |
+| 工具错误信封 helper | 新封装公用 | toolError | 原为 bin/mcp.mjs 内部；D10 起导出供 Cloud 复用（bin/mcp-jsonrpc.mjs · bin/cloud-application.mjs） |
 | stdio 端到端测试载体 | 新建局部 | bin/mcp-server.test.mjs | 仅测试文件自身使用 |
 
 ## Part C — 实施落点
