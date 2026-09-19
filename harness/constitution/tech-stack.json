@@ -1,0 +1,48 @@
+{
+  "$comment": "pallastradeharness 机读技术栈（Batch C / C04）。结构与 templates/constitution/tech-stack.schema.json 对齐；事实来源 = package.json / harness.config.mjs / CI（2026-09-19）。",
+  "schema_version": "1.0",
+  "project": {
+    "name": "pallastrade-harness",
+    "repository": "github.com/stevenbian9266-cyber/pallastradeharness",
+    "artifact_path": "harness/constitution/tech-stack.json"
+  },
+  "current_technologies": [
+    { "category": "runtime", "technology": "node", "version": ">=22", "role": "primary", "status": "approved" },
+    { "category": "language", "technology": "javascript", "version": "esm", "role": "primary", "status": "approved" },
+    { "category": "package_manager", "technology": "npm", "role": "primary", "status": "approved" },
+    { "category": "testing", "technology": "node-test", "version": "builtin", "role": "primary", "status": "approved" },
+    { "category": "deployment", "technology": "npm-registry", "role": "primary", "status": "approved", "notes": "Trusted Publishing (OIDC) + provenance" },
+    { "category": "deployment", "technology": "github-actions", "role": "supporting", "status": "approved", "notes": "Node 22/24 × ubuntu/windows/macos" },
+    { "category": "observability", "technology": "local-metrics", "role": "supporting", "status": "approved", "notes": "bin/metrics.mjs（本地文件指标，无外部 APM）" },
+    { "category": "search", "technology": "project-brain-index", "role": "supporting", "status": "approved", "notes": "本地索引（.harness-state/brain）" },
+    { "category": "cache", "technology": "local-file-cache", "role": "supporting", "status": "approved", "notes": ".harness-cache（可重建）" },
+    { "category": "library", "technology": "glob", "version": "^13.0.0", "role": "supporting", "status": "approved", "notes": "统一经 bin/glob-utils.mjs" },
+    { "category": "library", "technology": "minimatch", "version": "^10.2.6", "role": "supporting", "status": "approved" },
+    { "category": "library", "technology": "pngjs", "version": "^7.0.0", "role": "supporting", "status": "approved", "notes": "视觉回归" },
+    { "category": "library", "technology": "pixelmatch", "version": "^7.2.0", "role": "supporting", "status": "approved", "notes": "视觉回归" }
+  ],
+  "restrictions": [
+    { "technology": "pallastrade-harness", "reason": "自引用依赖会加载旧版发布物（Batch A TASK-A02 决策）", "instead": "直接引用本仓库源码", "scope": "dependencies/devDependencies" },
+    { "technology": "second-engine", "reason": "禁止第二套 Task/Gate/Evidence/Skill/Decision 引擎（AGENTS.md §4）", "instead": "扩展现有模块", "scope": "architecture" },
+    { "technology": "yaml-parser", "reason": "模板元数据用 JS/JSON 已足够（Batch B 决策）", "instead": "JSON / JS 元数据", "scope": "dependencies" },
+    { "technology": "cloud-branch-in-domain", "reason": "禁止在领域逻辑散落 `if (cloud)`（Local/Cloud 同源治理）", "instead": "运行时边界 + Repository Ports（Batch D）", "scope": "source" }
+  ],
+  "deprecated_technologies": [],
+  "change_policy": {
+    "normal_dependency": "DEPENDENCY_CHANGE",
+    "structural_change": "TECH_STACK_CHANGE",
+    "requires_decision": ["framework", "orm", "database", "queue", "cache", "ui_framework", "authentication"],
+    "requires_approval": true
+  },
+  "approved_libraries": [
+    { "library": "glob", "purpose": "跨平台文件收集", "constraint": "经 bin/glob-utils.mjs 统一封装" },
+    { "library": "minimatch", "purpose": "路径/范围匹配", "constraint": "先归一化路径" },
+    { "library": "pngjs", "purpose": "视觉回归像素读取", "constraint": "仅 visual-regression.mjs" },
+    { "library": "pixelmatch", "purpose": "视觉回归像素 diff", "constraint": "仅 visual-regression.mjs" }
+  ],
+  "related_decisions": [
+    { "id": "batch-a-task-a02", "topic": "移除自引用 devDependency", "status": "accepted" },
+    { "id": "batch-b-b01", "topic": "模板元数据使用 JSON（不引入 YAML 解析器）", "status": "accepted" },
+    { "id": "rfc-0004", "topic": "MCP 工具面冻结与分阶段接入", "status": "accepted" }
+  ]
+}

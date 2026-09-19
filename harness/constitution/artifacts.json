@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "1.0",
+  "type": "ArtifactManifest",
+  "artifacts": [
+    {
+      "schemaVersion": "1.0",
+      "id": "acceptance",
+      "type": "ProjectArtifact",
+      "path": "harness/constitution/acceptance.md",
+      "template_id": "acceptance-template",
+      "template_version": "1.0.0",
+      "artifact_version": "1.0.0",
+      "content_hash": "sha256:d72cbce464a5f9d24f22eb9826d1786ce71fb5c5ab60b85a8a1f2abf9e4fe371",
+      "status": "ACTIVE",
+      "created_at": "2026-09-19T08:57:51.880Z",
+      "updated_at": "2026-09-19T08:57:51.880Z"
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "agent_rules",
+      "type": "ProjectArtifact",
+      "path": "harness/constitution/agent-rules.md",
+      "template_id": "agent_rules-template",
+      "template_version": "1.0.0",
+      "artifact_version": "1.0.0",
+      "content_hash": "sha256:a63f21feee9cf4a35545eeab54f01e5bbccccbfaf7b2d2ef6f98a0938c165561",
+      "status": "ACTIVE",
+      "created_at": "2026-09-19T08:57:52.072Z",
+      "updated_at": "2026-09-19T08:57:52.072Z"
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "architecture",
+      "type": "ProjectArtifact",
+      "path": "harness/constitution/architecture.md",
+      "template_id": "architecture-template",
+      "template_version": "1.0.0",
+      "artifact_version": "1.0.0",
+      "content_hash": "sha256:72c232201c3b98a02d713ae7dadcd73510d88872fad2f9dfd6138c57288e59a0",
+      "status": "ACTIVE",
+      "created_at": "2026-09-19T08:57:51.413Z",
+      "updated_at": "2026-09-19T08:57:51.413Z"
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "engineering",
+      "type": "ProjectArtifact",
+      "path": "harness/constitution/engineering.md",
+      "template_id": "engineering-template",
+      "template_version": "1.0.0",
+      "artifact_version": "1.0.0",
+      "content_hash": "sha256:4242bda553f7c4f89c1b2da8068760f9599d33c2c6fbd8cf82d37b6d1aba9e86",
+      "status": "ACTIVE",
+      "created_at": "2026-09-19T08:57:51.568Z",
+      "updated_at": "2026-09-19T08:57:51.568Z"
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "project_overview",
+      "type": "ProjectArtifact",
+      "path": "harness/constitution/project-overview.md",
+      "template_id": "project_overview-template",
+      "template_version": "1.0.0",
+      "artifact_version": "1.0.0",
+      "content_hash": "sha256:383ec2e30ab928d0fe07f56c2be7322c93ff973fd2503fbff10eed682b1ba93c",
+      "status": "ACTIVE",
+      "created_at": "2026-09-19T08:57:51.087Z",
+      "updated_at": "2026-09-19T08:57:51.087Z"
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "tech_stack",
+      "type": "ProjectArtifact",
+      "path": "harness/constitution/tech-stack.md",
+      "template_id": "tech_stack-template",
+      "template_version": "1.0.0",
+      "artifact_version": "1.0.0",
+      "content_hash": "sha256:81b09d1992006dee99c11c62bd4911076c9f62ebf07775731eac1250ad18d3a8",
+      "status": "ACTIVE",
+      "created_at": "2026-09-19T08:57:51.251Z",
+      "updated_at": "2026-09-19T08:57:51.251Z"
+    },
+    {
+      "schemaVersion": "1.0",
+      "id": "testing",
+      "type": "ProjectArtifact",
+      "path": "harness/constitution/testing.md",
+      "template_id": "testing-template",
+      "template_version": "1.0.0",
+      "artifact_version": "1.0.0",
+      "content_hash": "sha256:2ac6458ebdfb13b3731c0b55f675cfbb8a59787068a8f3a57ea4b16f1f9e9051",
+      "status": "ACTIVE",
+      "created_at": "2026-09-19T08:57:51.720Z",
+      "updated_at": "2026-09-19T08:57:51.720Z"
+    }
+  ]
+}

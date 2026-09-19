@@ -408,14 +408,67 @@ cp node_modules/pallastrade-harness/rules/base-standards.json \
 
 ---
 
+## 模板与 Project Constitution（Batch B）
+
+- **Template Registry**：`templates/registry.json`（单一事实源，27 条定义）+ `bin/template-registry.mjs`（`listTemplates` / `getTemplate` / `getLatestTemplate` / `findTemplates` / `validateTemplateRegistry`）。每条模板含 `template_id / version / category / scope / owner_role / consumed_by / stale_when` 等元数据；自检覆盖重复 `id+version`、枚举、**路径真实存在**；暂不通过 MCP 暴露。
+- **Constitution 模板**（`templates/constitution/`）：`project-overview` · `tech-stack`（+ 机读契约 `tech-stack.schema.json`）· `architecture`（+ 机读契约 `architecture.schema.json`）· `adr` · `engineering-standard` · `testing-standard` · `acceptance-standard` · `agent-rules`。
+- **Skill 模板**（`templates/skill/`）：14 段治理结构（Purpose → Authority Files）；领域模板通过 `{{GOVERNANCE_SECTIONS}}` 注入共享治理段落；`harness skill new` 回退链 = 领域内容模板 → canonical 模板 → 内联骨架（Project Constitution → Skill → Agent Execution）。
+- **Constitution 集成（Batch C）**：`harness constitution:status|register|lock|diff|change|apply|skills|approvals`；`task start` 冻结当前 Constitution（version + 制品 hash）；`task impact` 记录 Architecture / Tech Stack Impact；Approval 绑定制品 `artifact_hash`（内容变化即 `STALE`）；`strictGovernance=true` 时 `task finish` 缺失事实直接输出 `REQUIRED_ACTIONS`。本仓自身 Constitution 实例见 `harness/constitution/`。
+
+## 严格治理（strict，本仓已启用）
+
+**本仓即试验田**：`harness.config.mjs` 声明 `governance: { strictGovernance: true }`，所有变更都要通过引擎自己的严格收尾。
+
+- **启用方式**（消费方项目可选）：`harness.config.mjs` 中写 `strictGovernance: true` 或 `governance: { strictGovernance: true }`（两种写法等价；缺省 `false` = 兼容路径）。
+- **语义**：`task finish` 前校验 12 项事实——Context Audit · Requirement Approval · Implementation Plan · Architecture / Tech Stack Impact · UI Approval · Review · Required Tests · 新鲜证据 · AC 覆盖 · Knowledge · 受影响的 Skill 处置。缺项 → 输出 `REQUIRED_ACTIONS`（**每项附可执行命令**）、退出码非 0、**任务状态不变**，且引擎**不得补造事实**。
+- **判定口径**：`review` / `test` / `knowledge` 按「**新鲜有效证据记录**」判定（不限于任务自身声明的 `requiredEvidence`）——因此即使是 `quick` 风险任务，strict 也要求补齐这些证据；补齐后即可收尾（不再是死锁）。
+- **必须补的步骤**：`task impact --architecture <NONE|LOCAL|CROSS_MODULE|ARCHITECTURE_CHANGE> --tech-stack <NONE|DEPENDENCY_CHANGE|TECH_STACK_CHANGE>`（CHANGE 级必须伴随 Decision，否则被拒）。
+- **回退**：删除该声明即回兼容路径；本仓另有 self-dogfood 守卫用例（`bin/cli-e2e.test.mjs`），改回会先让 `test:core` 失败，提示属有意变更需走治理。
+- **与 Cloud 一致**：Cloud 运行时恒为严格（`strictGovernance: true`，不可关闭；见 `docs/adr/ADR-0002-runtime-boundary.md` D5）。
+
+## 运行时边界（Batch D，进行中）
+
+- **Runtime Ports**（`bin/runtime-ports.mjs`）：7 个存储端口契约（Project / Artifact / Task / Gate / Approval / Evidence / Event）+ 方法面冻结 + `validatePortImplementation` 校验器 + Cloud 禁 import 清单。
+- **File 适配器**（`bin/file-repositories.mjs`）：包装既有 Local 存储（`state-store` / `.harness-state` / `harness/gates` 等），**行为零变化**。
+- **Cloud SQLite 存储**（`bin/sqlite-store.mjs`）：12 张表 + 迁移（`schema_migrations`）+ WAL / `foreign_keys=ON` / `busy_timeout` / 短事务；`node:sqlite` **懒加载**（Node ≥ 22.5，不可用时不影响 Local）。
+- **Sqlite 适配器**（`bin/sqlite-repositories.mjs`）：与 File 适配器**同形同契约**，由同一套契约用例双跑（`label=file` / `label=sqlite`）防双轨漂移。
+- **提交式上下文**（`bin/submitted-context.mjs` / `bin/submitted-providers.mjs`）：本地 Agent 只提交**结构化摘要 + hash**（`ProjectContextSubmission` / `TaskContextSubmission` / `GitSnapshotSubmission`），强制净化源码与全量 diff；Cloud 侧以提交内容实现同一 Provider 端口（契约与 Local 双跑）。
+- **Cloud 证据边界**（`bin/evidence-boundary.mjs`）：Cloud 证据恒标 `source=local_agent` / `trust_level=cooperative`，声称 `ci_attested` 必须携带 attestation 佐证（**不得伪装 CI attestation**）。
+- **Cloud HTTP 运行时**（`bin/cloud-runtime.mjs`）：分层 `HTTP Transport`（`bin/http-transport.mjs`）→ `Static Key Auth`（`bin/static-key-auth.mjs`）→ `MCP Adapter`（`bin/mcp-jsonrpc.mjs`）→ `Application/Command`（`bin/cloud-application.mjs`）→ Governance Core → SQLite；`POST /mcp`（Streamable HTTP v0）+ `GET /health`；工具面与 Local `MCP_TOOLS` 严格一致，未接线工具明确返回 `cloud_not_implemented`（不伪造 PASS）。
+- **静态 Key 鉴权**：`HARNESS_API_KEY` + `Authorization: Bearer <key>`（常数时间比较）；未配置 → 503，缺/错凭据 → 401；不做 User/Tenant/Trial/Expiry/密钥库/设备绑定。
+- **Cloud 工具面**（`bin/cloud-commands.mjs`）：`start_task` / `gate_status` / `gate_create` / `gate_clear` / `record_approval` / `project_init` / `project_status` / `get_template` / `get_next_action` / `risk_check` / `finish_task` + D10 的 `get_task` / `list_tasks` / `record_evidence`；风险与必需证据由纯引擎 `assessRisk` 推导，**`finish_task` 严格**（证据/审批缺一即拒，无 legacy 自动流转）；`review_diff` 因缺提交内容显式返回 `cloud_context_insufficient`，其余未接线工具返回 `cloud_not_implemented`。
+- **Cloud 门禁能力**（`bin/cloud-gate.mjs`）：`gate_create` 复用既有 `getGateChecks` / `detectTaskType` 政策建门并落库（同任务未清门 → `gate_already_active`）；`gate_clear` 四道守卫（`unknown_check` / `check_machine_verified` / `human_approval_required` / `check_already_cleared`，拒绝不落库）——**机器校验项**（`verify-test` 与 `*-gate`）不可由工具清除，**人工门**需先 `record_approval`；门禁状态恒由 `recomputeGateState` 派生，**清完门禁 ≠ 完工**（完工仍由证据策略判定）。`GateRepository` 端口由只读扩展为 `loadLatest` / `statusSnapshot` / `save`，File 与 Sqlite 适配器共用同一契约用例。
+- **Cloud strict 强制**（`bin/cloud-policy.mjs`）：Cloud 恒为严格治理（`strictGovernance = true`，**不继承** Local 默认 off）；显式关闭配置 → **启动即拒绝**（fail-fast），命令层另有运行期复查（纵深防御，返回 `strict_governance_required`）；`GET /health` 暴露 `strictGovernance: true`。
+
+### 真实客户端验证（D14）
+
+真实 MCP 客户端（官方 `@modelcontextprotocol/sdk`）经真实端口驱动 Cloud 运行时，覆盖 `tools/list` / `tools/call` / `project_init` / `start_task` / `list_tasks`·`get_task` / `record_evidence` / `finish_task`：
+
+```bash
+npm i --prefix "$TEMP/harness-mcp-client" @modelcontextprotocol/sdk@1.30.0
+node --test bin/mcp-real-client.test.mjs
+```
+
+SDK 隔离安装在**仓库外**（仓库保持零依赖）；未安装时该文件整体 skip 并打印上述安装命令。
+- **Provider 端口**（`bin/provider-ports.mjs`）：3 个上下文/快照端口契约（ProjectContextProvider / TaskContextProvider / GitSnapshotProvider）+ 方法面冻结 + `validateProviderImplementation`。
+- **本机 Provider 适配器**（`bin/local-providers.mjs`）：`createLocalProviders` 包装 `project-brain` / `git-files` / `change-snapshot`（行为零变化）；Cloud 侧将以「提交式」实现同一方法面（D08）。
+- **契约测试套件**（`bin/repository-contract.mjs` / `bin/provider-contract.mjs`）：同一套行为断言驱动 File（已接入）与 Sqlite（D07）/ Submitted（D08）实现，防双轨漂移。
+- 决策与审计：`docs/adr/ADR-0002-runtime-boundary.md`（ACCEPTED）· `docs/rfc/0006-runtime-boundary.md`。
+
 ## 开发
 
 ```bash
 git clone https://github.com/stevenbian9266-cyber/pallastradeharness.git
 cd pallastrade-harness
 npm i
-npm test          # node:test contract tests
+npm test              # 核心合约测试（= test:core，只跑 bin/*.test.mjs）
+npm run test:mcp      # MCP 工具面 / 服务 / 接入配置子集
+npm run test:e2e      # CLI 端到端
+npm run test:examples # 示例项目（自带运行环境，如 node-ts 的 strip-types）
 ```
+
+> 测试边界（Batch A）：核心测试不包含示例项目；示例以自身 `package.json#scripts.test` 负责运行环境。
+> 当前治理事实基线（Task/Gate/MCP/Evidence/Risk/Standards/Templates/Skill）见 [docs/current-governance-baseline.md](docs/current-governance-baseline.md)。
 
 ## License
 

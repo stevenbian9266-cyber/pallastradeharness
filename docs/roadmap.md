@@ -28,6 +28,18 @@ title: 路线图
 
 版本演进与决策记录见 `docs/standards/harness-standalone-roadmap.md`（PallasTrade 仓库），或本仓库 git 历史提交信息。
 
+## 批次状态（Phase 1 实施指令）
+
+| 批次 | 内容 | 状态 |
+|---|---|---|
+| Batch A | 稳定当前 Core（测试边界、依赖审计、版本单点、基线文档） | ✅ 完成 |
+| Batch B | Template Registry + Project Constitution 模板 + Skill 模板升级 | ✅ 完成 |
+| Batch C | Constitution 接入治理内核（制品/版本/审批/事实门/strict） | ✅ 完成 |
+| Batch D | Cloud Runtime（端口与适配器 → SQLite → 提交式上下文 → HTTP MCP + 静态 Key → 工具面 → strict → 真实客户端） | ✅ 完成（D01-D14，验收自审见 [batch-d-completion-audit.md](batch-d-completion-audit.md)） |
+| Batch E | 本仓严格治理 self-dogfood（`strictGovernance: true` + 生命周期补 `task impact` + CLI 阻断/放行闭环验证） | ✅ E01 完成 |
+
+后续候选（待人工选向）：部署可交付（RFC-0005 §5）· 提交式内容通道（`review_diff`）· Cloud 工具面收尾（`run_verifier`/`generate_*`）。
+
 ## 已知待办
 
 - [x] suggest 档位误报修复（配置含 PRD check 时不建议升级）

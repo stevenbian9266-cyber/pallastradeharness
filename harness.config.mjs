@@ -22,6 +22,16 @@ export default {
     checkDefs: {},
   },
 
+  // ②' 治理模式：本仓 self-dogfood —— 严格治理（strict）
+  // 语义：task finish 走事实门（Context Audit / Requirement & UI Approval / Impact /
+  // Plan / 证据 / AC 覆盖 / 知识评估）。缺项 → REQUIRED_ACTIONS（每项带可执行命令），
+  // 退出码非 0，且**不得补造事实**；Local 兼容路径（未声明 strict 的项目）零变化。
+  // 生命周期新增强制步骤：harness task impact --architecture <v> --tech-stack <v>。
+  // 回退 = 删除本声明（test:core 中的 self-dogfood 守卫用例会同时失败，提示属有意变更）。
+  governance: {
+    strictGovernance: true,
+  },
+
   // ③ 知识同步规则（doc-impact）— 镜像 AGENTS.md §6
   docImpact: {
     base: 'origin/main',

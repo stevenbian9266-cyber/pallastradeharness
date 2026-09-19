@@ -343,3 +343,126 @@ test('gate:clear 回显精简：无 label 重复，含计数与剩余 id', () =>
     rmSync(rootDir, { recursive: true, force: true });
   }
 });
+
+// ────────────────────────────────────────────────────────────────
+// strict 严格治理 self-dogfood（Batch E / E01）
+// ────────────────────────────────────────────────────────────────
+
+const DOGFOOD_REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** 临时项目：仅声明 strict 开关，其余配置走 DEFAULT_CONFIG 深合并。 */
+function strictDogfoodProject({ strict }) {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-strict-'));
+  const governance = strict ? ",\n  governance: { strictGovernance: true }" : '';
+  writeFileSync(join(rootDir, 'harness.config.mjs'), `export default {\n  schemaVersion: '1.0',\n  name: 'strict-e2e'${governance}\n};\n`);
+  git(rootDir, ['init', '-b', 'main']);
+  git(rootDir, ['config', 'user.email', 'harness@example.test']);
+  git(rootDir, ['config', 'user.name', 'Harness Test']);
+  mkdirSync(join(rootDir, 'src'), { recursive: true });
+  writeFileSync(join(rootDir, 'src', 'ok.test.mjs'), "import { test } from 'node:test'; test('ok', () => {});\n");
+  git(rootDir, ['add', '.']);
+  git(rootDir, ['commit', '-m', 'init']);
+  return rootDir;
+}
+
+/** 建任务 + 开门 + 清准备项（返回 { taskId, gateId }）。
+ *  risk 默认 standard（与仓库任务一致）；quick 路径由死锁回归用例覆盖。
+ */
+function startDogfoodTask(rootDir, title, { risk = 'standard' } = {}) {
+  const started = run(rootDir, ['task', 'start', '--title', title, '--allow', 'src/**', '--risk', risk, '--json']);
+  assert.equal(started.status, 0, `task start failed: ${started.stderr}`);
+  const taskId = JSON.parse(started.stdout).id;
+  assert.equal(run(rootDir, ['gate', '--task', title, '--task-id', taskId, '--quiet']).status, 1);
+  const gateFile = readdirSync(join(rootDir, 'harness', 'gates')).find(file => file.endsWith('.json'));
+  const gate = JSON.parse(readFileSync(join(rootDir, 'harness', 'gates', gateFile), 'utf-8'));
+  for (const check of gate.checks) {
+    if (check.phase === 'preparation' && check.status !== 'done') {
+      run(rootDir, ['gate:clear', '--gate', gate.id, '--clear', check.id]);
+    }
+  }
+  return { taskId, gateId: gate.id };
+}
+
+/** 读取任务状态文件。 */
+function readDogfoodTask(rootDir, taskId) {
+  return JSON.parse(readFileSync(join(rootDir, '.harness-state', 'tasks', `${taskId}.json`), 'utf-8'));
+}
+
+/** 补齐 strict 收尾所需事实：Context + Impact + 真实证据链。 */
+function satisfyDogfoodFacts(rootDir, { taskId, gateId }) {
+  assert.equal(run(rootDir, ['brain', 'context', '--task', taskId]).status, 0);
+  assert.equal(run(rootDir, ['task', 'impact', '--task', taskId, '--architecture', 'LOCAL', '--tech-stack', 'NONE', '--reason', 'e2e dogfood']).status, 0);
+  assert.equal(run(rootDir, ['evidence', 'run', '--task', taskId, '--type', 'test', '--verifier', 'unit']).status, 0);
+  run(rootDir, ['evidence', 'record', '--task', taskId, '--type', 'review', '--summary', 'reviewed', '--approve']);
+  run(rootDir, ['evidence', 'record', '--task', taskId, '--type', 'knowledge', '--summary', 'knowledge assessed', '--approve']);
+  const verified = run(rootDir, ['evidence', 'verify', '--task', taskId, '--gate', gateId]);
+  assert.equal(verified.status, 0, `evidence verify failed: ${verified.stdout}`);
+}
+
+test('PRD-20260919-other-strict-dogfood AC-001/AC-006: 本仓声明严格治理（防回退守卫）且生命周期含 task impact', () => {
+  const config = readFileSync(join(DOGFOOD_REPO_ROOT, 'harness.config.mjs'), 'utf-8');
+  assert.match(config, /governance:\s*\{[\s\S]*?strictGovernance:\s*true/, '本仓 harness.config.mjs 必须声明 governance.strictGovernance: true');
+  const agents = readFileSync(join(DOGFOOD_REPO_ROOT, 'AGENTS.md'), 'utf-8');
+  assert.ok(agents.includes('task impact'), 'AGENTS.md 生命周期必须包含 task impact 步骤（strict 收尾必需事实）');
+  assert.ok(agents.includes('严格治理'), 'AGENTS.md 必须说明严格治理语义');
+});
+
+test('PRD-20260919-other-strict-dogfood AC-002/AC-003/AC-004: strict 缺事实被阻断 → 补齐事实后放行', () => {
+  const rootDir = strictDogfoodProject({ strict: true });
+  try {
+    const { taskId, gateId } = startDogfoodTask(rootDir, '修复：strict dogfood task');
+    const statusBefore = readDogfoodTask(rootDir, taskId).status;
+
+    const blocked = run(rootDir, ['task', 'finish', '--task', taskId]);
+    const out = `${blocked.stdout}${blocked.stderr}`;
+    assert.equal(blocked.status, 1, 'strict 必须阻断缺事实的收尾');
+    assert.match(out, /Strict finish blocked/);
+    assert.match(out, /REQUIRED_ACTIONS/);
+    for (const id of ['context_audit', 'architecture_impact', 'tech_stack_impact', 'review', 'knowledge']) {
+      assert.ok(out.includes(`[${id}]`), `REQUIRED_ACTIONS 应包含 ${id}`);
+    }
+    assert.ok(!out.includes('[requirement_approval]'), '修复类任务无 PRD → 不要求 Requirement Approval（事实门按需推导）');
+    assert.equal(readDogfoodTask(rootDir, taskId).status, statusBefore, '阻断不得改变任务状态');
+
+    const noDecision = run(rootDir, ['task', 'impact', '--task', taskId, '--architecture', 'ARCHITECTURE_CHANGE', '--tech-stack', 'NONE']);
+    assert.equal(noDecision.status, 1, 'ARCHITECTURE_CHANGE 缺 Decision 必须被拒');
+
+    satisfyDogfoodFacts(rootDir, { taskId, gateId });
+    assert.equal(readDogfoodTask(rootDir, taskId).impact.architecture, 'LOCAL');
+
+    const finished = run(rootDir, ['task', 'finish', '--task', taskId]);
+    assert.equal(finished.status, 0, `strict 事实齐备后必须放行：${finished.stdout}${finished.stderr}`);
+    assert.match(finished.stdout, /completed with verified evidence/);
+    assert.equal(readDogfoodTask(rootDir, taskId).status, 'completed');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('PRD-20260919-other-strict-dogfood AC-005: 未声明 strict 的项目走兼容路径（无 strict 阻断）', () => {  const rootDir = strictDogfoodProject({ strict: false });
+  try {
+    const { taskId } = startDogfoodTask(rootDir, '修复：compat path task');
+    const finished = run(rootDir, ['task', 'finish', '--task', taskId]);
+    const out = `${finished.stdout}${finished.stderr}`;
+    assert.equal(finished.status, 1, '证据缺失仍不得收尾');
+    assert.ok(!out.includes('Strict finish blocked'), '非 strict 不得出现 strict 阻断');
+    assert.match(out, /Task cannot finish/);
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('strict 收尾死锁回归（E02）：quick 风险任务补齐事实后可收尾', () => {
+  const rootDir = strictDogfoodProject({ strict: true });
+  try {
+    const { taskId, gateId } = startDogfoodTask(rootDir, '修复：quick strict task', { risk: 'quick' });
+    assert.equal(readDogfoodTask(rootDir, taskId).riskLevel, 'quick');
+    satisfyDogfoodFacts(rootDir, { taskId, gateId });
+
+    const finished = run(rootDir, ['task', 'finish', '--task', taskId]);
+    assert.equal(finished.status, 0, `quick 任务在 strict 下必须可收尾：${finished.stdout}${finished.stderr}`);
+    assert.equal(readDogfoodTask(rootDir, taskId).status, 'completed');
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});

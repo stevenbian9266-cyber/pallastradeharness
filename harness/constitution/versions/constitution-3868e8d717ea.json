@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "1.0",
+  "version": "constitution-3868e8d717ea",
+  "created_at": "2026-09-19T08:57:52.253Z",
+  "artifacts": [
+    {
+      "id": "acceptance",
+      "hash": "sha256:d72cbce464a5f9d24f22eb9826d1786ce71fb5c5ab60b85a8a1f2abf9e4fe371",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "agent_rules",
+      "hash": "sha256:a63f21feee9cf4a35545eeab54f01e5bbccccbfaf7b2d2ef6f98a0938c165561",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "architecture",
+      "hash": "sha256:72c232201c3b98a02d713ae7dadcd73510d88872fad2f9dfd6138c57288e59a0",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "engineering",
+      "hash": "sha256:4242bda553f7c4f89c1b2da8068760f9599d33c2c6fbd8cf82d37b6d1aba9e86",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "project_overview",
+      "hash": "sha256:383ec2e30ab928d0fe07f56c2be7322c93ff973fd2503fbff10eed682b1ba93c",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "tech_stack",
+      "hash": "sha256:81b09d1992006dee99c11c62bd4911076c9f62ebf07775731eac1250ad18d3a8",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "testing",
+      "hash": "sha256:2ac6458ebdfb13b3731c0b55f675cfbb8a59787068a8f3a57ea4b16f1f9e9051",
+      "status": "ACTIVE"
+    }
+  ],
+  "items": [
+    {
+      "id": "acceptance",
+      "path": "harness/constitution/acceptance.md",
+      "hash": "sha256:d72cbce464a5f9d24f22eb9826d1786ce71fb5c5ab60b85a8a1f2abf9e4fe371",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "agent_rules",
+      "path": "harness/constitution/agent-rules.md",
+      "hash": "sha256:a63f21feee9cf4a35545eeab54f01e5bbccccbfaf7b2d2ef6f98a0938c165561",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "architecture",
+      "path": "harness/constitution/architecture.md",
+      "hash": "sha256:72c232201c3b98a02d713ae7dadcd73510d88872fad2f9dfd6138c57288e59a0",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "engineering",
+      "path": "harness/constitution/engineering.md",
+      "hash": "sha256:4242bda553f7c4f89c1b2da8068760f9599d33c2c6fbd8cf82d37b6d1aba9e86",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "project_overview",
+      "path": "harness/constitution/project-overview.md",
+      "hash": "sha256:383ec2e30ab928d0fe07f56c2be7322c93ff973fd2503fbff10eed682b1ba93c",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "tech_stack",
+      "path": "harness/constitution/tech-stack.md",
+      "hash": "sha256:81b09d1992006dee99c11c62bd4911076c9f62ebf07775731eac1250ad18d3a8",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "testing",
+      "path": "harness/constitution/testing.md",
+      "hash": "sha256:2ac6458ebdfb13b3731c0b55f675cfbb8a59787068a8f3a57ea4b16f1f9e9051",
+      "status": "ACTIVE"
+    }
+  ],
+  "slots": {
+    "project_overview": "present",
+    "product": "not_applicable",
+    "tech_stack": "present",
+    "architecture": "present",
+    "engineering": "present",
+    "testing": "present",
+    "acceptance": "present",
+    "design": "not_applicable",
+    "agent_rules": "present",
+    "skills": "present"
+  },
+  "skills": {
+    "skills/harness-docs/SKILL.md": "sha256:415055c84ed215f92744c0f4ea4d229a050ef99b340dc8bf73eefc6298928f14",
+    "skills/harness-prd/SKILL.md": "sha256:df667df537f7e1605ea6728e296b7a1bf217597ad706201bb3131f4567273360",
+    "skills/harness-skill-author/SKILL.md": "sha256:4e5bd921d3f1d6eb5632c0933d1607c298baaf689e928fd7b5579556e0be7052",
+    "skills/harness-standards-audit/SKILL.md": "sha256:50edd1b86978baca441bcb70f123bd4afb5bf8d5850deb9d5ed9b467aead6b72"
+  },
+  "via_proposal": null,
+  "type": "ConstitutionVersion"
+}

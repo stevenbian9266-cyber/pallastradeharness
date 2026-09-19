@@ -26,11 +26,23 @@ npx harness task start --title "<prefix：description>" --allow "<approved-glob>
 npx harness brain context --task <TASK-ID>
 npx harness risk check --task <TASK-ID>
 npx harness gate --task "<prefix：description>" --task-id <TASK-ID>
+npx harness task impact --task <TASK-ID> --architecture <NONE|LOCAL|CROSS_MODULE|ARCHITECTURE_CHANGE> --tech-stack <NONE|DEPENDENCY_CHANGE|TECH_STACK_CHANGE>
 ```
 
 Prefixes: `修复：` bugfix / `优化：` `新增：` feature / `样式：` style / `审计：` audit / `研究：` research / `文档：` docs / `重构：` refactor / `安全：` security / `测试：` test.
 
 The gate **must be fully cleared** (`npx harness gate:status` exits 0) before any file edit. During the gate, only `harness/requirements/` and `harness/gates/` may be written. Verification evidence (`verify-test`) is closed only through fresh typed evidence (`npx harness evidence run|record`).
+
+`task impact` is **not optional** in this repo: strict governance is enabled here (§2.1), and a missing impact record blocks `task finish`. `ARCHITECTURE_CHANGE` / `TECH_STACK_CHANGE` additionally require a recorded Decision（`--decision "<内容>"` 或先 `brain decision`），否则命令被拒。
+
+### 2.1 严格治理（strict）— 本仓已启用
+
+本仓 `harness.config.mjs` 声明 `governance: { strictGovernance: true }`：**本仓即试验田**，所有变更必须通过引擎自己的严格收尾。
+
+- 缺任一必需事实（Context Audit / Requirement & UI Approval / Impact / Plan / 证据 / AC 覆盖 / 知识评估）→ `task finish` 输出 `REQUIRED_ACTIONS`（每项带可执行命令）、退出码非 0、**任务状态不变**，且引擎**不得补造事实**。
+- 关闭方式（仅在其他仓/临时验证时）：不声明该键即走兼容路径；本仓若需回退，须同步调整 `bin/cli-e2e.test.mjs` 中的 self-dogfood 守卫用例（`test:core` 会先失败，提示这是有意变更）。
+- 云侧语义与本地一致：Cloud 运行时恒为严格（`strictGovernance: true`，见 ADR-0002 D5），不得回退 legacy。
+
 
 ## 3. Cross-Layer Search (ALL tasks)
 
@@ -88,3 +100,6 @@ Evidence: backend logic → test run log / exit-0 record; docs-only → `docs:ch
 - Threat model & invariants: `docs/rfc/0001-threat-model.md`
 - ChangeSnapshot contract: `docs/rfc/0002-change-snapshot.md`
 - MCP mechanism integration spec: `docs/rfc/0004-mcp-mechanism.md`
+- Hosted service plan: `docs/rfc/0005-hosted-service.md`
+- Runtime boundary audit & matrix (Batch D / D01): `docs/rfc/0006-runtime-boundary.md`
+- ADRs (decision records): `docs/adr/`（当前：`ADR-0002-runtime-boundary.md`，PROPOSED）
