@@ -9,6 +9,8 @@ lastReviewedAt: {{TODAY}}
 > 由 `harness skill audit --generate` 自动创建（检测依据：{{DETECT_NOTE}}）。
 > 这是通用基线模板，AI 协作时按本项目实际细化（下方「项目化待办」）。
 
+{{GOVERNANCE_SECTIONS}}
+
 ## 核心概念
 
 - **契约优先**：对外 API 的请求/响应结构是契约；改契约 = 改文档 + 改调用方

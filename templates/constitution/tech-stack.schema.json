@@ -1,0 +1,75 @@
+{
+  "$comment": "Tech Stack 机读契约（Batch B / B05）。项目应产出 <project>.tech-stack.json 并按本结构校验；未使用的类别允许省略（不强迫每项都填）。",
+  "contract": "TechStack",
+  "version": "1.0",
+  "artifact_suffix": ".tech-stack.json",
+  "required": ["schema_version", "current_technologies", "restrictions", "change_policy"],
+  "optional": ["project", "approved_libraries", "deprecated_technologies", "related_decisions", "notes"],
+  "fields": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "project": {
+      "type": "object",
+      "optional": ["name", "repository", "artifact_path"],
+      "fields": {
+        "name": { "type": "string" },
+        "repository": { "type": "string" },
+        "artifact_path": { "type": "string" }
+      }
+    },
+    "current_technologies": {
+      "type": "array",
+      "minItems": 1,
+      "item": {
+        "required": ["category", "technology"],
+        "optional": ["version", "role", "status", "notes"],
+        "category_enum": [
+          "runtime", "language", "package_manager", "frontend", "backend",
+          "database", "orm", "cache", "queue", "search", "object_storage",
+          "testing", "browser_e2e", "build", "lint_format", "deployment",
+          "observability", "library"
+        ],
+        "role_enum": ["primary", "supporting"],
+        "status_enum": ["approved", "restricted", "deprecated", "experimental"]
+      }
+    },
+    "restrictions": {
+      "type": "array",
+      "item": {
+        "required": ["technology", "reason"],
+        "optional": ["instead", "scope"],
+        "notes": "restricted / deprecated 技术必须给出原因与替代方案"
+      }
+    },
+    "change_policy": {
+      "type": "object",
+      "required": ["normal_dependency", "structural_change"],
+      "fields": {
+        "normal_dependency": { "type": "string", "const": "DEPENDENCY_CHANGE" },
+        "structural_change": { "type": "string", "const": "TECH_STACK_CHANGE" },
+        "requires_decision": {
+          "type": "array",
+          "item_enum": ["framework", "orm", "database", "queue", "cache", "ui_framework", "authentication"]
+        },
+        "requires_approval": { "type": "boolean" }
+      }
+    },
+    "approved_libraries": {
+      "type": "array",
+      "item": { "required": ["library", "purpose"], "optional": ["constraint"] }
+    },
+    "deprecated_technologies": {
+      "type": "array",
+      "item": { "required": ["technology", "migration_target"], "optional": ["deprecated_at"] }
+    },
+    "related_decisions": {
+      "type": "array",
+      "item": { "required": ["id", "topic", "status"] }
+    }
+  },
+  "rules": [
+    "未使用的类别允许省略；不得以省略键名隐藏已知技术（已知必填）",
+    "status=deprecated 的技术不得用于新代码（除非 ADR 明确例外并记录）",
+    "新增 framework / orm / database / queue / cache / ui_framework / authentication 必须走 Decision / ADR（TECH_STACK_CHANGE）",
+    "本契约是 Architecture/Tech Stack Governance 的机读输入（Batch C 起被 Supervisor 消费）"
+  ]
+}

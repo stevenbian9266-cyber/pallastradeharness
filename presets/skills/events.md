@@ -9,6 +9,8 @@ lastReviewedAt: {{TODAY}}
 > 由 `harness skill audit --generate` 自动创建（检测依据：{{DETECT_NOTE}}）。
 > 这是通用基线模板，AI 协作时按本项目实际细化。
 
+{{GOVERNANCE_SECTIONS}}
+
 ## 核心概念
 
 - **事件即契约**：事件名/载荷结构稳定；事件只描述"已发生的事实"（过去时），不描述命令意图

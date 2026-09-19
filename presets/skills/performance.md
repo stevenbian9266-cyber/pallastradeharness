@@ -9,6 +9,8 @@ lastReviewedAt: {{TODAY}}
 > 由 `harness skill audit --generate` 自动创建（检测依据：{{DETECT_NOTE}}）。
 > 这是通用基线模板，AI 协作时按本项目实际细化。
 
+{{GOVERNANCE_SECTIONS}}
+
 ## 核心概念
 
 - **先测量后优化**：优化前有基线数据（耗时/吞吐/QPS），优化后复测，禁止凭感觉

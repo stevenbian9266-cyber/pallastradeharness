@@ -27,6 +27,30 @@ export function skillTemplatePath(engineRoot, templateId) {
   return resolve(engineRoot, 'presets', 'skills', `${templateId}.md`);
 }
 
+/** canonical Skill 模板：<engineRoot>/templates/skill/SKILL.md（B12） */
+export function canonicalSkillTemplatePath(engineRoot) {
+  return resolve(engineRoot, 'templates', 'skill', 'SKILL.md');
+}
+
+/** 共享治理段落：<engineRoot>/templates/skill/governance-sections.md（B12） */
+export function governanceSectionsPath(engineRoot) {
+  return resolve(engineRoot, 'templates', 'skill', 'governance-sections.md');
+}
+
+/** 加载共享治理段落；不存在/读取失败返回 ''（不产生残缺占位符）。 */
+export function loadGovernanceSections(engineRoot) {
+  const p = governanceSectionsPath(engineRoot);
+  if (!existsSync(p)) return '';
+  try { return readFileSync(p, 'utf-8'); } catch { return ''; }
+}
+
+/** 加载 canonical Skill 模板；不存在返回 null。 */
+export function loadCanonicalSkillTemplate(engineRoot) {
+  const p = canonicalSkillTemplatePath(engineRoot);
+  if (!existsSync(p)) return null;
+  try { return readFileSync(p, 'utf-8'); } catch { return null; }
+}
+
 /** 加载模板；不存在返回 null */
 export function loadSkillTemplate(engineRoot, templateId) {
   if (!templateId) return null;
@@ -35,9 +59,10 @@ export function loadSkillTemplate(engineRoot, templateId) {
   try { return readFileSync(p, 'utf-8'); } catch { return null; }
 }
 
-/** 渲染模板：替换全部占位符 */
+/** 渲染模板：替换全部占位符（GOVERNANCE_SECTIONS 先注入，其内部占位符随后被替换） */
 export function renderSkillTemplate(template, ctx = {}) {
   const map = {
+    '{{GOVERNANCE_SECTIONS}}': ctx.governanceSections ?? '',
     '{{PROJECT_NAME}}': ctx.projectName ?? 'project',
     '{{SKILL_ID}}': ctx.id ?? '',
     '{{SKILL_TITLE}}': ctx.title ?? ctx.id ?? '',
@@ -64,6 +89,26 @@ export function resolveSkillBody({ engineRoot, templateId, item = {}, projectNam
     title: item.title || item.id,
     note,
     authorityList,
+    governanceSections: loadGovernanceSections(engineRoot),
+    today: new Date().toISOString().slice(0, 10),
+  });
+}
+
+/**
+ * canonical 模板渲染（未知领域回退，B12）：
+ *  - 有 templates/skill/SKILL.md → 渲染（含共享治理段落，产出 14 段治理结构）
+ *  - 缺失 → null（调用方继续回退内联骨架，保持向后兼容）
+ */
+export function resolveFallbackSkillBody({ engineRoot, item = {}, projectName, note, authorityList }) {
+  const tpl = loadCanonicalSkillTemplate(engineRoot);
+  if (!tpl) return null;
+  return renderSkillTemplate(tpl, {
+    projectName,
+    id: item.id,
+    title: item.title || item.id,
+    note,
+    authorityList,
+    governanceSections: loadGovernanceSections(engineRoot),
     today: new Date().toISOString().slice(0, 10),
   });
 }

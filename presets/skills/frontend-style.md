@@ -9,6 +9,8 @@ lastReviewedAt: {{TODAY}}
 > 由 `harness skill audit --generate` 自动创建（检测依据：{{DETECT_NOTE}}）。
 > 这是通用基线模板，AI 协作时按本项目实际细化。
 
+{{GOVERNANCE_SECTIONS}}
+
 ## 核心概念
 
 - **设计 token 唯一实现处**：颜色/间距/字号/圆角集中定义（SCSS 变量或 CSS 变量），组件一律引用 token，禁止散落硬编码

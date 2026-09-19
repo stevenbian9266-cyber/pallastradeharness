@@ -9,6 +9,8 @@ lastReviewedAt: {{TODAY}}
 > 由 `harness skill audit --generate` 自动创建（检测依据：{{DETECT_NOTE}}）。
 > 这是通用基线模板，AI 协作时按本项目实际细化。
 
+{{GOVERNANCE_SECTIONS}}
+
 ## 核心概念
 
 - **状态机**：支付单必须有显式状态机（`pending → paid → refunding → refunded` + 失败分支），状态变更只经命名领域方法，禁止裸 `setStatus`
