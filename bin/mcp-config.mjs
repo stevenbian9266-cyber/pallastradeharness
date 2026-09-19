@@ -13,9 +13,11 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { atomicWriteText } from './state-store.mjs';
 import { EXIT_CODES, getArg, hasArg } from './cli-utils.mjs';
+import { getHarnessPackageSpec } from './version.mjs';
 
 export const MCP_CONFIG_TARGETS = Object.freeze(['vscode', 'cursor', 'claude-code', 'claude-desktop', 'codex']);
-export const DEFAULT_PACKAGE_SPEC = 'pallastrade-harness@1.10';
+// A03：默认 spec 由 package.json 版本推导（name@major.minor），消除硬编码漂移
+export const DEFAULT_PACKAGE_SPEC = getHarnessPackageSpec();
 export const SERVER_KEY = 'pallastrade-harness';
 export const WORKSPACE_ROOT_TOKEN = '${workspaceFolder}';
 

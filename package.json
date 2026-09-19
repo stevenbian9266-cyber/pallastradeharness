@@ -49,7 +49,11 @@
     "pngjs": "^7.0.0"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "npm run test:core",
+    "test:core": "node --test \"bin/*.test.mjs\"",
+    "test:mcp": "node --test \"bin/mcp*.test.mjs\"",
+    "test:examples": "npm --prefix examples/node-ts test",
+    "test:e2e": "node --test \"bin/cli-e2e.test.mjs\""
   },
   "keywords": [
     "harness",
@@ -66,8 +70,5 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/stevenbian9266-cyber/pallastradeharness.git"
-  },
-  "devDependencies": {
-    "pallastrade-harness": "^1.6.0"
   }
 }
