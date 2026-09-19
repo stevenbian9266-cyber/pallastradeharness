@@ -17,6 +17,9 @@ export const CONTRACT_TYPES = Object.freeze([
   'RecoveryPlan',
   'KnowledgeAssessment',
   'HandoffPackage',
+  'Template',
+  'ProjectArtifact',
+  'ConstitutionVersion',
 ]);
 
 export const TASK_STATUSES = Object.freeze([
@@ -47,6 +50,11 @@ export const EVIDENCE_TYPES = Object.freeze([
   'knowledge',
 ]);
 
+/** 审批类型（单一来源；本地审批与 Cloud 工具共用）。 */
+export const APPROVAL_TYPES = Object.freeze([
+  'baseline', 'requirement', 'ui', 'architecture', 'tech_stack', 'high_risk', 'waiver',
+]);
+
 export const STANDARD_CATEGORIES = Object.freeze([
   'architecture',
   'technology-selection',
@@ -72,6 +80,11 @@ export const ENFORCEMENT_LEVELS = Object.freeze([
   'critical',
 ]);
 
+// Batch C（C07/C08）：统一影响评估枚举
+export const ARCHITECTURE_IMPACTS = Object.freeze(['NONE', 'LOCAL', 'CROSS_MODULE', 'ARCHITECTURE_CHANGE']);
+export const TECH_STACK_IMPACTS = Object.freeze(['NONE', 'DEPENDENCY_CHANGE', 'TECH_STACK_CHANGE']);
+export const ARTIFACT_STATUSES = Object.freeze(['ACTIVE', 'STALE', 'SUPERSEDED']);
+
 const REQUIRED_FIELDS = Object.freeze({
   Task: ['id', 'title', 'status', 'riskLevel', 'createdAt'],
   Standard: ['id', 'category', 'title', 'authority', 'scope', 'severity', 'enforcement'],
@@ -89,6 +102,15 @@ const REQUIRED_FIELDS = Object.freeze({
   RecoveryPlan: ['id', 'taskId', 'createdAt', 'failureCriteria', 'stopConditions', 'codeRecovery', 'dataRecovery', 'verification'],
   KnowledgeAssessment: ['id', 'taskId', 'asset', 'status', 'reason', 'assessedAt'],
   HandoffPackage: ['id', 'taskId', 'createdAt', 'status', 'nextActions'],
+  Template: [
+    'template_id', 'version', 'category', 'scope', 'source_path',
+    'applies_to', 'required_when', 'owner_role', 'consumed_by', 'stale_when', 'status',
+  ],
+  ProjectArtifact: [
+    'id', 'type', 'path', 'template_id', 'template_version', 'artifact_version',
+    'content_hash', 'status', 'created_at', 'updated_at',
+  ],
+  ConstitutionVersion: ['version', 'created_at', 'artifacts'],
 });
 
 function isObject(value) {
@@ -114,9 +136,43 @@ function validateFinding(value) {
   return errors;
 }
 
+function validateTemplate(value) {
+  const errors = [];
+  if (!/^\d+\.\d+\.\d+$/.test(String(value.version))) errors.push('version must be semver x.y.z');
+  for (const field of ['template_id', 'category', 'scope', 'source_path', 'required_when', 'owner_role', 'status']) {
+    if (typeof value[field] !== 'string' || value[field].length === 0) errors.push(`${field} must be a non-empty string`);
+  }
+  for (const field of ['applies_to', 'consumed_by', 'stale_when']) {
+    if (!Array.isArray(value[field]) || value[field].length === 0) errors.push(`${field} must be a non-empty array`);
+  }
+  if (value.contract_path !== undefined && (typeof value.contract_path !== 'string' || value.contract_path.length === 0)) {
+    errors.push('contract_path must be a non-empty string when present');
+  }
+  return errors;
+}
+
+function validateProjectArtifact(value) {
+  const errors = [];
+  if (!ARTIFACT_STATUSES.includes(value.status)) errors.push(`status must be one of: ${ARTIFACT_STATUSES.join(', ')}`);
+  if (!/^sha256:[a-f0-9]{12,64}$/.test(String(value.content_hash))) errors.push('content_hash must be sha256:<hex>');
+  if (!/^\d+\.\d+\.\d+$/.test(String(value.artifact_version))) errors.push('artifact_version must be semver x.y.z');
+  if (!/^\d+\.\d+\.\d+$/.test(String(value.template_version))) errors.push('template_version must be semver x.y.z');
+  return errors;
+}
+
+function validateConstitutionVersion(value) {
+  const errors = [];
+  if (!/^constitution-[a-f0-9]{12}$/.test(String(value.version))) errors.push('version must be constitution-<hex12>');
+  if (!Array.isArray(value.artifacts) || value.artifacts.length === 0) errors.push('artifacts must be a non-empty array');
+  return errors;
+}
+
 function validateTypeSpecificFields(type, value) {
   if (type === 'Standard') return validateStandard(value);
   if (type === 'Finding') return validateFinding(value);
+  if (type === 'Template') return validateTemplate(value);
+  if (type === 'ProjectArtifact') return validateProjectArtifact(value);
+  if (type === 'ConstitutionVersion') return validateConstitutionVersion(value);
   if (type === 'Risk' && !['quick', 'standard', 'critical'].includes(value.level)) {
     return ['level must be quick, standard, or critical'];
   }

@@ -1,0 +1,51 @@
+{
+  "$comment": "Architecture 机读契约（Batch B / B06）。项目应产出 <project>.architecture.json 并按本结构校验。Architecture Artifact = Source of Truth；Supervisor = Enforcement Engine（Batch C 消费，不在本批次改造）。",
+  "contract": "Architecture",
+  "version": "1.0",
+  "artifact_suffix": ".architecture.json",
+  "required": ["schema_version", "style", "modules", "dependency_rules", "rules"],
+  "optional": ["system_context", "layers", "data_ownership", "api_boundaries", "shared_infrastructure", "known_debt", "related_adr", "notes"],
+  "fields": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "style": { "type": "string", "examples": ["modular", "layered", "hexagonal", "event-driven"] },
+    "modules": {
+      "type": "array",
+      "minItems": 1,
+      "item": {
+        "required": ["id", "name", "paths", "responsibilities"],
+        "optional": ["layer", "depends_on", "data_ownership", "notes"],
+        "paths_rule": "paths 必须真实存在（与 source_path 同规则）"
+      }
+    },
+    "dependency_rules": {
+      "type": "array",
+      "item": {
+        "required": ["id", "from", "rule"],
+        "optional": ["allow", "deny", "reason"],
+        "notes": "rule 例：deny direct-persistence / allow only shared-infrastructure"
+      }
+    },
+    "rules": {
+      "type": "array",
+      "item": {
+        "required": ["id", "severity", "description"],
+        "severity_enum": ["info", "warning", "blocking"]
+      }
+    },
+    "layers": { "type": "array", "item": { "required": ["name", "direction"] } },
+    "data_ownership": { "type": "array", "item": { "required": ["data", "owner"], "optional": ["readers"] } },
+    "known_debt": { "type": "array", "item": { "required": ["debt", "plan"], "optional": ["impact"] } },
+    "related_adr": { "type": "array", "item": { "required": ["id", "topic", "status"] } }
+  },
+  "severity": {
+    "info": "仅记录",
+    "warning": "提示，不阻断（进入 review 说明）",
+    "blocking": "重大 violation 产生 Blocking Finding（Supervisor 消费；未处置不得完成）"
+  },
+  "rules": [
+    "modules.paths 必须指向真实存在的文件/目录",
+    "禁止引入与现有模块职责重叠的新模块（先查 modules 清单）",
+    "severity=blocking 的规则禁止绕过；例外必须走 Decision / ADR",
+    "本契约是 Architecture Governance 的机读输入（Batch C 起被 Supervisor 消费）"
+  ]
+}

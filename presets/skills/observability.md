@@ -9,6 +9,8 @@ lastReviewedAt: {{TODAY}}
 > 由 `harness skill audit --generate` 自动创建（检测依据：{{DETECT_NOTE}}）。
 > 这是通用基线模板，AI 协作时按本项目实际细化。
 
+{{GOVERNANCE_SECTIONS}}
+
 ## 核心概念
 
 - **结构化日志**：日志是机器可读的结构（key=value/JSON），可被检索聚合，禁止裸文本拼接

@@ -9,6 +9,8 @@ lastReviewedAt: {{TODAY}}
 > 由 `harness skill audit --generate` 自动创建（检测依据：{{DETECT_NOTE}}）。
 > 这是通用基线模板，AI 协作时按本项目实际细化。
 
+{{GOVERNANCE_SECTIONS}}
+
 ## 核心概念
 
 - **单一事实来源**：数据库 schema 是最终事实；应用层模型/文档都必须与 schema 对齐

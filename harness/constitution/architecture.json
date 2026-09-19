@@ -1,0 +1,53 @@
+{
+  "$comment": "pallastradeharness 机读架构（Batch C / C04）。结构与 templates/constitution/architecture.schema.json 对齐；`dependency_rules.deny` 由 bin/constitution-compliance.mjs 强制（重大 violation → Blocking Finding）。",
+  "schema_version": "1.0",
+  "style": "modular",
+  "modules": [
+    { "id": "cli", "name": "入口与分发", "layer": "entry", "paths": ["bin/harness.mjs", "bin/mcp-server.mjs"], "responsibilities": ["参数解析/命令分发/退出码", "MCP stdio 入口与 root 解析"], "depends_on": ["task", "constitution", "assets", "supervision", "evidence", "knowledge", "integration"] },
+    { "id": "contracts", "name": "契约层", "layer": "base", "paths": ["bin/contracts.mjs", "bin/template-registry.mjs"], "responsibilities": ["数据合同与校验", "模板注册表"], "depends_on": [] },
+    { "id": "state", "name": "状态与快照", "layer": "base", "paths": ["bin/state-store.mjs", "bin/change-snapshot.mjs"], "responsibilities": ["原子写/状态存取", "变更快照与指纹"], "depends_on": ["contracts"] },
+    { "id": "task", "name": "Task 治理", "layer": "governance", "paths": ["bin/task-orchestrator.mjs", "bin/risk-engine.mjs", "bin/gate-commands.mjs", "bin/gate-lifecycle.mjs", "bin/config-loader.mjs"], "responsibilities": ["状态机/风险/门禁", "配置装载"], "depends_on": ["contracts", "state"] },
+    { "id": "constitution", "name": "Constitution 治理", "layer": "governance", "paths": ["bin/constitution.mjs", "bin/constitution-change.mjs", "bin/project-artifacts.mjs", "bin/approvals.mjs", "bin/fact-gates.mjs", "bin/governance.mjs"], "responsibilities": ["制品/版本/变更流/审批/事实门", "治理画像"], "depends_on": ["contracts", "state"] },
+    { "id": "assets", "name": "模板与资产", "layer": "governance", "paths": ["bin/skill.mjs", "bin/skill-template.mjs", "bin/skill-audit.mjs", "bin/standards.mjs", "bin/standards-gen.mjs", "bin/docs-gen.mjs", "bin/design-check.mjs", "bin/design-scan.mjs", "bin/reuse-adherence.mjs"], "responsibilities": ["Skill/规范/文档/设计产物生成与校验"], "depends_on": ["contracts", "state"] },
+    { "id": "supervision", "name": "监督与合规", "layer": "supervision", "paths": ["bin/supervisor.mjs", "bin/domain-supervisors.mjs", "bin/constitution-compliance.mjs", "bin/review.mjs", "bin/scan-anti-patterns.mjs", "bin/scan-ui-anti-patterns.mjs", "bin/scan-secrets.mjs"], "responsibilities": ["diff 审查/域规则/宪法合规/扫描"], "depends_on": ["contracts", "assets"] },
+    { "id": "evidence", "name": "证据与恢复", "layer": "verification", "paths": ["bin/evidence.mjs", "bin/verifier.mjs", "bin/recovery.mjs", "bin/baseline.mjs", "bin/coverage.mjs", "bin/visual-regression.mjs"], "responsibilities": ["证据新鲜度/验证器/恢复计划/基线"], "depends_on": ["contracts", "state"] },
+    { "id": "knowledge", "name": "知识与上下文", "layer": "knowledge", "paths": ["bin/project-brain.mjs", "bin/knowledge-loop.mjs", "bin/doc-impact.mjs", "bin/docs-check.mjs", "bin/readme-sync.mjs", "bin/metrics.mjs"], "responsibilities": ["索引/上下文包/文档同步/指标"], "depends_on": ["contracts", "state"] },
+    { "id": "integration", "name": "集成与适配", "layer": "integration", "paths": ["bin/mcp.mjs", "bin/hooks.mjs", "bin/hook-agent.mjs", "bin/agent-adapters.mjs", "bin/capability-registry.mjs", "bin/plugins.mjs", "bin/ci.mjs", "bin/init.mjs", "bin/onboard.mjs"], "responsibilities": ["MCP 协议/Agent Hook/插件与适配器/CI 生成"], "depends_on": ["contracts", "state"] }
+  ],
+  "dependency_rules": [
+    {
+      "id": "ARCH-001",
+      "from": "all",
+      "rule": "deny self-dependency on the published package",
+      "deny": ["pallastrade-harness"],
+      "reason": "自引用依赖会加载旧版发布物（Batch A TASK-A02 决策；守卫测试见 bin/version.test.mjs）"
+    }
+  ],
+  "rules": [
+    { "id": "ARCH-R1", "severity": "warning", "description": "禁止引入第二套 Task/Gate/Evidence/Skill/Decision 引擎（复用优先：调用已有 → 扩展已有）" },
+    { "id": "ARCH-R2", "severity": "warning", "description": "MCP transport 不得自行决定业务 Gate、Task 或最终状态（RFC-0004；工具层只调用域函数）" },
+    { "id": "ARCH-R3", "severity": "blocking", "description": "禁止自引用依赖 pallastrade-harness（由 ARCH-001 dependency deny 强制阻断）" },
+    { "id": "ARCH-R4", "severity": "warning", "description": "领域逻辑禁止 Cloud 特定分支（if (cloud)）——Cloud 属 Batch D，须经运行时边界" }
+  ],
+  "layers": [
+    { "name": "entry", "direction": "可依赖任意治理域与基础层" },
+    { "name": "governance/supervision/verification/knowledge/integration", "direction": "只依赖 contracts/state 与其声明的域" },
+    { "name": "base", "direction": "禁止依赖任何上层" }
+  ],
+  "data_ownership": [
+    { "data": "task state", "owner": "task", "readers": ["cli", "evidence", "knowledge"] },
+    { "data": "gate state", "owner": "task", "readers": ["cli", "evidence"] },
+    { "data": "evidence", "owner": "evidence", "readers": ["cli", "knowledge"] },
+    { "data": "constitution artifacts/versions", "owner": "constitution", "readers": ["supervision", "knowledge", "cli"] },
+    { "data": "approvals", "owner": "constitution", "readers": ["fact-gates", "cli"] }
+  ],
+  "known_debt": [
+    { "debt": "Core 与 Local I/O（rootDir/fs/git）高耦合", "impact": "Cloud 抽取成本", "plan": "Batch D Repository Ports 增量抽取" },
+    { "debt": "Supervisor findings 未持久化关联", "impact": "Blocking Findings 跨流程追溯弱", "plan": "后续批次接入 strict finish 的 blocking 检查" }
+  ],
+  "related_adr": [
+    { "id": "ADR-0001", "topic": "Constitution 文件型制品 + 内容哈希版本", "status": "accepted" },
+    { "id": "RFC-0002", "topic": "ChangeSnapshot 数据合同", "status": "accepted" },
+    { "id": "RFC-0004", "topic": "MCP 全量机制接入", "status": "accepted" }
+  ]
+}

@@ -9,6 +9,8 @@ lastReviewedAt: {{TODAY}}
 > 由 `harness skill audit --generate` 自动创建（检测依据：{{DETECT_NOTE}}）。
 > 这是通用基线模板，AI 协作时按本项目实际细化。
 
+{{GOVERNANCE_SECTIONS}}
+
 ## 核心概念
 
 - **测试金字塔**：大量单元测试 + 适量集成测试 + 少量端到端

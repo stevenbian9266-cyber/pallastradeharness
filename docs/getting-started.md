@@ -133,6 +133,11 @@ npx harness gate --task "新增：我的功能" --task-id <TASK-ID>
 npx harness gate:clear --gate <GATE-ID> --clear <check-id>
 npx harness gate:status --short               # 单行状态（token 优化）
 
+# 4. 影响评估（**严格治理下强制**）
+npx harness task impact --task <TASK-ID> --architecture LOCAL --tech-stack NONE --reason "仅模块内改动"
+# ARCHITECTURE_CHANGE / TECH_STACK_CHANGE 必须伴随 Decision：
+#   npx harness task impact --task <TASK-ID> --architecture ARCHITECTURE_CHANGE --tech-stack NONE --decision "<决策内容>"
+
 # 4. 生成允许/禁止修改范围与适用规范
 npx harness supervise plan --task "新增：我的功能" --allow "src/**" "test/**"
 
@@ -172,6 +177,36 @@ npx harness task finish --task <TASK-ID>
 > - 不带 `--task-id` 的 `harness gate`（无活动任务时会被拒绝）
 > - `harness gate:clear --gate <GATE-ID> --clear verify-test`（verification 只能由 `evidence verify` 关闭）
 > - 任意命令冒充测试：`evidence run --type test -- <任意命令>` 现在标记为 `diagnostic`，不满足 Gate；请用 `harness verify <verifier-id>`
+
+---
+
+## 6.1 严格治理（strict）
+
+在 `harness.config.mjs` 声明后，`task finish` 不再只查证据，而是校验**完整事实链**（本仓已启用，见 `AGENTS.md` §2.1）：
+
+```js
+// harness.config.mjs（两种写法等价）
+export default { strictGovernance: true };
+// 或
+export default { governance: { strictGovernance: true } };
+```
+
+缺事实时的输出（**每项都给出可执行命令**，照做即可放行；任务状态不变、引擎不补造事实）：
+
+```text
+❌ Strict finish blocked — REQUIRED_ACTIONS (3):
+   • [context_audit] Context Audit 缺失（无 Context Pack 记录）
+     → harness brain context --task TASK-xxx
+   • [architecture_impact] Architecture Impact 未记录
+     → harness task impact --task TASK-xxx --architecture <NONE|LOCAL|CROSS_MODULE|ARCHITECTURE_CHANGE> --tech-stack <NONE|DEPENDENCY_CHANGE|TECH_STACK_CHANGE>
+   • [knowledge] Knowledge Assessment 未满足
+     → harness evidence record --task TASK-xxx --type knowledge --summary "…" --approve
+```
+
+事实清单（12 项）：Context Audit · Requirement Approval · Implementation Plan · Architecture / Tech Stack Impact · UI Approval · Review · Required Tests · 新鲜证据 · AC 覆盖 · Knowledge · 受影响的 Skill 处置。
+
+- **不声明 strict 的项目**：行为与以前完全一致（兼容路径）。
+- **Cloud 运行时**：恒为严格（不可关闭），语义与本开关一致。
 
 ---
 

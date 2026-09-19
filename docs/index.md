@@ -33,6 +33,10 @@ title: pallastrade-harness
 - [迁移到 1.0](migration-1.0.md) — 配置、状态、插件与兼容性
 - [MCP 接入规格（RFC-0004）](rfc/0004-mcp-mechanism.md) — 机制全量 MCP 化：能力矩阵、安全政策与分阶段实施
 - [MCP 接入指南](mcp.md) — 零安装接入 5 客户端、20 个 L1 工具与安全模型（v1.10）
+- [托管服务方案（RFC-0005）](rfc/0005-hosted-service.md) — 云端形态、mcp.pallastrade.cn 隔离部署与商业化里程碑
+- [Runtime Boundary（RFC-0006）](rfc/0006-runtime-boundary.md) — Cloud 提取审计矩阵与端口计划（Batch D / D01；决策提案见 [ADR-0002](adr/ADR-0002-runtime-boundary.md)）
+- [Batch D 验收自审](batch-d-completion-audit.md) — Cloud Runtime（D01-D14）对照「人工审批重点八条」的证据与结论
+- [当前治理基线](current-governance-baseline.md) — Task/Gate/MCP/Evidence/Risk/Standards/Templates/Skill 冻结事实（回归对照）
 - [贡献指南](contributing.md) — 规则/插件/文档贡献
 - [路线图](roadmap.md) — 0.4→1.0 治理路线
 

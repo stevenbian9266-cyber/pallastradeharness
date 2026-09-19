@@ -1,0 +1,249 @@
+{
+  "schemaVersion": "1.0",
+  "type": "ApprovalStore",
+  "approvals": [
+    {
+      "id": "APR-mu881mn0",
+      "taskId": "TASK-20260919100403-2ff1efa5",
+      "type": "requirement",
+      "artifact_hash": "sha256:1b82fbeb774447b422e7950b219061b3c47bfdd7cdfc6545caccc2946f747bd1",
+      "files": [
+        "harness/requirements/REQ-20260919-batch-d-d02-d03-runtime-ports.md"
+      ],
+      "summary": "人工授权：对话『自主决定』= 批准 ADR-0002（含 D1-D6 与三项附注决策：strict 延至 D13 / product.md 维持 not_applicable / Node 版本门槛接受）",
+      "approved_at": "2026-09-19T10:05:22.483Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu881ms3",
+      "taskId": "TASK-20260919100403-2ff1efa5",
+      "type": "ui",
+      "artifact_hash": "sha256:43068edd98e6ba0913bc6acf0a2a14db5074890ab93e0fcd5b89a0200055b321",
+      "files": [
+        "docs/designs/TASK-20260919100403-2ff1efa5/interaction.md",
+        "docs/designs/TASK-20260919100403-2ff1efa5/tech-design.md",
+        "docs/designs/TASK-20260919100403-2ff1efa5/ui.md",
+        "docs/designs/TASK-20260919100403-2ff1efa5/visual.md"
+      ],
+      "summary": "design:check 全绿（4 文档 + Part A 四节 + Part B 23 行矩阵）；自审对照 RFC-0006 §5 端口清单与指令 D02/D03，无偏离",
+      "approved_at": "2026-09-19T10:05:22.669Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu88auxz",
+      "taskId": "TASK-20260919101110-f33d9810",
+      "type": "requirement",
+      "artifact_hash": "sha256:6d78e07147fcd203ae28c56be94507eb5220849b6fc39b829449c176429c52d6",
+      "files": [
+        "harness/requirements/REQ-20260919-batch-d-d04-d05-provider-ports.md"
+      ],
+      "summary": "人工授权：对话『自主决定』＝批准 ADR-0002 与 Batch D 连续推进（含 D04/D05 Provider 抽象范围）",
+      "approved_at": "2026-09-19T10:12:33.159Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu88avdy",
+      "taskId": "TASK-20260919101110-f33d9810",
+      "type": "ui",
+      "artifact_hash": "sha256:0a981df6bdc37ddcb08909cc7e77bae86d0bfb0bf57a55d85c7275f9bbb0480f",
+      "files": [
+        "docs/designs/TASK-20260919101110-f33d9810/interaction.md",
+        "docs/designs/TASK-20260919101110-f33d9810/tech-design.md",
+        "docs/designs/TASK-20260919101110-f33d9810/ui.md",
+        "docs/designs/TASK-20260919101110-f33d9810/visual.md"
+      ],
+      "summary": "人工授权：『自主决定』→ 设计产物（4 件）与复用矩阵按 ADR-0002 D1/D6 冻结，可进入实施",
+      "approved_at": "2026-09-19T10:12:33.728Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu88rig7",
+      "taskId": "TASK-20260919102352-4bdf60e2",
+      "type": "requirement",
+      "artifact_hash": "sha256:2dadf292af01a97b3e43fc622b895396c65138776fad7b1f5d8e73024af6c150",
+      "files": [
+        "harness/requirements/REQ-20260919-batch-d-d06-d07-cloud-sqlite.md"
+      ],
+      "summary": "人工授权：用户『继续』＝按 RFC-0006 §7 序列推进 D06/D07（Cloud SQLite + 双适配器契约）",
+      "approved_at": "2026-09-19T10:25:30.113Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu88rixa",
+      "taskId": "TASK-20260919102352-4bdf60e2",
+      "type": "ui",
+      "artifact_hash": "sha256:9cb40eb663bd37b64b65ae286595ea86c6fa9fda0473be4fc1207940cbd03c73",
+      "files": [
+        "docs/designs/TASK-20260919102352-4bdf60e2/interaction.md",
+        "docs/designs/TASK-20260919102352-4bdf60e2/tech-design.md",
+        "docs/designs/TASK-20260919102352-4bdf60e2/ui.md",
+        "docs/designs/TASK-20260919102352-4bdf60e2/visual.md"
+      ],
+      "summary": "人工授权：『继续』→ 设计（schema 12 表 + 端口方法面不变 + 双适配器契约）按 ADR-0002 D2 冻结，可进入实施",
+      "approved_at": "2026-09-19T10:25:30.728Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu892zj2",
+      "taskId": "TASK-20260919103331-1198e842",
+      "type": "requirement",
+      "artifact_hash": "sha256:d45c1cc8137209a466ada61e7fabae7f5f1ed7d1ba588a6c205441d7b36a05a9",
+      "files": [
+        "harness/requirements/REQ-20260919-batch-d-d08-d09-submitted-context.md"
+      ],
+      "summary": "人工授权：用户『继续』＝按 RFC-0006 §7 推进 D08/D09（提交式上下文 + 证据边界）",
+      "approved_at": "2026-09-19T10:34:25.466Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu892zzh",
+      "taskId": "TASK-20260919103331-1198e842",
+      "type": "ui",
+      "artifact_hash": "sha256:ee174332ca0daf1a1dc22a7c39cba365c094c576e37eb2df457ffb7f9362e1b9",
+      "files": [
+        "docs/designs/TASK-20260919103331-1198e842/interaction.md",
+        "docs/designs/TASK-20260919103331-1198e842/tech-design.md",
+        "docs/designs/TASK-20260919103331-1198e842/ui.md",
+        "docs/designs/TASK-20260919103331-1198e842/visual.md"
+      ],
+      "summary": "人工授权：『继续』→ 设计（提交契约 + 净化 + 证据边界 + schema v2）按 ADR-0002 D1/D6 冻结，可进入实施",
+      "approved_at": "2026-09-19T10:34:26.053Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu89gd9m",
+      "taskId": "TASK-20260919104352-1b1ecd6b",
+      "type": "requirement",
+      "artifact_hash": "sha256:48be54002096064d55e647206da55486d8beb24b7cfecc43cb45d72eb36d7996",
+      "files": [
+        "harness/requirements/REQ-20260919-batch-d-d10-d11-http-mcp.md"
+      ],
+      "summary": "人工授权：用户『继续』＝按 RFC-0006 §7 推进 D10/D11（HTTP MCP 运行时 + 静态 Key）",
+      "approved_at": "2026-09-19T10:44:49.793Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu89gdp1",
+      "taskId": "TASK-20260919104352-1b1ecd6b",
+      "type": "ui",
+      "artifact_hash": "sha256:95edd2e4dc9f362b5b6a3d85553a69c294636a68c53954058d85ed1735c45e04",
+      "files": [
+        "docs/designs/TASK-20260919104352-1b1ecd6b/interaction.md",
+        "docs/designs/TASK-20260919104352-1b1ecd6b/tech-design.md",
+        "docs/designs/TASK-20260919104352-1b1ecd6b/ui.md",
+        "docs/designs/TASK-20260919104352-1b1ecd6b/visual.md"
+      ],
+      "summary": "人工授权：『继续』→ 设计（5 层运行时 + 静态 Key + 复用 mcp.mjs 信封）按 ADR-0002 D3/D4 冻结，可进入实施",
+      "approved_at": "2026-09-19T10:44:50.354Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu89xhxm",
+      "taskId": "TASK-20260919105713-71812e8f",
+      "type": "requirement",
+      "artifact_hash": "sha256:1398aa222ca9003f3ee4cfaaa62f1fbf4bb611c0eceed7c90407e5e45006fe96",
+      "files": [
+        "harness/requirements/REQ-20260919-batch-d-d12-mcp-compatibility.md"
+      ],
+      "summary": "人工授权：用户『继续』＝按 RFC-0006 §7 与指令 TASK-D12 推进工具面兼容与 Project 能力",
+      "approved_at": "2026-09-19T10:58:08.996Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu89xicl",
+      "taskId": "TASK-20260919105713-71812e8f",
+      "type": "ui",
+      "artifact_hash": "sha256:d5efed59c2e5e859614cc7580e48cd6c62d874c8f6840af699332e8adcca6e15",
+      "files": [
+        "docs/designs/TASK-20260919105713-71812e8f/interaction.md",
+        "docs/designs/TASK-20260919105713-71812e8f/tech-design.md",
+        "docs/designs/TASK-20260919105713-71812e8f/ui.md",
+        "docs/designs/TASK-20260919105713-71812e8f/visual.md"
+      ],
+      "summary": "人工授权：『继续』→ 设计（12 handler + 严格完工 + 常量单点化）冻结，可进入实施",
+      "approved_at": "2026-09-19T10:58:09.539Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu8a7sx9",
+      "taskId": "TASK-20260919110529-abfac7d9",
+      "type": "requirement",
+      "artifact_hash": "sha256:bb328937d19be9a27fdff84428e09a7e7a66d1bffcbb3762e639fd7838e9e81d",
+      "files": [
+        "harness/requirements/REQ-20260919-batch-d-d13-cloud-strict.md"
+      ],
+      "summary": "人工授权：用户『继续』＝按 RFC-0006 §7 与指令 TASK-D13 推进 Cloud strictGovernance 强制（不得 legacy 回退）",
+      "approved_at": "2026-09-19T11:06:09.800Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu8a7tcj",
+      "taskId": "TASK-20260919110529-abfac7d9",
+      "type": "ui",
+      "artifact_hash": "sha256:2d554c04631f7f457f0926a1c34452a4a8ae2ea5ae768d035bec49213d7a2906",
+      "files": [
+        "docs/designs/TASK-20260919110529-abfac7d9/interaction.md",
+        "docs/designs/TASK-20260919110529-abfac7d9/tech-design.md",
+        "docs/designs/TASK-20260919110529-abfac7d9/ui.md",
+        "docs/designs/TASK-20260919110529-abfac7d9/visual.md"
+      ],
+      "summary": "人工授权：『继续』→ 设计（纯策略 + 双层守卫 + 可观测）冻结，可进入实施",
+      "approved_at": "2026-09-19T11:06:10.350Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu8aqsvf",
+      "taskId": "TASK-20260919111951-ea475538",
+      "type": "requirement",
+      "artifact_hash": "sha256:23f3c88dcd82f1b13ba01d101151882b73c86b3c9bce6c170b14cf62d6f80bfb",
+      "files": [
+        "harness/requirements/REQ-20260919-cloud-gate-capability.md"
+      ],
+      "summary": "人工授权：用户『继续』+『选最优方案，不要临时的』＝批准 Cloud 门禁能力（正式端口扩展 + 双适配器 + 契约用例）",
+      "approved_at": "2026-09-19T11:20:56.197Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu8aqtb3",
+      "taskId": "TASK-20260919111951-ea475538",
+      "type": "ui",
+      "artifact_hash": "sha256:79002e5424c6fccb7600d7232566536073b339fb81b1362584bb02c04716183e",
+      "files": [
+        "docs/designs/TASK-20260919111951-ea475538/interaction.md",
+        "docs/designs/TASK-20260919111951-ea475538/tech-design.md",
+        "docs/designs/TASK-20260919111951-ea475538/ui.md",
+        "docs/designs/TASK-20260919111951-ea475538/visual.md"
+      ],
+      "summary": "人工授权：『选最优方案』→ 设计（端口+save、双适配器、契约用例、Cloud 策略与守卫）冻结，可进入实施",
+      "approved_at": "2026-09-19T11:20:56.764Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu8bbux8",
+      "taskId": "TASK-20260919113354-6b2096bb",
+      "type": "requirement",
+      "artifact_hash": "sha256:751458d023f95fae759114e860ea34ac5d7b171d9e9efffcc8456d67ea4a0146",
+      "files": [
+        "harness/requirements/REQ-20260919-strict-dogfood.md"
+      ],
+      "summary": "授权来源：用户『自主决定』+『选最优方案，不要临时的』；PRD-20260919-other-strict-dogfood 已 approved（治理元变更，方案=端口级正式能力：配置声明+文档+CLI 闭环验证，非临时绕过）",
+      "approved_at": "2026-09-19T11:37:18.608Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu8bbv2m",
+      "taskId": "TASK-20260919113354-6b2096bb",
+      "type": "ui",
+      "artifact_hash": "sha256:bd0a8535943ba13cdf8e7f76b6a8017a4eaa36bde4802fa71f8675076f24c9b7",
+      "files": [
+        "docs/designs/TASK-20260919113354-6b2096bb/interaction.md",
+        "docs/designs/TASK-20260919113354-6b2096bb/tech-design.md",
+        "docs/designs/TASK-20260919113354-6b2096bb/ui.md",
+        "docs/designs/TASK-20260919113354-6b2096bb/visual.md"
+      ],
+      "summary": "授权来源：用户『自主决定』；4 设计产物（ui/interaction/visual/tech-design）+ design:check 全绿 + reuse-adherence 115 pass/0 fail",
+      "approved_at": "2026-09-19T11:37:18.823Z",
+      "status": "VALID"
+    }
+  ]
+}

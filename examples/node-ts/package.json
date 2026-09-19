@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test --experimental-strip-types \"src/*.test.mjs\""
   },
   "devDependencies": {
     "pallastrade-harness": "^1.6.0"

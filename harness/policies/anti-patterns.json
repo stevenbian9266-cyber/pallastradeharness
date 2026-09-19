@@ -1,0 +1,23 @@
+{
+  "$comment": "pallastradeharness 自治理反模式规则（AGENTS.md §4 的机器化子集）。Schema 同 rules/base-anti-patterns.json：{ id, severity, pattern(RegExp), fileGlob, excludeGlob?, message, fix, guardPattern?, guardLookback? }。为什么只有两条：本仓是 Node 引擎（无自建前端），引擎侧的等价约束已由专项扫描器承担——错误吞噬 → check-degraded-loop、明文凭据 → scan-secrets、TODO 残留 → gate 的 plugin-no-todos、生成物手改 → generated:check；此处只补它们不覆盖的 AGENTS.md §4 前端条目，避免同一约束两处维护。",
+  "rules": [
+    {
+      "id": "UI-001",
+      "severity": "warning",
+      "pattern": "style=\\{\\{",
+      "fileGlob": "**/*.{tsx,jsx}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/.next/**|**/build/**",
+      "message": "禁止 inline style（AGENTS.md §4）",
+      "fix": "改用样式类 / 设计令牌"
+    },
+    {
+      "id": "UI-002",
+      "severity": "warning",
+      "pattern": "color:\\s*#[0-9a-fA-F]{3,8}",
+      "fileGlob": "**/*.{tsx,jsx,css}",
+      "excludeGlob": "**/node_modules/**|**/dist/**|**/*.test.*",
+      "message": "组件内硬编码十六进制颜色（AGENTS.md §4）",
+      "fix": "改用设计令牌"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import { createFinding } from './contracts.mjs';
 import { getChangedFiles, getDiff, showFileAtRef } from './git-files.mjs';
 import { matchesScope } from './standards.mjs';
 import { statePaths } from './state-store.mjs';
+import { collectArchitectureViolations, collectTechStackViolations, loadMachineArtifacts } from './constitution-compliance.mjs';
 
 const DOMAIN_STANDARD = Object.freeze({
   database: 'STD-DB-002',
@@ -15,6 +16,9 @@ const DOMAIN_STANDARD = Object.freeze({
   interaction: 'STD-INT-002',
   accessibility: 'STD-A11Y-002',
   knowledge: 'STD-KNOW-002',
+  // Batch C（C13）：Constitution 派生的合规域
+  architecture: 'STD-ARCH-001',
+  'tech-stack': 'STD-TECH-001',
 });
 
 function normalize(value) {
@@ -244,8 +248,34 @@ function includeNewFileLines({ rootDir, base, files, lines }) {
   return lines;
 }
 
+/** 共享：把合规违规映射为 Finding（architecture / tech-stack 同一形态）。 */
+function complianceFindings(ctx, standardObj, violations) {
+  return violations
+    .map(violation => {
+      const finding = makeFinding({
+        standard: standardObj, file: violation.file, line: violation.line,
+        message: violation.message, recommendation: violation.recommendation, mode: ctx.mode,
+      });
+      if (finding && violation.blocking) finding.blocking = true;
+      return finding;
+    })
+    .filter(Boolean);
+}
+
+function architectureComplianceReview(ctx) {
+  const { architecture } = loadMachineArtifacts({ rootDir: ctx.rootDir, config: ctx.config });
+  const violations = collectArchitectureViolations({ architecture, lines: ctx.lines });
+  return complianceFindings(ctx, standard(ctx.standards, 'STD-ARCH-001'), violations);
+}
+
+function techStackComplianceReview(ctx) {
+  const { techStack } = loadMachineArtifacts({ rootDir: ctx.rootDir, config: ctx.config });
+  const violations = collectTechStackViolations({ techStack, lines: ctx.lines, files: ctx.files, rootDir: ctx.rootDir });
+  return complianceFindings(ctx, standard(ctx.standards, 'STD-TECH-001'), violations);
+}
+
 function runDomainReviewers(ctx, selected) {
-  const reviewers = { database: databaseReview, api: apiReview, security: securityReview, 'ui-style': uiReview, interaction: interactionReview, accessibility: accessibilityReview, knowledge: knowledgeReview };
+  const reviewers = { database: databaseReview, api: apiReview, security: securityReview, 'ui-style': uiReview, interaction: interactionReview, accessibility: accessibilityReview, knowledge: knowledgeReview, architecture: architectureComplianceReview, 'tech-stack': techStackComplianceReview };
   const byDomain = {};
   const findings = [];
   for (const domain of selected) {
@@ -262,6 +292,10 @@ export function reviewDomainSupervisors({ rootDir, config, base, standards, doma
   const errors = [...changed.errors.map(error => `git files: ${error}`), ...diff.errors.map(error => `git diff: ${error}`)];
   if (errors.length > 0) return { errors, report: null };
   const selected = domains?.length ? domains : autoDomains(changed.files);
+  // §C13：存在 Constitution 机读制品时追加合规域（无制品 → 不产生噪音）
+  const machine = loadMachineArtifacts({ rootDir, config });
+  if (machine.architecture && !selected.includes('architecture')) selected.push('architecture');
+  if (machine.techStack && !selected.includes('tech-stack')) selected.push('tech-stack');
   const lines = includeNewFileLines({ rootDir, base, files: changed.files, lines: addedLines(diff.diff) });
   const ctx = {
     rootDir, config, base, standards, files: changed.files, lines, mode: config.supervisor?.mode || 'guard',

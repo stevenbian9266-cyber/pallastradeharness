@@ -282,6 +282,8 @@ export function verifyTaskEvidence({ rootDir, config, task }) {
     ok: missing.length === 0 && hasRecovery,
     required,
     satisfied,
+    // 新鲜且有效的证据记录覆盖的类型（不限于任务声明的 required）——严格收尾据此判定
+    validTypes: [...new Set(valid.map(item => item.evidenceType))],
     missing,
     recoveryRequired,
     hasRecovery,

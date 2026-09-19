@@ -6,6 +6,7 @@ import { minimatch } from 'minimatch';
 import { createContract } from './contracts.mjs';
 import { EXIT_CODES, getArg, getArgs, hasArg } from './cli-utils.mjs';
 import { atomicWriteJson, cacheRead, cacheWrite, ensureStateDirectories, readJson, repositoryIdentity, sha256, statePaths } from './state-store.mjs';
+import { selectConstitutionContext } from './constitution.mjs';
 
 function normalize(value) {
   return String(value).replaceAll('\\', '/').replace(/^\.\//, '');
@@ -186,6 +187,8 @@ export function buildContextPack({ rootDir, config, task, refresh = false }) {
     generatedAt: new Date().toISOString(),
     profile: index.profile,
     assets: selected,
+    // §C06：Constitution 按任务相关性选择性引入（上限控制，不无限增长）
+    constitution: selectConstitutionContext({ rootDir, config, task }),
     relevantLayers: (config.layers || []).filter(layer => taskTerms.some(term => `${layer.id} ${layer.path}`.toLowerCase().includes(term))),
     knownRisks: task.risk?.reasons || [],
     changeScope: task.changePlan || null,

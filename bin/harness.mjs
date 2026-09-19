@@ -318,6 +318,14 @@ else if (cmd === 'governance' || cmd.startsWith('governance:')) {
 }
 
 // ================================================================
+// constitution — Constitution 版本 / 变更流 / 审批（设计文档 §16-17/§44/§55）：status/lock/diff/change/apply/skills/approvals
+// ================================================================
+else if (cmd === 'constitution' || cmd.startsWith('constitution:')) {
+  const subArgs = cmd === 'constitution' ? args.slice(1) : [cmd.slice('constitution:'.length), ...args.slice(1)];
+  await import('./constitution-cli.mjs').then(m => m.runConstitution({ rootDir: ROOT, config, args: subArgs, json: hasArg(args, '--json') }));
+}
+
+// ================================================================
 // wizard — 从零项目 10 步向导（设计文档 §17.7）：init/step/status/from/finish/reset
 // ================================================================
 else if (cmd === 'wizard') {
