@@ -244,6 +244,33 @@
       "summary": "授权来源：用户『自主决定』；4 设计产物（ui/interaction/visual/tech-design）+ design:check 全绿 + reuse-adherence 115 pass/0 fail",
       "approved_at": "2026-09-19T11:37:18.823Z",
       "status": "VALID"
+    },
+    {
+      "id": "APR-mu8dbfyl",
+      "taskId": "TASK-20260919123118-6991b0c0",
+      "type": "requirement",
+      "artifact_hash": "sha256:220e5b3b538f27c4880bb7e216fc486c642565a63847302a376506eca2f79345",
+      "files": [
+        "harness/requirements/REQ-20260919-harness-mcp-local-deploy.md"
+      ],
+      "summary": "授权来源：用户原话『我的项目我不打算发布到github继续开源了，我打算本地直接构建发布到服务器』+ 三项决策选择（暂不动 GitHub 仅停 npm 发布 / 目标=harness 托管 MCP / 传输=docker save→scp→load）；PRD approved",
+      "approved_at": "2026-09-19T12:32:58.443Z",
+      "status": "VALID"
+    },
+    {
+      "id": "APR-mu8dbg8f",
+      "taskId": "TASK-20260919123118-6991b0c0",
+      "type": "ui",
+      "artifact_hash": "sha256:ebe9e4669b1b879523d02ca792e6142194f02244bb7c7702e364ff7d91e50970",
+      "files": [
+        "docs/designs/TASK-20260919123118-6991b0c0/interaction.md",
+        "docs/designs/TASK-20260919123118-6991b0c0/tech-design.md",
+        "docs/designs/TASK-20260919123118-6991b0c0/ui.md",
+        "docs/designs/TASK-20260919123118-6991b0c0/visual.md"
+      ],
+      "summary": "授权来源：同上（用户已就方案形态做决策）；4 设计产物 + design:check 全绿 + reuse-adherence 122/0",
+      "approved_at": "2026-09-19T12:32:58.797Z",
+      "status": "VALID"
     }
   ]
 }

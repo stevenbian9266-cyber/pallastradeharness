@@ -1,56 +1,33 @@
-name: Publish to npm (trusted publishing / OIDC)
+name: Publish to npm — RETIRED（已停用）
+
+# 为何保留此文件而不是删除：
+#   历史上本仓通过 tag 触发的 OIDC 受信发布把 pallastrade-harness 发到公共 npm。
+#   2026-09 决策：**不再开源发布**，交付改为「本地构建 → 离线产物 → 部署到服务器」
+#   （`deploy/README.md`：docker save → scp → docker load）。
+#   保留文件是为了让来访者在 Actions 页面直接看到"发布链路已停用"及其替代方式，
+#   而不是看到一个消失的工作流去猜。
+#
+# 现在如何发布：
+#   powershell -File deploy/build-local.ps1        # 本机构建 + 离线产物 + manifest
+#   powershell -File deploy/publish-local.ps1 -Server <ECS_IP> [-PublicSmoke]
+#
+# 如需恢复 npm 发布（例如重新开源）：恢复 git 历史中的本文件并删除下面的 guard job。
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
-  contents: write
-  id-token: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  publish:
+  retired:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          registry-url: https://registry.npmjs.org
-          package-manager-cache: false
-      - name: Verify tag matches package version
-        run: test "$GITHUB_REF_NAME" = "v$(node -p 'require("./package.json").version')"
-      - name: Install dependencies
-        run: npm ci
-      - name: Test
-        run: npm test
-      - name: Verify package contents
-        run: npm pack --dry-run
-      - name: Publish
-        run: npm publish --access public --provenance
-      - name: Sync README version info
-        run: node bin/readme-sync.mjs --write
-      - name: Open sync PR if README drifted
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Explain retirement (no publish happens)
         run: |
-          if git diff --quiet -- README.md README.en.md; then
-            echo "✅ README in sync with $GITHUB_REF_NAME — no PR needed"
-          else
-            BRANCH="docs/readme-sync-${GITHUB_REF_NAME}"
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git checkout -b "$BRANCH"
-            git add README.md README.en.md
-            git commit -m "docs: sync README version info for ${GITHUB_REF_NAME}"
-            git push origin "$BRANCH"
-            gh pr create --base main --head "$BRANCH" \
-              --title "docs: sync README version info for ${GITHUB_REF_NAME}" \
-              --body "Automated by the publish workflow: README version info drifted from package.json/CHANGELOG for ${GITHUB_REF_NAME}. Review and merge to keep docs in sync." \
-              || echo "⚠️ PR creation failed (may already exist) — manual sync: npx harness readme:sync --write"
-          fi
+          echo "❌ npm 发布已停用（retired）：本仓不再向公共 npm 发布。"
+          echo "   替代路径：本地构建 → 离线产物 → 部署到服务器（见 deploy/README.md）。"
+          echo "   Local build:  powershell -File deploy/build-local.ps1"
+          echo "   Ship+deploy:  powershell -File deploy/publish-local.ps1 -Server <ECS_IP>"
+          exit 1
+
