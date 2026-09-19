@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createContract } from './contracts.mjs';
+import { ARCHITECTURE_IMPACTS, TECH_STACK_IMPACTS, createContract } from './contracts.mjs';
 import { EXIT_CODES, getArg, getArgs, hasArg } from './cli-utils.mjs';
 import { assessRisk, mergeRisk } from './risk-engine.mjs';
 import {
@@ -17,6 +17,8 @@ import {
 } from './state-store.mjs';
 import { findPrdAcs, checkAcCoverage, checkUnclaimedAcs } from './ac-trace.mjs';
 import { readProfile, governanceReady } from './governance.mjs';
+import { buildConstitutionSnapshot } from './constitution.mjs';
+import { deriveGateFacts, evaluateStrictFinish, strictGovernanceEnabled } from './fact-gates.mjs';
 
 const TERMINAL = new Set(['completed', 'cancelled', 'superseded']);
 const TRANSITIONS = Object.freeze({
@@ -66,6 +68,9 @@ export function startTask({ rootDir, config, title, declaredRisk = null, goals =
   }
   const risk = assessRisk({ task: title, files: allow, declared: declaredRisk, config });
   const createdAt = new Date().toISOString();
+  // §C05：冻结当前 Constitution（无制品 → null；不阻塞任务创建）
+  let constitution = null;
+  try { constitution = buildConstitutionSnapshot({ rootDir, config }); } catch { constitution = null; }
   // §15.9：项目 governance_ready 时记录治理版本（只读，无 profile 则 null）
   let governanceVersion = null;
   try {
@@ -86,6 +91,7 @@ export function startTask({ rootDir, config, title, declaredRisk = null, goals =
     nonGoals,
     linkedPrd,
     governanceVersion,
+    constitution,
     acceptanceCriteria,
     risk,
     changePlan: {
@@ -284,6 +290,17 @@ function abandonCommand({ rootDir, config, args, task, json }) {
 
 function finishCommand({ rootDir, config, task, json, verificationProvider }) {
   const verification = verificationProvider ? verificationProvider(task) : { ok: false, reasons: ['Evidence verification is not configured'] };
+  // §C14：strictGovernance 模式下不得补造流程事实——缺失事实输出 REQUIRED_ACTIONS
+  if (strictGovernanceEnabled(config)) {
+    const strict = evaluateStrictFinish({ rootDir, config, task, verification });
+    if (!strict.ok) {
+      const header = `❌ Strict finish blocked — REQUIRED_ACTIONS (${strict.missing.length}):`;
+      const lines = strict.missing.map(item => `   • [${item.id}] ${item.label}\n     → ${item.action}`).join('\n');
+      output({ ok: false, mode: 'strict', requiredActions: strict.missing, facts: strict.facts }, json, `${header}\n${lines}`);
+      process.exitCode = EXIT_CODES.POLICY_FAILURE;
+      return;
+    }
+  }
   if (!verification.ok) {
     output(verification, json, `❌ Task cannot finish: ${verification.reasons.join('; ')}`);
     process.exitCode = EXIT_CODES.POLICY_FAILURE;
@@ -310,12 +327,59 @@ function finishCommand({ rootDir, config, task, json, verificationProvider }) {
   output(updated, json, `✅ Task ${task.id} completed with verified evidence.`);
 }
 
+function impactCommand({ rootDir, config, args, task, json }) {
+  const architecture = getArg(args, '--architecture');
+  const techStack = getArg(args, '--tech-stack');
+  if (!ARCHITECTURE_IMPACTS.includes(architecture)) {
+    console.error(`--architecture must be one of: ${ARCHITECTURE_IMPACTS.join(', ')}`);
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
+  if (!TECH_STACK_IMPACTS.includes(techStack)) {
+    console.error(`--tech-stack must be one of: ${TECH_STACK_IMPACTS.join(', ')}`);
+    process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
+    return;
+  }
+  const decisionText = getArg(args, '--decision');
+  const needsDecision = architecture === 'ARCHITECTURE_CHANGE' || techStack === 'TECH_STACK_CHANGE';
+  if (needsDecision && (task.decisions || []).length === 0 && !decisionText) {
+    const message = `${architecture}/${techStack} 需要 Decision / ADR：先记录决策再继续编码（C07/C08），可用 --decision "<决策内容>" 同步记录`;
+    output({ ok: false, reasons: [message] }, json, `❌ ${message}`);
+    process.exitCode = EXIT_CODES.POLICY_FAILURE;
+    return;
+  }
+  const now = new Date().toISOString();
+  const decisions = decisionText
+    ? [...(task.decisions || []), { title: `Impact ${architecture}/${techStack}`, decision: decisionText, at: now }]
+    : (task.decisions || []);
+  const impact = {
+    architecture,
+    techStack,
+    reason: getArg(args, '--reason') || '',
+    recordedAt: now,
+    decisionRequired: needsDecision,
+    decisionRecorded: decisions.length > 0,
+  };
+  const updated = saveTask(rootDir, config, { ...task, impact, decisions });
+  output(updated.impact, json, `✅ Impact recorded for ${task.id}: architecture=${architecture}, tech-stack=${techStack}`);
+}
+
+function factsCommand({ rootDir, config, task, json }) {
+  const facts = deriveGateFacts({ rootDir, config, task });
+  const text = Object.entries(facts)
+    .map(([name, value]) => `${value.ok ? '✅' : '❌'} ${name} — ${value.detail}`)
+    .join('\n');
+  output(facts, json, text);
+}
+
 const TASK_COMMANDS = Object.freeze({
   status: statusCommand,
   checkpoint: checkpointCommand,
   resume: resumeCommand,
   handoff: handoffCommand,
   abandon: abandonCommand,
+  impact: impactCommand,
+  facts: factsCommand,
   finish: finishCommand,
 });
 
@@ -327,7 +391,7 @@ export function runTask({ rootDir, config, args, verificationProvider = null }) 
   const task = resolveTask(rootDir, config, getArg(args, '--task'), { allowTerminal: subcommand === 'status' || subcommand === 'handoff' });
   const handler = TASK_COMMANDS[subcommand];
   if (handler) return handler({ rootDir, config, args, task, json, verificationProvider });
-  console.error('Usage: harness task start|list|status|checkpoint|resume|handoff|finish|abandon [options]');
+  console.error('Usage: harness task start|list|status|checkpoint|resume|handoff|impact|facts|finish|abandon [options]');
   process.exitCode = EXIT_CODES.USAGE_OR_CONFIG;
 }
 

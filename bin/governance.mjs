@@ -38,6 +38,16 @@ export function validateProfile(profile) {
   if (profile.risk_domains !== undefined && !Array.isArray(profile.risk_domains)) errors.push('risk_domains must be an array');
   if (profile.skills !== undefined && !Array.isArray(profile.skills)) errors.push('skills must be an array');
   if (profile.governance_version !== undefined && typeof profile.governance_version !== 'string') errors.push('governance_version must be a string');
+  // Batch C（C03）：Project Constitution Manifest 字段（向后兼容，全部可选）
+  if (profile.constitution_version !== undefined && typeof profile.constitution_version !== 'string') errors.push('constitution_version must be a string');
+  if (profile.artifacts !== undefined && !Array.isArray(profile.artifacts)) errors.push('artifacts must be an array');
+  if (Array.isArray(profile.artifacts)) {
+    profile.artifacts.forEach((artifact, index) => {
+      if (!artifact || typeof artifact !== 'object' || typeof artifact.id !== 'string' || typeof artifact.path !== 'string') {
+        errors.push(`artifacts[${index}] must be { id, path }`);
+      }
+    });
+  }
   return errors;
 }
 
@@ -75,6 +85,20 @@ export function writeProfile({ rootDir, config, profile }) {
   mkdirSync(resolve(path, '..'), { recursive: true });
   writeFileSync(path, `${JSON.stringify(profile, null, 2)}\n`);
   return profile;
+}
+
+/**
+ * C03：将 Constitution 事实回写进画像（使 project.yaml 逐步成为 Project Constitution Manifest）。
+ * 无画像时返回 null（不创建——画像由 governance:init / wizard 创建）。
+ */
+export function updateProfileConstitution({ rootDir, config, constitutionVersion, artifacts = null, skills = null }) {
+  const profile = readProfile({ rootDir, config });
+  if (!profile) return null;
+  const updated = { ...profile };
+  if (constitutionVersion !== undefined) updated.constitution_version = constitutionVersion;
+  if (artifacts !== null) updated.artifacts = artifacts;
+  if (skills !== null) updated.skills = skills;
+  return writeProfile({ rootDir, config, profile: updated });
 }
 
 /** 锁定治理版本：生成快照 + 回写 profile.governance_version；已存在版本拒绝覆盖 */

@@ -13,7 +13,28 @@ import { GATE_PHASES, migrateGateState, pendingChecks, recomputeGateState } from
 import { getGateChecks } from './config-loader.mjs';
 import { loadPlugins, normalizePlugins } from './plugins.mjs';
 import { MACHINE_DESIGN_CHECKS, checkDesignArtifacts } from './design-check.mjs';
+import { designApprovalFiles, recordApproval, requirementApprovalFiles } from './approvals.mjs';
+import { loadTask } from './state-store.mjs';
 
+/** C11：人工确认检查项 → Approval 类型映射（兼容现有 user-confirmed / design-confirmed 机制）。 */
+const HUMAN_WAIT_APPROVAL_TYPES = Object.freeze({
+  'user-confirmed': 'requirement',
+  'design-confirmed': 'ui',
+});
+
+/** 清理人工确认项时记录 Approval 绑定（失败不阻断清理，仅不记录）。 */
+function recordHumanWaitApproval({ rootDir, config, gateState, checkId, note, now }) {
+  const type = HUMAN_WAIT_APPROVAL_TYPES[checkId];
+  if (!type || !gateState.taskId) return null;
+  const task = loadTask(rootDir, config, gateState.taskId);
+  const files = type === 'requirement'
+    ? requirementApprovalFiles({ rootDir, config, task })
+    : designApprovalFiles({ rootDir, config, task });
+  return recordApproval({
+    rootDir, config, taskId: task.id, type,
+    summary: note || `${checkId} cleared`, files, now: now.toISOString(),
+  });
+}
 /** 任务描述前缀 → 任务类型（CLI gate 自动识别） */
 export const TASK_PREFIX_MAP = Object.freeze({
   '修复：': 'bugfix',   'fix:': 'bugfix',
@@ -265,6 +286,13 @@ export function clearGateCheck({ rootDir, config, gateId, checkId, note = null, 
   check.completedAt = now.toISOString();
   if (machine.reason) check.note = `machine-verified: ${machine.reason}`;
   if (note) check.note = note;
+  if (HUMAN_WAIT_APPROVAL_TYPES[checkId]) {
+    try {
+      check.approval = recordHumanWaitApproval({ rootDir, config, gateState, checkId, note, now });
+    } catch {
+      check.approval = null;
+    }
+  }
 
   recomputeGateState(gateState);
   writeFileSync(gateFile, JSON.stringify(gateState, null, 2));
