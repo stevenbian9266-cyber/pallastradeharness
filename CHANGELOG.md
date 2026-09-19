@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: 
 
 ## [Unreleased]
 
+### anti-patterns 扫描：误配不再静默通过（本仓补齐规则文件）
+
+- **行为变更**：`scan-anti-patterns` 在配置声明的规则文件缺失时**不再静默跳过**（原先打印 ⚠️ 后 exit 0）——改为 `❌ Anti-patterns rules file not found` + 退出码非 0 + 可执行修复线索（复制 `rules/base-anti-patterns.json` 或从 profiles 移除该检查项）。原因：hook/CI 会调用本扫描器，静默通过等于“声称执行反模式检查”变成空转
+- 本仓补齐 `harness/policies/anti-patterns.json`（此前缺失 → 本仓 §4 反模式声明实际为空转）：承载 AGENTS.md §4 前端条目（inline style / 硬编码十六进制色）；引擎侧等价约束仍由专项扫描器承担（check-degraded-loop / scan-secrets / plugin-no-todos / generated:check），不两处维护
+- 单测：`bin/scan-anti-patterns.test.mjs` 新增「缺规则文件必须失败」用例
+
 ### 严格治理 self-dogfood（Batch E / E01：本仓 `strictGovernance: true`）
 
 - `harness.config.mjs` 声明 `governance: { strictGovernance: true }`：本仓所有变更必须通过引擎自己的严格收尾（事实门 12 项）；缺项 → `REQUIRED_ACTIONS`（每项带可执行命令）+ 退出码非 0 + **任务状态不变**，引擎不得补造事实

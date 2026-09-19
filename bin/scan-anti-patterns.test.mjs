@@ -35,8 +35,7 @@ test('rule without fileGlob does not crash scanner (regression for v1.2.0)', () 
   }
 });
 
-test('rule with fileGlob detects violations and stays green on warnings', () => {
-  const rootDir = sampleProject();
+test('rule with fileGlob detects violations and stays green on warnings', () => {  const rootDir = sampleProject();
   try {
     writeFileSync(join(rootDir, 'harness', 'policies', 'anti-patterns.json'), JSON.stringify({
       rules: [{
@@ -69,6 +68,21 @@ test('clean code with missing fileGlob reports no anti-patterns', () => {
     const result = spawnSync(process.execPath, [CLI, 'scan-anti-patterns', '--files', 'src/app.tsx'], { cwd: rootDir, encoding: 'utf-8' });
     assert.equal(result.status, 0, result.stderr + result.stdout);
     assert.match(result.stdout, /No anti-patterns detected/);
+  } finally {
+    rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('missing rules file fails loudly instead of silently passing (misconfiguration)', () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-ap-missing-'));
+  try {
+    mkdirSync(join(rootDir, 'src'), { recursive: true });
+    writeFileSync(join(rootDir, 'src', 'a.tsx'), "export const A = () => <div />;\n");
+    const result = spawnSync(process.execPath, [CLI, 'scan-anti-patterns', '--files', 'src/a.tsx'], { cwd: rootDir, encoding: 'utf-8' });
+    assert.equal(result.status, 1, `缺规则文件必须失败（配置声明路径不存在 = 误配）：${result.stdout}${result.stderr}`);
+    assert.match(result.stdout, /rules file not found/);
+    assert.match(result.stdout, /base-anti-patterns\.json/, '必须给出可执行的修复线索');
+    assert.ok(!result.stdout.includes('Skipping scan'), '不得再静默跳过');
   } finally {
     rmSync(rootDir, { recursive: true, force: true });
   }

@@ -42,6 +42,8 @@ title: 路线图
 
 ## 已知待办
 
+- [ ] 引擎内 `process.exit(0)` 共 32 处（CLI 入口惯例）：当前可接受（仅在作为 CLI 直接执行时触发），若将来要支持进程内复用/聚合调用则需改为 `process.exitCode`；候选规则见 `harness/policies/anti-patterns.json` 的演进讨论
+
 - [x] suggest 档位误报修复（配置含 PRD check 时不建议升级）
 - [x] 基础规则集 `rules/base-anti-patterns.json`
 - [x] 贡献指南

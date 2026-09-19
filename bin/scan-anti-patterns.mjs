@@ -6,8 +6,13 @@ import { recordScan } from './stats.mjs';
 export function scan({ rootDir, files: fileFilter = null, config }) {
   const rulesPath = resolve(rootDir, config?.scanners?.antiPatterns || 'harness/policies/anti-patterns.json');
   if (!existsSync(rulesPath)) {
-    console.log('⚠️  No anti-patterns rules file found. Skipping scan.');
-    return;
+    // 配置声明的规则文件缺失 = 误配（hook/CI 会调用本扫描器），必须显式失败：
+    // 静默通过会让"声称执行反模式检查"变成空转（AP-009b 同类问题的元版本）。
+    console.log(`❌ Anti-patterns rules file not found: ${rulesPath}`);
+    console.log('   Fix: 复制起始规则集 `rules/base-anti-patterns.json` 到该路径（或项目自定义），');
+    console.log('        或从 profiles/config 中移除 `anti-patterns` 检查项（不再声称执行）。');
+    process.exitCode = 1;
+    return { ok: false, code: 'rules_missing', rulesPath };
   }
 
   const { rules } = JSON.parse(readFileSync(rulesPath, 'utf-8'));
