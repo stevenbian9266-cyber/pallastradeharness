@@ -519,14 +519,18 @@ test('AC-006: 运行期守卫（纵深防御）——命令层直连 + 关闭配
   }
 });
 
-test('AC-007: 运行时暴露 strictGovernance，/health 含该字段', { skip: SKIP }, async () => {
+test('AC-007: 运行时暴露 strictGovernance，/healthz 与 /readyz 与 /health 等价', { skip: SKIP }, async () => {
   const project = makeProject();
   try {
     assert.equal(project.runtime.strictGovernance, true);
-    const health = await project.runtime.handleRequest({ method: 'GET', path: '/health' });
-    const payload = JSON.parse(health.body);
-    assert.equal(payload.strictGovernance, true);
-    assert.equal(payload.runtime, 'cloud');
+    for (const path of ['/health', '/healthz', '/readyz']) {
+      const health = await project.runtime.handleRequest({ method: 'GET', path });
+      assert.equal(health.status, 200, `${path} must be 200`);
+      const payload = JSON.parse(health.body);
+      assert.equal(payload.ok, true);
+      assert.equal(payload.runtime, 'cloud');
+      assert.equal(payload.strictGovernance, true);
+    }
   } finally {
     project.cleanup();
   }

@@ -42,7 +42,7 @@ const rpcResult = (id, payload) => json(200, { jsonrpc: '2.0', id: id ?? null, .
  * @param {object} options
  * @param {Function} options.authorize 鉴权函数 `({ headers }) => { ok, status?, code?, message? }`
  * @param {Function} options.adapter MCP 适配器 `(request) => Promise<result|null>`
- * @param {object} [options.info] `/health` 附带的运行时信息（如 `{ strictGovernance: true }`）
+ * @param {object} [options.info] 健康端点附带的运行时信息（如 `{ strictGovernance: true }`）
  */
 export function createHttpHandler({ authorize, adapter, info = {} } = {}) {
   if (typeof authorize !== 'function' || typeof adapter !== 'function') {
@@ -50,7 +50,11 @@ export function createHttpHandler({ authorize, adapter, info = {} } = {}) {
   }
 
   return async function handleHttpRequest({ method = 'GET', path = '/', headers = {}, body = '' } = {}) {
-    if (path === '/health' && method === 'GET') return json(200, { ok: true, runtime: 'cloud', ...info });
+    // /healthz、/readyz 为 RFC-0005 §5 约定的探活路径（compose healthcheck / nginx / 云监控）。
+    // 就绪语义暂等于健康：服务在 DB 打开成功后才开始监听（失败即退出，不存在“半就绪”）。
+    if ((path === '/health' || path === '/healthz' || path === '/readyz') && method === 'GET') {
+      return json(200, { ok: true, runtime: 'cloud', ...info });
+    }
     if (path !== '/mcp') return json(404, { error: 'not_found' });
     if (method !== 'POST') return json(405, { error: 'method_not_allowed' }, { allow: 'POST' });
 

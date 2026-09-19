@@ -1,0 +1,9 @@
+# deploy/Dockerfile.dockerignore — 仅作用于 `-f deploy/Dockerfile` 的构建（BuildKit）
+# 目的：把构建上下文压到最小（本机 node_modules / 状态 / 产物都不进上下文）。
+**
+!package.json
+!package-lock.json
+!bin/**
+!presets/**
+!templates/**
+!rules/**

@@ -1,0 +1,39 @@
+# deploy/docker-compose.mcp.yml — harness 托管 MCP 生产栈
+#
+# 与 pallastrade 完全隔离：独立项目名 / 独立网络 / 仅 127.0.0.1:3110 / 独立目录与日志轮转。
+# 镜像由**本地构建**后离线交付（docker save → scp → docker load），服务器**不做构建**。
+#
+# 用法（服务器 /opt/harness-mcp/deploy）：
+#   docker compose -f docker-compose.mcp.yml --env-file .env.mcp --env-file .env.tag up -d
+# 其中 .env.tag 由 activate.sh 写入（HARNESS_MCP_TAG=<version>-<short-sha>），也是回滚点。
+name: harness-mcp
+
+services:
+  app:
+    image: harness-mcp:${HARNESS_MCP_TAG}
+    container_name: harness-mcp-app
+    env_file:
+      - .env.mcp
+    ports:
+      - "127.0.0.1:3110:3110"          # 仅本机监听，公网经 nginx
+    volumes:
+      - ../data:/data                   # SQLite（bind mount，便于备份）
+      - ../logs:/logs                   # 应用日志
+    mem_limit: 512m
+    cpus: 0.75
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3110/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  default:
+    name: harness-mcp-net                # 专属网络，不与 pallastrade 共享

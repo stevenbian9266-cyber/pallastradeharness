@@ -455,6 +455,22 @@ CREATE INDEX idx_audit_tenant_time ON audit_logs(tenant_id, created_at DESC);
 | 100–1000 | 50–500 万 | 或需升配 2C/8G 或加 1 台 2C/4G | ¥100–300 |
 | >1000 | >500 万 | 独立 2C/4G + 定期 PG 迁移 | ¥300–600 |
 
+### 5.7 交付形态更新（2026-09-19 已实施，替代 §5.2 的 `repo/` 克隆与 §5.3 的 pull-deploy）
+
+**变更**：用户决策不再依赖 GitHub 交付（不再开源发布；仓库暂留 GitHub 仅作代码备份，npm 发布链路已停用）：
+
+| 原方案 | 现方案（已落地于仓库 `deploy/`） |
+|---|---|
+| §5.2 服务器 `git clone`（deploy key） | 服务器**不持仓**；`deploy/` 目录随每次发布由本机上传覆盖 |
+| §5.3 Step 5 / §5.5 服务器 `docker compose build` | **本地构建**镜像 → `docker save` → `scp` → 服务器 `docker load`（服务器零构建） |
+| §5.3 Step 9 `*/5 pull-deploy-harness.sh` cron | 本地 `deploy/publish-local.ps1` 主动推送 + 远端 `activate.sh`（探活失败自动回滚） |
+| 附录 A compose `build:` 段 | 改为 `image: harness-mcp:${HARNESS_MCP_TAG}`（tag 即回滚点） |
+| 附录 C `HARNESS_CLOUD_*` 键 | `HARNESS_API_KEY`（单静态 Key，ADR-0002 D4 现状）；多 Key 仍属 M5 |
+
+**Runbook 与脚本**：`deploy/README.md`（Step 0–10 本地推送版、隔离矩阵、与附录的逐条差异）。
+
+**回归守护**：`bin/deploy-contract.test.mjs` 把跨文件契约（端口 3110 / 健康路径 / env 键 / tag 变量 / 回滚与保留逻辑）钉死，防再次漂移。
+
 ---
 
 ## 6. 安全细化

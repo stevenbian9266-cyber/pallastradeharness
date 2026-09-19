@@ -72,14 +72,17 @@ npx harness docs:check
 
 ### 发布信息
 
-- 当前源码版本：`1.10.0`；`v1.10.0` tag 由 GitHub OIDC workflow 发布并生成 provenance
-- 版本信息自动同步：发布后由 `npx harness readme:sync --write` 从 `CHANGELOG.md` 校正（CI 用 `--check` 防漂移）
-- 发布源：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支）
-- 更新：`npm i -D pallastrade-harness@latest` 后 `npx harness doctor` 自检
+- 当前源码版本：`1.10.0`（`v1.10.0` 为**最后一个**通过 GitHub OIDC 发布到 npm 的版本）
+- 版本信息自动同步：`npx harness readme:sync --write` 从 `CHANGELOG.md` 校正（CI 用 `--check` 防漂移）
+- 源码：`github.com/stevenbian9266-cyber/pallastradeharness`（main 分支；**暂留 GitHub 作代码备份，不再开源发布**）
+- 更新：`npm i -D pallastrade-harness@1.10.0` 后 `npx harness doctor` 自检
 - 无需 npm 发布的接入方式：`npm i -D github:stevenbian9266-cyber/pallastradeharness`（git 依赖）
 
-> ⚠️ **npm 政策预警（2027-01 起）**：npm 已移除 Authenticator app（TOTP）2FA 选项，仅支持 Security key（WebAuthn）；且 bypass-token 将禁止直接发布。
-> 本仓库已经使用 **trusted publishing（OIDC）**，不使用长期 npm token。发布顺序固定为：PR checks → merge main → tag → workflow → registry/provenance 验证。
+> ⚠️ **npm 发布已停用（2026-09-19）**：本仓不再向公共 npm 发布新版本。
+> 交付改为「**本地构建 → 离线产物 → 部署到服务器**」：`powershell -File deploy/build-local.ps1`
+> → `powershell -File deploy/publish-local.ps1 -Server <ECS_IP>`（`docker save → scp → docker load`，
+> 服务器零构建、可一键回滚）。详见 **[`deploy/README.md`](deploy/README.md)** 与 `docs/rfc/0005-hosted-service.md` §5.7。
+> 已发布的 `@1.10.0` 不受影响；`.github/workflows/publish.yml` 保留为显式的 retired 说明（手动触发只会打印停用原因）。
 
 ### 版本记录
 
@@ -416,7 +419,6 @@ cp node_modules/pallastrade-harness/rules/base-standards.json \
 - **Constitution 集成（Batch C）**：`harness constitution:status|register|lock|diff|change|apply|skills|approvals`；`task start` 冻结当前 Constitution（version + 制品 hash）；`task impact` 记录 Architecture / Tech Stack Impact；Approval 绑定制品 `artifact_hash`（内容变化即 `STALE`）；`strictGovernance=true` 时 `task finish` 缺失事实直接输出 `REQUIRED_ACTIONS`。本仓自身 Constitution 实例见 `harness/constitution/`。
 
 ## 严格治理（strict，本仓已启用）
-
 **本仓即试验田**：`harness.config.mjs` 声明 `governance: { strictGovernance: true }`，所有变更都要通过引擎自己的严格收尾。
 
 - **启用方式**（消费方项目可选）：`harness.config.mjs` 中写 `strictGovernance: true` 或 `governance: { strictGovernance: true }`（两种写法等价；缺省 `false` = 兼容路径）。

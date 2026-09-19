@@ -72,7 +72,7 @@ export default {
   doctor: {
     requiredDirs: ['bin', 'docs', 'presets', 'templates', 'rules'],
     requiredFiles: ['AGENTS.md', 'harness.config.mjs', 'lefthook.yml'],
-    composeCandidates: [],
+    composeCandidates: ['deploy/docker-compose.mcp.yml'],
   },
 
   // ⑨ 状态/产物路径

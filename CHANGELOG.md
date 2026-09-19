@@ -6,6 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: 
 
 ## [Unreleased]
 
+### 本地构建与离线部署（harness 托管 MCP 服务）
+
+- **交付形态变更**：不再依赖 GitHub 交付——本机构建镜像 → `docker save` 离线产物 → `scp` → 服务器 `docker load` 激活（服务器**零构建**，适配 2C/8G 小机器）。npm 发布链路同步停用
+- 服务入口：`harness-mcp --http [--port <n>] [--host <addr>] [--db <path>]`（复用 `startCloudRuntime`，不新造服务实现）；**缺 `HARNESS_API_KEY` 拒绝启动**，无 `node:sqlite` 时给出 Node 版本提示；支持 SIGTERM/SIGINT 优雅退出
+- 健康端点：新增 `/healthz`、`/readyz`（RFC-0005 §5 约定），`/health` 保持兼容——探活路径在 Dockerfile / compose / nginx / activate.sh 四处一致
+- 部署资产（新目录 `deploy/`）：`Dockerfile`（node:22-alpine + `--experimental-sqlite`，非 root，零 curl，基础镜像与 npm registry 可覆盖以适配镜像站）、`docker-compose.mcp.yml`（`127.0.0.1:3110`、`mem_limit 512m`/`cpus 0.75`、json-file 10m×3、健康检查）、`.env.mcp.example`、`build-local.ps1`（构建 + gzip + manifest：sha256/digest/gitSha）、`publish-local.ps1`（上传 + 远端激活 + 冒烟）、`activate.sh`（磁盘预检 + load + 探活 + **失败自动回滚** + 镜像保留最近 3 个）、`nginx/`（独立 vhost 与限流 zone）、`README.md`（Runbook + 与 RFC 附录的逐条差异）
+- 契约测试：`bin/deploy-contract.test.mjs`（跨文件一致性、`bash -n`、回滚与保留逻辑、npm 发布停用、doctor 指向 compose）；`bin/mcp-server.test.mjs` +HTTP 模式 e2e（启动/健康/鉴权/缺 Key 拒绝）；`bin/cloud-runtime.test.mjs` 覆盖 `/healthz`·`/readyz`
+- 实测：本机 `docker build` → 容器内 `/healthz` 200、`/readyz` 200、无 Key POST 401、带 Key `initialize` 200（`serverInfo=pallastrade-harness`）、容器 healthcheck `healthy`；`deploy/build-local.ps1` 产出 59 MB 产物 + manifest
+- 已知债（已登记）：镜像携带 `glob` 等未被服务使用的依赖（Cloud 链路经 `bin/mcp.mjs` → `bin/project-brain.mjs` 间接引入），后续应抽出纯信封模块切断
+
 ### 测试健壮性：mcp-server 临时目录清理竞态（Windows）
 
 - `bin/mcp-server.test.mjs` 修复 Windows 下 `EPERM` 清理失败：`child.kill()` 后**等待子进程真正退出**（`once(child,'exit')` + 2s 上限）再删临时目录，且 `rmSync` 加 `maxRetries`/`retryDelay` 退避（Node 对 EBUSY/EPERM 的官方解法）；三个用例统一用 `cleanup()` / `stopChild()` 助手

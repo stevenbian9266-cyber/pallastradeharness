@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -169,5 +169,85 @@ test('runMcpStdio negotiates client roots when no explicit root is given', { tim
     input.end();
   } finally {
     cleanup(rootA, rootB);
+  }
+});
+
+// ────────────────────────────────────────────────────────────────
+// HTTP 模式（deploy/：本地构建 → 离线交付；RFC-0005 §5）
+// ────────────────────────────────────────────────────────────────
+
+/** 等待子进程 stdout 出现监听行，返回其 URL。 */
+function waitForListening(child) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('http mode did not start within 15s')), 15000);
+    const onData = chunk => {
+      const match = /listening on (http:\/\/[^\s]+)/.exec(String(chunk));
+      if (match) {
+        clearTimeout(timer);
+        child.stdout.off('data', onData);
+        resolve(match[1]);
+      }
+    };
+    child.stdout.on('data', onData);
+    child.once('exit', code => { clearTimeout(timer); reject(new Error(`http mode exited early (code ${code})`)); });
+  });
+}
+
+test('AC-001/AC-002/AC-003: --http 启动服务，健康端点与鉴权语义正确', { timeout: 30000 }, async () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-mcp-http-'));
+  const dataDir = join(rootDir, 'data');
+  mkdirSync(dataDir, { recursive: true });
+  const apiKey = 'test-key-0123456789abcdef';
+  const child = spawn(process.execPath, [SERVER, '--http', '--port', '0'], {
+    cwd: rootDir,
+    env: { ...process.env, HARNESS_API_KEY: apiKey, DATA_DIR: dataDir },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  try {
+    const url = await waitForListening(child);
+
+    const health = await fetch(`${url}/healthz`);
+    assert.equal(health.status, 200);
+    const payload = await health.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.runtime, 'cloud');
+    assert.equal(payload.strictGovernance, true, 'Cloud 恒严格');
+    assert.equal((await fetch(`${url}/readyz`)).status, 200, '/readyz 与 /healthz 等价');
+    assert.equal((await fetch(`${url}/health`)).status, 200, '/health 保持兼容');
+
+    const denied = await fetch(`${url}/mcp`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize' }),
+    });
+    assert.equal(denied.status, 401, '无凭据必须 401');
+
+    const allowed = await fetch(`${url}/mcp`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize' }),
+    });
+    assert.equal(allowed.status, 200);
+    const body = await allowed.json();
+    assert.equal(typeof body.result.serverInfo.name, 'string');
+    assert.ok(existsSync(join(dataDir, 'harness-cloud.db')), 'DB 落在 DATA_DIR');
+  } finally {
+    await stopChild(child);
+    cleanup(rootDir);
+  }
+});
+
+test('AC-001: --http 缺 HARNESS_API_KEY 时拒绝启动（不留半开服务）', () => {
+  const rootDir = mkdtempSync(join(tmpdir(), 'harness-mcp-nokey-'));
+  try {
+    const env = { ...process.env };
+    delete env.HARNESS_API_KEY;
+    const result = spawnSync(process.execPath, [SERVER, '--http', '--port', '0'], {
+      cwd: rootDir, env, encoding: 'utf-8', timeout: 20000,
+    });
+    assert.notEqual(result.status, 0, '缺 Key 必须非 0 退出');
+    assert.match(`${result.stdout}${result.stderr}`, /HARNESS_API_KEY is required/);
+  } finally {
+    cleanup(rootDir);
   }
 });
