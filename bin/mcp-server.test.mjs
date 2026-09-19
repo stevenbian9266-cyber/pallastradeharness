@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
+import { once } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { test } from 'node:test';
@@ -12,6 +13,17 @@ import { runMcpStdio } from './mcp.mjs';
 import { resolveServerContext } from './mcp-server.mjs';
 
 const SERVER = fileURLToPath(new URL('./mcp-server.mjs', import.meta.url));
+
+/** Windows 上子进程可能短时持有句柄 → EPERM：rmSync 退避重试（Node 官方对 EBUSY/EPERM 的解法）。 */
+function cleanup(...dirs) {
+  for (const dir of dirs) rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+}
+
+/** 终止子进程并等它真正退出（避免清理竞态）。 */
+async function stopChild(child) {
+  child.kill();
+  await Promise.race([once(child, 'exit'), new Promise(resolve => setTimeout(resolve, 2000))]);
+}
 
 function project() {
   const rootDir = mkdtempSync(join(tmpdir(), 'harness-mcp-server-'));
@@ -47,8 +59,7 @@ test('resolveServerContext: --root beats HARNESS_ROOT; env used otherwise; fallb
   } finally {
     if (previous === undefined) delete process.env.HARNESS_ROOT;
     else process.env.HARNESS_ROOT = previous;
-    rmSync(rootA, { recursive: true, force: true });
-    rmSync(rootB, { recursive: true, force: true });
+    cleanup(rootA, rootB);
   }
 });
 
@@ -92,9 +103,8 @@ test('harness-mcp e2e: --root wins over cwd, 20 tools, task+gate lifecycle', { t
     assert.ok(existsSync(join(rootA, 'harness', 'gates')), 'gate state must be written under --root');
     assert.equal(existsSync(join(cwdB, 'harness')), false, 'cwd must stay untouched when --root is set');
   } finally {
-    child.kill();
-    rmSync(rootA, { recursive: true, force: true });
-    rmSync(cwdB, { recursive: true, force: true });
+    await stopChild(child);
+    cleanup(rootA, cwdB);
   }
 });
 
@@ -158,7 +168,6 @@ test('runMcpStdio negotiates client roots when no explicit root is given', { tim
 
     input.end();
   } finally {
-    rmSync(rootA, { recursive: true, force: true });
-    rmSync(rootB, { recursive: true, force: true });
+    cleanup(rootA, rootB);
   }
 });

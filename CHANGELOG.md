@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) · Versioning: 
 
 ## [Unreleased]
 
+### 测试健壮性：mcp-server 临时目录清理竞态（Windows）
+
+- `bin/mcp-server.test.mjs` 修复 Windows 下 `EPERM` 清理失败：`child.kill()` 后**等待子进程真正退出**（`once(child,'exit')` + 2s 上限）再删临时目录，且 `rmSync` 加 `maxRetries`/`retryDelay` 退避（Node 对 EBUSY/EPERM 的官方解法）；三个用例统一用 `cleanup()` / `stopChild()` 助手
+- 动机：本仓已启用严格治理，`verify unit`（`node --test **/*.test.mjs`）偶发失败会**随机阻塞 task finish**；实测修复后重复运行 5/5 通过
+
 ### anti-patterns 扫描：误配不再静默通过（本仓补齐规则文件）
 
 - **行为变更**：`scan-anti-patterns` 在配置声明的规则文件缺失时**不再静默跳过**（原先打印 ⚠️ 后 exit 0）——改为 `❌ Anti-patterns rules file not found` + 退出码非 0 + 可执行修复线索（复制 `rules/base-anti-patterns.json` 或从 profiles 移除该检查项）。原因：hook/CI 会调用本扫描器，静默通过等于“声称执行反模式检查”变成空转
